@@ -1,0 +1,768 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ティアリストウォーズ</title>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+  :root {
+    --bg: #14121f; --panel: #1f1c30; --panel2: #2a2640; --line: #3a3556;
+    --text: #f2f0fa; --muted: #a29cc0; --accent: #ffcc33; --accent2: #ff5c8a;
+    --ok: #3ddc97; --ng: #ff5c5c;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font-family: "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif; line-height: 1.5; }
+  #app { max-width: 720px; margin: 0 auto; padding: 16px 16px 64px; }
+  h1 { margin: 8px 0 0; font-size: 32px; letter-spacing: .05em;
+    background: linear-gradient(90deg, var(--accent), var(--accent2)); -webkit-background-clip: text; color: transparent; }
+  h2 { font-size: 18px; margin: 0 0 12px; }
+  .sub { color: var(--muted); margin: 0 0 16px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+  label.field { display: block; margin-bottom: 10px; color: var(--muted); font-size: 13px; }
+  input[type=text] { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--panel2); color: var(--text); font-size: 16px; }
+  button { font: inherit; cursor: pointer; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--panel2); color: var(--text); padding: 8px 14px; }
+  button:hover:not(:disabled) { border-color: var(--muted); }
+  button:disabled { opacity: .4; cursor: default; }
+  button.primary { background: linear-gradient(90deg, var(--accent), #ff9f43); color: #221a00; border: 0; font-weight: 700; padding: 12px 18px; }
+  button.danger { color: var(--ng); }
+  button.wide { width: 100%; }
+  .row { display: flex; gap: 8px; align-items: center; }
+  .row > input { flex: 1; }
+  .muted { color: var(--muted); }
+  .small { font-size: 13px; }
+  .notice { margin-top: 12px; padding: 10px 12px; border-radius: 10px; background: #3a1f2c; color: #ffc2d1; }
+  .topic { display: flex; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .topic:last-of-type { border-bottom: 0; }
+  .topic label { flex: 1; display: flex; gap: 8px; align-items: center; cursor: pointer; min-width: 0; }
+  .topic b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .topic input { width: 18px; height: 18px; flex: none; }
+  .opt-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .opt-row span { width: 24px; text-align: right; color: var(--muted); }
+  .code { font-size: 40px; font-weight: 800; letter-spacing: .2em; color: var(--accent); }
+  .players { display: flex; flex-wrap: wrap; gap: 6px; }
+  .pl { background: var(--panel2); border-radius: 999px; padding: 4px 12px; font-size: 14px; display: flex; gap: 6px; align-items: center; }
+  .pl.off { opacity: .4; }
+  .pl.me { outline: 2px solid var(--accent); }
+  .pl .sc { color: var(--accent); font-weight: 700; }
+  .badge { flex: none; width: 34px; height: 34px; border-radius: 8px; display: grid; place-items: center;
+    font-weight: 800; color: #111; }
+  .slot { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; min-height: 40px; }
+  .slot .item { flex: 1; text-align: left; background: var(--panel2); }
+  .slot .empty { flex: 1; border: 2px dashed var(--line); border-radius: 10px; padding: 6px 12px; color: var(--muted); font-size: 13px; }
+  .slot .mini { padding: 6px 10px; }
+  .pool { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; min-height: 20px; }
+  .chip { background: #3b3460; border-color: #5a4f8f; }
+  .qtitle { font-size: 22px; font-weight: 800; margin: 4px 0 8px; }
+  .who { color: var(--accent2); font-weight: 700; }
+  .ans { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+  .ans .txt { flex: 1; background: var(--panel2); border-radius: 10px; padding: 6px 12px; }
+  .guess-row { border-top: 1px solid var(--line); padding: 10px 0; }
+  .guess-row .head { display: flex; justify-content: space-between; margin-bottom: 6px; }
+  .pts { color: var(--accent); font-weight: 800; }
+  .seq { display: flex; flex-wrap: wrap; gap: 4px; }
+  .seq span { font-size: 12px; padding: 2px 8px; border-radius: 6px; }
+  .seq .hit { background: #164b37; color: var(--ok); }
+  .seq .miss { background: #4b1c22; color: #ff9a9a; }
+  .rank-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 18px; }
+  .rank-row .n { width: 40px; font-size: 24px; text-align: center; }
+  .rank-row .nm { flex: 1; }
+  .status { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--panel2); color: var(--muted); }
+  .bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 8px; }
+  .badge.hidden { background: var(--line); color: var(--muted); }
+  .focus { text-align: center; padding: 14px 0; }
+  .focus-rank { font-size: 26px; font-weight: 800; display: flex; gap: 10px; justify-content: center; align-items: center; flex-wrap: wrap; }
+  .picks { margin-top: 12px; display: grid; gap: 6px; text-align: left; }
+  .pick { display: flex; gap: 10px; align-items: center; padding: 6px 12px; border-radius: 10px; }
+  .pick.hit { background: #164b37; color: var(--ok); }
+  .pick.miss { background: #4b1c22; color: #ff9a9a; }
+  .pick b { color: var(--text); }
+  .pick span:last-child { margin-left: auto; }
+  .pop { animation: pop .35s ease-out; }
+  @keyframes pop { from { transform: scale(.9); opacity: 0; } to { transform: none; opacity: 1; } }
+  details summary { cursor: pointer; font-weight: 700; }
+  ol.rules { padding-left: 20px; margin: 10px 0 0; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+// ===== 設定 =====
+const DEV = new URLSearchParams(location.search).has('dev'); // ?dev で最少2人から遊べる（動作確認用）
+const MIN_PLAYERS = DEV ? 2 : 4, MAX_PLAYERS = 10, MIN_OPT = 5, MAX_OPT = 10;
+const PREFIX = 'tierlistwars-v1-';
+const PERFECT_BONUS = 3;
+const REVEAL_FIRST_MS = 2000, REVEAL_STEP_MS = 3000, REVEAL_SUSPENSE_MS = 2000; // めくりの間隔（暫定値）
+
+// ===== 共通 =====
+const $ = s => document.querySelector(s);
+const app = $('#app');
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const shuffle = a => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const uid = () => Math.random().toString(36).slice(2, 10);
+const clean = (s, max) => String(s ?? '').trim().slice(0, max);
+const store = {
+  get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+const tierColor = (r, n) => `hsl(${Math.round(n <= 1 ? 0 : (r / (n - 1)) * 220)}, 85%, 62%)`;
+
+// タブごとに別プレイヤーとして扱う（リロードしても同じ人として復帰できる）
+let myId;
+try { myId = sessionStorage.getItem('tlw-id') || uid() + uid(); sessionStorage.setItem('tlw-id', myId); } catch { myId = uid() + uid(); }
+
+let myName = store.get('tlw-name', '');
+let topics = store.get('tlw-topics', null) ?? [
+  { id: uid(), title: '好きな野菜は？', options: ['じゃがいも', 'にんじん', 'たまねぎ', 'キャベツ', 'トマト'], bring: true },
+  { id: uid(), title: '行ってみたい国は？', options: ['イタリア', 'アメリカ', '韓国', 'タイ', 'フランス', 'オーストラリア'], bring: true },
+];
+const saveTopics = () => store.set('tlw-topics', topics);
+const broughtTopics = () => topics.filter(t => t.bring).map(t => ({ title: t.title, options: t.options }));
+
+// ===== 画面状態 =====
+let view = 'home';           // home | topics | edit | room
+let editing = null;          // 編集中のお題
+let notice = '';
+let net = { peer: null, conn: null, isHost: false, code: '' };
+let pub = null;              // ホストから届いた自分向けの状態
+let picker = { key: '', placed: [] };
+let connecting = false;
+
+// ===== ホスト側のゲーム進行 =====
+let G = null;
+const conns = {};
+
+function newGame(gameNo = 1, players = []) {
+  return { gameNo, phase: 'lobby', players, topicsBy: {}, assign: {}, ranks: {}, order: [], round: 0, guesses: {}, reveal: null };
+}
+const online = () => G.players.filter(p => p.online);
+const nameOf = id => G.players.find(p => p.id === id)?.name ?? '???';
+const currentTarget = () => (G.phase === 'guess' || G.phase === 'reveal') ? G.order[G.round] : null;
+
+function sanitizeTopics(list) {
+  if (!Array.isArray(list)) return [];
+  return list.slice(0, 50).map(t => ({
+    title: clean(t?.title, 60),
+    options: Array.isArray(t?.options) ? t.options.map(o => clean(o, 40)).filter(Boolean).slice(0, MAX_OPT) : [],
+  })).filter(t => t.title && t.options.length >= MIN_OPT);
+}
+const validOrder = (o, n) => Array.isArray(o) && o.length === n && new Set(o).size === n && o.every(i => Number.isInteger(i) && i >= 0 && i < n);
+
+function canStart() {
+  const n = online().length;
+  if (n < MIN_PLAYERS) return `あと${MIN_PLAYERS - n}人必要です（${MIN_PLAYERS}〜${MAX_PLAYERS}人）`;
+  const total = online().reduce((s, p) => s + (G.topicsBy[p.id]?.length ?? 0), 0);
+  if (total < n) return `お題が足りません（${total}個 / ${n}人分必要）`;
+  return null;
+}
+
+function startGame() {
+  const players = online();
+  const pool = players.flatMap(p => G.topicsBy[p.id].map(t => ({ ...t, authorId: p.id, authorName: p.name })));
+  // 自分が作ったお題がなるべく自分に当たらない割り振りを探す
+  let best = null, bestOwn = Infinity;
+  for (let i = 0; i < 300 && bestOwn > 0; i++) {
+    const pick = shuffle(pool).slice(0, players.length);
+    const own = pick.filter((t, k) => t.authorId === players[k].id).length;
+    if (own < bestOwn) { best = pick; bestOwn = own; }
+  }
+  G.assign = {};
+  players.forEach((p, k) => { G.assign[p.id] = best[k]; });
+  G.players.forEach(p => { p.score = 0; });
+  G.ranks = {}; G.guesses = {}; G.reveal = null;
+  G.phase = 'ranking';
+}
+
+function toGuess() {
+  G.order = shuffle(G.players.filter(p => G.ranks[p.id]).map(p => p.id));
+  G.round = 0; G.guesses = {};
+  G.phase = G.order.length ? 'guess' : 'result';
+}
+
+// 答え合わせ：最下位から1位へ自動でめくる。shown = めくり済みの数（下から数える）
+function toReveal() {
+  const tgt = currentTarget();
+  const answer = G.ranks[tgt];
+  const rows = G.players.filter(p => G.guesses[p.id]).map(p => {
+    const order = G.guesses[p.id];
+    const hits = order.filter((v, i) => v === answer[i]).length;
+    const pts = hits + (hits === answer.length ? PERFECT_BONUS : 0);
+    return { id: p.id, name: p.name, order, hits, pts };
+  });
+  G.reveal = { answer, rows, shown: 0, suspense: false, done: false };
+  G.phase = 'reveal';
+  scheduleReveal(REVEAL_FIRST_MS);
+}
+
+let revealTimer = null;
+function stopRevealTimer() { clearTimeout(revealTimer); revealTimer = null; }
+function scheduleReveal(ms) { stopRevealTimer(); revealTimer = setTimeout(stepReveal, ms); }
+
+function stepReveal() {
+  const r = G?.phase === 'reveal' ? G.reveal : null;
+  if (!r || r.done) return;
+  const n = r.answer.length;
+  if (r.shown === n - 1 && !r.suspense) {
+    r.suspense = true; // 「1位は…」で溜める
+    scheduleReveal(REVEAL_SUSPENSE_MS);
+  } else {
+    r.suspense = false;
+    r.shown++;
+    if (r.shown >= n) finishReveal();
+    else scheduleReveal(REVEAL_STEP_MS);
+  }
+  broadcast();
+}
+
+// 全部めくり終わった時点で得点を加算する
+function finishReveal() {
+  stopRevealTimer();
+  const r = G.reveal;
+  r.shown = r.answer.length; r.suspense = false;
+  if (r.done) return;
+  r.done = true;
+  for (const row of r.rows) {
+    const p = G.players.find(x => x.id === row.id);
+    if (p) p.score += row.pts;
+  }
+}
+
+function checkAdvance() {
+  if (G.phase === 'ranking' && online().every(p => G.ranks[p.id])) toGuess();
+  else if (G.phase === 'guess') {
+    const tgt = currentTarget();
+    if (online().filter(p => p.id !== tgt).every(p => G.guesses[p.id])) toReveal();
+  }
+}
+
+function reject(conn, msg) {
+  if (!conn) { leaveRoom(msg); return; }
+  conn.send({ t: 'error', msg });
+  setTimeout(() => conn.close(), 500);
+}
+
+function hostHandle(pid, msg, conn) {
+  if (!msg || typeof msg !== 'object') return;
+  const isHostMe = pid === myId;
+  switch (msg.t) {
+    case 'join': {
+      const name = clean(msg.name, 16) || '名無し';
+      const tps = sanitizeTopics(msg.topics);
+      let p = G.players.find(x => x.id === pid);
+      if (!p) {
+        if (G.phase !== 'lobby') return reject(conn, 'ゲーム進行中のため参加できません');
+        if (G.players.length >= MAX_PLAYERS) return reject(conn, `満員です（最大${MAX_PLAYERS}人）`);
+        if (!tps.length) return reject(conn, 'お題を1つ以上持ってきてください');
+        p = { id: pid, name, score: 0 };
+        G.players.push(p);
+      }
+      p.name = name; p.online = true;
+      if (G.phase === 'lobby' && tps.length) G.topicsBy[pid] = tps;
+      break;
+    }
+    case 'rank':
+      if (G.phase !== 'ranking' || !G.assign[pid] || !validOrder(msg.order, G.assign[pid].options.length)) return;
+      G.ranks[pid] = msg.order;
+      checkAdvance();
+      break;
+    case 'guess': {
+      const tgt = currentTarget();
+      if (G.phase !== 'guess' || msg.round !== G.round || pid === tgt || !validOrder(msg.order, G.assign[tgt].options.length)) return;
+      G.guesses[pid] = msg.order;
+      checkAdvance();
+      break;
+    }
+    case 'start':
+      if (!isHostMe || G.phase !== 'lobby' || canStart()) return;
+      startGame();
+      break;
+    case 'force':
+      if (!isHostMe) return;
+      if (G.phase === 'ranking') toGuess();
+      else if (G.phase === 'guess') toReveal();
+      break;
+    case 'reveal-all':
+      if (G.phase !== 'reveal' || G.reveal.done || (!isHostMe && pid !== currentTarget())) return;
+      finishReveal();
+      break;
+    case 'next':
+      if (!isHostMe || G.phase !== 'reveal' || !G.reveal.done) return;
+      G.round++; G.guesses = {}; G.reveal = null;
+      G.phase = G.round < G.order.length ? 'guess' : 'result';
+      break;
+    case 'lobby': {
+      if (!isHostMe || G.phase !== 'result') return;
+      const keep = online().map(p => ({ ...p, score: 0 }));
+      const topicsBy = G.topicsBy;
+      G = newGame(G.gameNo + 1, keep);
+      keep.forEach(p => { G.topicsBy[p.id] = topicsBy[p.id] ?? []; });
+      break;
+    }
+    case 'kick': {
+      if (!isHostMe || G.phase !== 'lobby' || msg.id === myId) return;
+      conns[msg.id]?.send({ t: 'error', msg: 'ホストに退出させられました' });
+      setTimeout(() => conns[msg.id]?.close(), 300);
+      hostLeave(msg.id);
+      return;
+    }
+    default: return;
+  }
+  broadcast();
+}
+
+function hostLeave(pid) {
+  const p = G.players.find(x => x.id === pid);
+  if (!p) return;
+  if (G.phase === 'lobby') {
+    G.players = G.players.filter(x => x.id !== pid);
+    delete G.topicsBy[pid];
+  } else {
+    p.online = false;
+    checkAdvance();
+  }
+  broadcast();
+}
+
+function viewFor(id) {
+  const tgt = currentTarget();
+  return {
+    phase: G.phase, gameNo: G.gameNo, code: net.code, hostId: myId, me: id,
+    players: G.players.map(p => ({
+      id: p.id, name: p.name, score: p.score, online: p.online !== false,
+      topics: G.topicsBy[p.id]?.length ?? 0,
+      done: G.phase === 'ranking' ? !!G.ranks[p.id] : G.phase === 'guess' && p.id !== tgt ? !!G.guesses[p.id] : null,
+    })),
+    startError: G.phase === 'lobby' ? canStart() : null,
+    myTopic: G.assign[id] ?? null,
+    myRank: G.ranks[id] ?? null,
+    round: G.round, rounds: G.order.length,
+    target: tgt ? { id: tgt, name: nameOf(tgt), topic: G.assign[tgt] } : null,
+    myGuess: G.guesses[id] ?? null,
+    reveal: G.phase === 'reveal' ? G.reveal : null,
+  };
+}
+
+function broadcast() {
+  for (const p of G.players) {
+    const v = viewFor(p.id);
+    if (p.id === myId) { pub = v; render(); }
+    else if (conns[p.id]?.open) conns[p.id].send({ t: 'state', state: v });
+  }
+}
+
+// ===== 通信（PeerJS / WebRTC。シグナリングだけ公開ブローカーを使い、ゲームの通信は端末同士で直接） =====
+function needPeer() {
+  if (typeof Peer === 'undefined') { notice = 'PeerJS の読み込みに失敗しました。ネット接続を確認してください。'; render(); return false; }
+  if (!myName.trim()) { notice = '名前を入力してください'; render(); return false; }
+  if (!broughtTopics().length) { notice = 'お題を1つ以上「持っていく」にチェックしてください'; render(); return false; }
+  return true;
+}
+
+function genCode() {
+  const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return Array.from({ length: 4 }, () => c[Math.floor(Math.random() * c.length)]).join('');
+}
+
+function hostRoom() {
+  if (!needPeer()) return;
+  connecting = true; notice = ''; render();
+  const code = genCode();
+  const peer = new Peer(PREFIX + code, { debug: 0 });
+  peer.on('open', () => {
+    connecting = false;
+    net = { peer, conn: null, isHost: true, code };
+    G = newGame();
+    view = 'room';
+    hostHandle(myId, { t: 'join', name: myName, topics: broughtTopics() });
+  });
+  peer.on('connection', conn => {
+    conn.on('data', msg => {
+      if (msg?.t === 'join' && !conn.pid) {
+        conn.pid = clean(msg.id, 64);
+        if (!conn.pid || conn.pid === myId) return conn.close();
+        conns[conn.pid]?.close();
+        conns[conn.pid] = conn;
+      }
+      if (conn.pid && conns[conn.pid] === conn) hostHandle(conn.pid, msg, conn);
+    });
+    const gone = () => { if (conn.pid && conns[conn.pid] === conn) { delete conns[conn.pid]; hostLeave(conn.pid); } };
+    conn.on('close', gone);
+    conn.on('error', gone);
+  });
+  peer.on('disconnected', () => { if (!peer.destroyed) peer.reconnect(); }); // ブローカーが切れても既存の接続は生きている
+  peer.on('error', e => {
+    if (e.type === 'unavailable-id') { peer.destroy(); hostRoom(); return; }
+    if (view !== 'room') { peer.destroy(); connecting = false; notice = '部屋を作れませんでした: ' + e.type; render(); }
+  });
+}
+
+function joinRoom(code) {
+  if (!needPeer()) return;
+  code = code.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (code.length !== 4) { notice = '部屋コード（4文字）を入力してください'; render(); return; }
+  connecting = true; notice = ''; render();
+  const peer = new Peer({ debug: 0 });
+  const timer = setTimeout(() => { if (view !== 'room') leaveRoom('接続できませんでした。コードを確認してください'); }, 15000);
+  peer.on('open', () => {
+    const conn = peer.connect(PREFIX + code, { reliable: true });
+    net = { peer, conn, isHost: false, code };
+    conn.on('open', () => conn.send({ t: 'join', id: myId, name: myName, topics: broughtTopics() }));
+    conn.on('data', m => {
+      if (m?.t === 'state') { clearTimeout(timer); connecting = false; pub = m.state; view = 'room'; render(); }
+      else if (m?.t === 'error') { clearTimeout(timer); leaveRoom(m.msg); }
+    });
+    conn.on('close', () => { if (net.conn === conn) leaveRoom('ホストとの接続が切れました'); });
+  });
+  peer.on('error', e => {
+    clearTimeout(timer);
+    leaveRoom(e.type === 'peer-unavailable' ? '部屋が見つかりません' : '接続エラー: ' + e.type);
+  });
+}
+
+function leaveRoom(msg = '') {
+  const peer = net.peer;
+  net = { peer: null, conn: null, isHost: false, code: '' };
+  try { peer?.destroy(); } catch {}
+  for (const k in conns) delete conns[k];
+  stopRevealTimer();
+  G = null; pub = null; connecting = false;
+  view = 'home'; notice = msg;
+  render();
+}
+
+function send(msg) {
+  if (net.isHost) hostHandle(myId, msg, null);
+  else if (net.conn?.open) net.conn.send(msg);
+}
+
+// ===== 描画 =====
+function render() {
+  if (view === 'edit') app.innerHTML = renderEdit();
+  else if (view === 'topics') app.innerHTML = renderTopics();
+  else if (view === 'room' && pub) app.innerHTML = renderRoom();
+  else app.innerHTML = renderHome();
+}
+
+function renderHome() {
+  const prefill = new URLSearchParams(location.search).get('room') ?? '';
+  const count = topics.filter(t => t.bring).length;
+  return `
+  <h1>ティアリストウォーズ</h1>
+  <p class="sub">あの人の「順位」、当てられる？</p>
+  <section class="card">
+    <label class="field">あなたの名前
+      <input type="text" id="name" maxlength="16" value="${esc(myName)}" placeholder="例）たろう">
+    </label>
+  </section>
+  <section class="card">
+    <h2>お題</h2>
+    <p class="muted small" style="margin:0 0 10px">ストック ${topics.length}件 ／ 次のゲームに持っていく ${count}件</p>
+    <button class="wide" data-act="topics">お題の設定</button>
+  </section>
+  <section class="card">
+    <h2>あそぶ</h2>
+    <button class="primary wide" data-act="host" ${connecting ? 'disabled' : ''}>部屋を作る（ホスト）</button>
+    <div class="row" style="margin-top:12px">
+      <input type="text" id="code" maxlength="4" placeholder="部屋コード（例: K7QZ）" value="${esc(prefill)}" style="text-transform:uppercase">
+      <button data-act="join" ${connecting ? 'disabled' : ''}>参加</button>
+    </div>
+    ${connecting ? '<p class="muted">接続中…</p>' : ''}
+    ${notice ? `<div class="notice">${esc(notice)}</div>` : ''}
+  </section>
+  <details class="card">
+    <summary>あそびかた</summary>
+    <ol class="rules">
+      <li>事前に「お題の設定」でお題と選択肢（${MIN_OPT}〜${MAX_OPT}個）を作っておく。いくつでもストックできます。</li>
+      <li>${MIN_PLAYERS}〜${MAX_PLAYERS}人で部屋に集まり、ホストが開始。</li>
+      <li>みんなのお題がランダムに1人1つ配られるので、<b>自分の好み</b>で順位をつける。</li>
+      <li>メインゲーム：「〇〇さんの『お題』の順位は？」を本人以外が予想。</li>
+      <li>答え合わせ。順位が1つ合うごとに1点、全部ピッタリならボーナス+${PERFECT_BONUS}点。</li>
+      <li>全員分まわったら終了。最高得点の人の勝ち！</li>
+    </ol>
+  </details>`;
+}
+
+function renderTopics() {
+  const count = topics.filter(t => t.bring).length;
+  return `
+  <div class="bar"><h1 style="font-size:22px;margin:0">お題の設定</h1>
+    <button class="small" data-act="home">← 戻る</button></div>
+  <section class="card">
+    <h2>お題ストック <span class="muted small">${topics.length}件 ／ 持っていく: ${count}件</span></h2>
+    <p class="muted small" style="margin:0 0 8px">チェックを入れたお題を次のゲームに持っていきます。</p>
+    ${topics.length ? topics.map(t => `
+      <div class="topic">
+        <label><input type="checkbox" data-act="bring" data-id="${t.id}" ${t.bring ? 'checked' : ''}>
+          <b>${esc(t.title)}</b><span class="muted small">${t.options.length}択</span></label>
+        <button data-act="edit" data-id="${t.id}">編集</button>
+        <button class="danger" data-act="del" data-id="${t.id}">削除</button>
+      </div>`).join('') : '<p class="muted">まだお題がありません</p>'}
+    <button class="wide" style="margin-top:10px" data-act="new">＋ お題を作る</button>
+  </section>
+  `;
+}
+
+function renderEdit() {
+  const t = editing;
+  return `
+  <h1 style="font-size:22px">${t.id ? 'お題を編集' : 'お題をつくる'}</h1>
+  <section class="card">
+    <label class="field">お題
+      <input type="text" id="e-title" maxlength="60" value="${esc(t.title)}" placeholder="例）好きな野菜は？">
+    </label>
+    <div class="field muted small">選択肢（${MIN_OPT}〜${MAX_OPT}個）</div>
+    ${t.options.map((o, i) => `
+      <div class="opt-row"><span>${i + 1}</span>
+        <input type="text" data-opt="${i}" maxlength="40" value="${esc(o)}">
+        <button data-act="opt-del" data-i="${i}" ${t.options.length <= MIN_OPT ? 'disabled' : ''}>✕</button>
+      </div>`).join('')}
+    <button class="wide" data-act="opt-add" ${t.options.length >= MAX_OPT ? 'disabled' : ''}>＋ 選択肢を追加</button>
+    ${notice ? `<div class="notice">${esc(notice)}</div>` : ''}
+  </section>
+  <div class="row">
+    <button data-act="edit-cancel">キャンセル</button>
+    <button class="primary" style="flex:1" data-act="edit-save">保存</button>
+  </div>`;
+}
+
+function playersHTML(s) {
+  return `<div class="players">${s.players.map(p => `
+    <span class="pl ${p.online ? '' : 'off'} ${p.id === s.me ? 'me' : ''}">
+      ${p.id === s.hostId ? '👑' : ''}${esc(p.name)}
+      ${s.phase !== 'lobby' ? `<span class="sc">${p.score}</span>` : `<span class="muted small">お題${p.topics}</span>`}
+      ${p.done === true ? '✅' : p.done === false ? '⏳' : ''}
+      ${s.phase === 'lobby' && net.isHost && p.id !== s.me ? `<button class="mini" style="padding:0 6px" data-act="kick" data-id="${p.id}">✕</button>` : ''}
+    </span>`).join('')}</div>`;
+}
+
+function pickerHTML(options, key) {
+  if (picker.key !== key) picker = { key, placed: [] };
+  const n = options.length, placed = picker.placed;
+  const pool = options.map((_, i) => i).filter(i => !placed.includes(i));
+  return `
+    <p class="muted small">下の選択肢を1位から順にタップ。並べた項目をタップすると戻せます。</p>
+    ${options.map((_, r) => {
+      const idx = placed[r];
+      return `<div class="slot"><span class="badge" style="background:${tierColor(r, n)}">${r + 1}</span>
+        ${idx != null ? `<button class="item" data-act="unplace" data-r="${r}">${esc(options[idx])}</button>
+          <button class="mini" data-act="up" data-r="${r}" ${r === 0 ? 'disabled' : ''}>▲</button>
+          <button class="mini" data-act="down" data-r="${r}" ${r === placed.length - 1 ? 'disabled' : ''}>▼</button>`
+        : '<span class="empty">　</span>'}</div>`;
+    }).join('')}
+    <div class="pool">${pool.map(i => `<button class="chip" data-act="place" data-i="${i}">${esc(options[i])}</button>`).join('')}</div>
+    <button class="primary wide" data-act="submit-pick" ${placed.length < n ? 'disabled' : ''}>この順位で決定</button>`;
+}
+
+function orderHTML(options, order) {
+  return order.map((idx, r) => `<div class="ans"><span class="badge" style="background:${tierColor(r, order.length)}">${r + 1}</span><span class="txt">${esc(options[idx])}</span></div>`).join('');
+}
+
+function waitingHTML(s, label) {
+  const ps = s.players.filter(p => p.done != null && p.online);
+  const done = ps.filter(p => p.done).length;
+  return `<p class="muted">${label}（${done}/${ps.length}）</p>
+    ${net.isHost ? '<button data-act="force" class="small">未提出の人を待たずに進める</button>' : ''}`;
+}
+
+function standingsHTML(s) {
+  const sorted = [...s.players].sort((a, b) => b.score - a.score);
+  const medal = ['🥇', '🥈', '🥉'];
+  let rank = 0;
+  return sorted.map((p, i) => {
+    if (i === 0 || p.score < sorted[i - 1].score) rank = i;
+    return `<div class="rank-row"><span class="n">${medal[rank] ?? rank + 1}</span>
+      <span class="nm">${esc(p.name)}${p.id === s.me ? '（あなた）' : ''}</span><span class="pts">${p.score}点</span></div>`;
+  }).join('');
+}
+
+function renderRoom() {
+  const s = pub;
+  let body = '';
+  if (s.phase === 'lobby') {
+    const link = location.protocol.startsWith('http') ? `${location.origin}${location.pathname}?room=${s.code}` : '';
+    body = `
+    <section class="card" style="text-align:center">
+      <div class="muted small">部屋コード</div>
+      <div class="code">${s.code}</div>
+      ${link ? `<div class="small muted" style="word-break:break-all">${esc(link)}</div>
+        <button class="small" style="margin-top:6px" data-act="copy" data-text="${esc(link)}">招待リンクをコピー</button>` : ''}
+    </section>
+    <section class="card">
+      <h2>参加者 ${s.players.length}/${MAX_PLAYERS}</h2>
+      ${playersHTML(s)}
+      <div style="margin-top:16px">
+      ${net.isHost
+        ? `<button class="primary wide" data-act="start" ${s.startError ? 'disabled' : ''}>ゲーム開始</button>
+           ${s.startError ? `<p class="muted small">${esc(s.startError)}</p>` : ''}`
+        : `<p class="muted">ホストの開始を待っています…${s.startError ? `<br><span class="small">${esc(s.startError)}</span>` : ''}</p>`}
+      </div>
+    </section>`;
+  } else if (s.phase === 'ranking') {
+    const t = s.myTopic;
+    body = `<section class="card">
+      <span class="status">準備フェーズ</span>
+      ${t ? `<div class="qtitle">${esc(t.title)}</div>
+        <p class="muted small">作成: ${esc(t.authorName)}　／　<b>あなた自身の好み</b>で並べてください。みんながこれを当てにきます。</p>
+        ${s.myRank ? `<h2>あなたの回答</h2>${orderHTML(t.options, s.myRank)}${waitingHTML(s, '他の人の並び替えを待っています')}`
+          : pickerHTML(t.options, `rank-${s.gameNo}`)}`
+        : `<p>途中参加のため、今回は予想のみの参加です。</p>${waitingHTML(s, '並び替え中')}`}
+    </section>`;
+  } else if (s.phase === 'guess') {
+    const tg = s.target, t = tg.topic;
+    const isMe = tg.id === s.me;
+    body = `<section class="card">
+      <span class="status">ラウンド ${s.round + 1} / ${s.rounds}</span>
+      <p style="margin:10px 0 0"><span class="who">${esc(tg.name)}</span> さんの</p>
+      <div class="qtitle">「${esc(t.title)}」の順位は？</div>
+      <p class="muted small">お題作成: ${esc(t.authorName)}</p>
+      ${isMe ? `<p class="muted">あなたのお題です。みんなの予想を待ちましょう。</p>${orderHTML(t.options, s.myRank)}${waitingHTML(s, '予想中')}`
+        : s.myGuess ? `<h2>あなたの予想</h2>${orderHTML(t.options, s.myGuess)}${waitingHTML(s, '他の人の予想を待っています')}`
+        : pickerHTML(t.options, `guess-${s.gameNo}-${s.round}`)}
+    </section>`;
+  } else if (s.phase === 'reveal') {
+    const tg = s.target, t = tg.topic, r = s.reveal, n = r.answer.length;
+    const from = n - r.shown; // この位置より下（数字が大きい側）はめくり済み
+    let focus;
+    if (r.suspense) focus = '<div class="focus pop"><div class="focus-rank">1位は…</div></div>';
+    else if (r.shown > 0) {
+      const ans = r.answer[from];
+      focus = `<div class="focus pop">
+        <div class="focus-rank"><span class="badge" style="background:${tierColor(from, n)}">${from + 1}</span>第${from + 1}位　${esc(t.options[ans])}</div>
+        ${r.rows.length ? `<div class="picks">${r.rows.map(row => {
+          const hit = row.order[from] === ans;
+          return `<div class="pick ${hit ? 'hit' : 'miss'}"><span>${hit ? '✓' : '✗'}</span><b>${esc(row.name)}</b><span>${esc(t.options[row.order[from]])}</span></div>`;
+        }).join('')}</div>` : ''}
+      </div>`;
+    } else focus = '<div class="focus"><div class="focus-rank muted">まもなく発表…</div></div>';
+    const table = r.answer.map((idx, pos) => pos >= from
+      ? `<div class="ans ${pos === from && !r.suspense ? 'pop' : ''}"><span class="badge" style="background:${tierColor(pos, n)}">${pos + 1}</span><span class="txt">${esc(t.options[idx])}</span></div>`
+      : `<div class="ans"><span class="badge hidden">${pos + 1}</span><span class="txt muted">？？？</span></div>`).join('');
+    const canSkip = !r.done && (net.isHost || tg.id === s.me);
+    body = `<section class="card">
+      <span class="status">ラウンド ${s.round + 1} / ${s.rounds}　答え合わせ</span>
+      <p style="margin:10px 0 0"><span class="who">${esc(tg.name)}</span> さんの</p>
+      <div class="qtitle">「${esc(t.title)}」</div>
+      <p class="muted small">お題作成: ${esc(t.authorName)}</p>
+      ${focus}
+      ${canSkip ? '<button class="wide small" data-act="reveal-all">残りを一気にめくる</button>' : ''}
+    </section>
+    <section class="card">
+      <h2>正解</h2>
+      ${table}
+    </section>
+    ${r.done ? `<section class="card">
+      <h2>みんなの予想</h2>
+      ${r.rows.length ? [...r.rows].sort((a, b) => b.pts - a.pts).map(row => `
+        <div class="guess-row">
+          <div class="head"><b>${esc(row.name)}${row.id === s.me ? '（あなた）' : ''}</b>
+            <span><span class="muted small">${row.hits}/${r.answer.length}一致${row.hits === r.answer.length ? ' 🎯パーフェクト！' : ''}</span> <span class="pts">+${row.pts}</span></span></div>
+          <div class="seq">${row.order.map((idx, i) => `<span class="${idx === r.answer[i] ? 'hit' : 'miss'}">${i + 1}. ${esc(t.options[idx])}</span>`).join('')}</div>
+        </div>`).join('') : '<p class="muted">予想した人がいませんでした</p>'}
+      <div style="margin-top:14px">
+        ${net.isHost ? `<button class="primary wide" data-act="next">${s.round + 1 < s.rounds ? '次のラウンドへ' : '結果発表へ'}</button>`
+          : '<p class="muted">ホストが次へ進めるのを待っています…</p>'}
+      </div>
+    </section>
+    ${s.round + 1 < s.rounds ? `<section class="card"><h2>現在のランキング</h2>${standingsHTML(s)}</section>` : ''}` : ''}`;
+  } else if (s.phase === 'result') {
+    body = `<section class="card">
+      <h2>最終結果</h2>
+      ${standingsHTML(s)}
+      <div style="margin-top:16px">
+        ${net.isHost ? '<button class="primary wide" data-act="lobby">ロビーに戻る</button>' : '<p class="muted">ホストがロビーに戻すのを待っています…</p>'}
+      </div>
+    </section>`;
+  }
+  return `
+  <div class="bar"><h1 style="font-size:22px;margin:0">ティアリストウォーズ</h1>
+    <button class="small" data-act="leave">退出</button></div>
+  ${s.phase !== 'lobby' ? `<section class="card">${playersHTML(s)}</section>` : ''}
+  ${body}`;
+}
+
+// ===== 入力 =====
+app.addEventListener('input', e => {
+  const el = e.target;
+  if (el.id === 'name') { myName = el.value; store.set('tlw-name', myName); }
+  else if (el.id === 'e-title') editing.title = el.value;
+  else if (el.dataset.opt != null) editing.options[+el.dataset.opt] = el.value;
+});
+
+app.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.id === 'code') joinRoom(e.target.value);
+});
+
+app.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]');
+  if (!el) return;
+  const act = el.dataset.act;
+  const id = el.dataset.id;
+  const r = +el.dataset.r;
+  switch (act) {
+    // ホーム
+    case 'bring': {
+      const t = topics.find(x => x.id === id);
+      if (t) { t.bring = el.checked; saveTopics(); render(); }
+      return;
+    }
+    case 'new': editing = { id: null, title: '', options: Array(MIN_OPT).fill('') }; notice = ''; view = 'edit'; break;
+    case 'edit': {
+      const t = topics.find(x => x.id === id);
+      editing = { id, title: t.title, options: [...t.options] }; notice = ''; view = 'edit'; break;
+    }
+    case 'del': {
+      const t = topics.find(x => x.id === id);
+      if (t && confirm(`「${t.title}」を削除しますか？`)) { topics = topics.filter(x => x.id !== id); saveTopics(); }
+      break;
+    }
+    case 'topics': notice = ''; view = 'topics'; break;
+    case 'home': notice = ''; view = 'home'; break;
+    case 'host': hostRoom(); return;
+    case 'join': joinRoom($('#code').value); return;
+    // お題編集
+    case 'opt-add': if (editing.options.length < MAX_OPT) editing.options.push(''); break;
+    case 'opt-del': if (editing.options.length > MIN_OPT) editing.options.splice(+el.dataset.i, 1); break;
+    case 'edit-cancel': editing = null; notice = ''; view = 'topics'; break;
+    case 'edit-save': {
+      const title = editing.title.trim();
+      const opts = editing.options.map(o => o.trim()).filter(Boolean);
+      if (!title) notice = 'お題を入力してください';
+      else if (opts.length < MIN_OPT) notice = `選択肢を${MIN_OPT}個以上入力してください`;
+      else if (new Set(opts).size !== opts.length) notice = '同じ選択肢が重複しています';
+      else {
+        const existing = topics.find(x => x.id === editing.id);
+        if (existing) Object.assign(existing, { title, options: opts });
+        else topics.push({ id: uid(), title, options: opts, bring: true });
+        saveTopics(); editing = null; notice = ''; view = 'topics';
+      }
+      break;
+    }
+    // 並び替え
+    case 'place': picker.placed.push(+el.dataset.i); break;
+    case 'unplace': picker.placed.splice(r, 1); break;
+    case 'up': [picker.placed[r - 1], picker.placed[r]] = [picker.placed[r], picker.placed[r - 1]]; break;
+    case 'down': [picker.placed[r + 1], picker.placed[r]] = [picker.placed[r], picker.placed[r + 1]]; break;
+    case 'submit-pick':
+      if (pub.phase === 'ranking') send({ t: 'rank', order: [...picker.placed] });
+      else if (pub.phase === 'guess') send({ t: 'guess', round: pub.round, order: [...picker.placed] });
+      return;
+    // ルーム
+    case 'start': case 'force': case 'next': case 'lobby': case 'reveal-all': send({ t: act }); return;
+    case 'kick': send({ t: 'kick', id }); return;
+    case 'copy': navigator.clipboard?.writeText(el.dataset.text).then(() => { el.textContent = 'コピーしました'; }, () => {}); return;
+    case 'leave':
+      if (confirm(net.isHost ? 'ホストが退出すると部屋が解散します。退出しますか？' : '退出しますか？')) leaveRoom();
+      return;
+  }
+  render();
+});
+
+window.addEventListener('beforeunload', () => { try { net.peer?.destroy(); } catch {} });
+
+render();
+</script>
+</body>
+</html>
