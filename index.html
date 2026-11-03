@@ -3,8 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
 <title>ティアリストウォーズ</title>
-<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"
+  integrity="sha384-nlUQ8ZqCbvStErob+biJNzSgltf6urV3VGqhfIfzhmg9RXmpeRm76ELw0pYnKlTR" crossorigin="anonymous"></script>
 <style>
   :root {
     --bg: #14121f; --panel: #1f1c30; --panel2: #2a2640; --line: #3a3556;
@@ -94,6 +96,7 @@
 const DEV = new URLSearchParams(location.search).has('dev'); // ?dev で最少2人から遊べる（動作確認用）
 const MIN_PLAYERS = DEV ? 2 : 4, MAX_PLAYERS = 10, MIN_OPT = 5, MAX_OPT = 10;
 const PREFIX = 'tierlistwars-v1-';
+const ROOM_CODE_LEN = 6;
 const PERFECT_BONUS = 3;
 const REVEAL_FIRST_MS = 2000, REVEAL_STEP_MS = 3000, REVEAL_SUSPENSE_MS = 2000; // めくりの間隔（暫定値）
 
@@ -363,7 +366,7 @@ function needPeer() {
 
 function genCode() {
   const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  return Array.from({ length: 4 }, () => c[Math.floor(Math.random() * c.length)]).join('');
+  return Array.from({ length: ROOM_CODE_LEN }, () => c[Math.floor(Math.random() * c.length)]).join('');
 }
 
 function hostRoom() {
@@ -381,7 +384,7 @@ function hostRoom() {
   peer.on('connection', conn => {
     conn.on('data', msg => {
       if (msg?.t === 'join' && !conn.pid) {
-        conn.pid = clean(msg.id, 64);
+        conn.pid = String(msg.id ?? '').replace(/[^A-Za-z0-9]/g, '').slice(0, 64); // 画面に出すので英数字のみ
         if (!conn.pid || conn.pid === myId) return conn.close();
         conns[conn.pid]?.close();
         conns[conn.pid] = conn;
@@ -402,7 +405,7 @@ function hostRoom() {
 function joinRoom(code) {
   if (!needPeer()) return;
   code = code.toUpperCase().replace(/[^A-Z0-9]/g, '');
-  if (code.length !== 4) { notice = '部屋コード（4文字）を入力してください'; render(); return; }
+  if (code.length !== ROOM_CODE_LEN) { notice = `部屋コード（${ROOM_CODE_LEN}文字）を入力してください`; render(); return; }
   connecting = true; notice = ''; render();
   const peer = new Peer({ debug: 0 });
   const timer = setTimeout(() => { if (view !== 'room') leaveRoom('接続できませんでした。コードを確認してください'); }, 15000);
@@ -411,7 +414,7 @@ function joinRoom(code) {
     net = { peer, conn, isHost: false, code };
     conn.on('open', () => conn.send({ t: 'join', id: myId, name: myName, topics: broughtTopics() }));
     conn.on('data', m => {
-      if (m?.t === 'state') { clearTimeout(timer); connecting = false; pub = m.state; view = 'room'; render(); }
+      if (m?.t === 'state') { clearTimeout(timer); connecting = false; pub = normalizeState(m.state); view = 'room'; render(); }
       else if (m?.t === 'error') { clearTimeout(timer); leaveRoom(m.msg); }
     });
     conn.on('close', () => { if (net.conn === conn) leaveRoom('ホストとの接続が切れました'); });
@@ -420,6 +423,22 @@ function joinRoom(code) {
     clearTimeout(timer);
     leaveRoom(e.type === 'peer-unavailable' ? '部屋が見つかりません' : '接続エラー: ' + e.type);
   });
+}
+
+// ホストから届いた状態の数値を数値に揃える（文字列は表示時に esc する）
+function normalizeState(s) {
+  const int = v => Number.isFinite(+v) ? Math.trunc(+v) : 0;
+  const ints = a => Array.isArray(a) ? a.map(int) : [];
+  s.round = int(s.round); s.rounds = int(s.rounds); s.gameNo = int(s.gameNo);
+  s.code = String(s.code ?? '');
+  s.players = (s.players ?? []).map(p => ({ ...p, id: String(p.id ?? ''), score: int(p.score), topics: int(p.topics) }));
+  for (const k of ['myRank', 'myGuess']) if (s[k]) s[k] = ints(s[k]);
+  if (s.reveal) {
+    s.reveal.shown = int(s.reveal.shown);
+    s.reveal.answer = ints(s.reveal.answer);
+    s.reveal.rows = (s.reveal.rows ?? []).map(r => ({ ...r, hits: int(r.hits), pts: int(r.pts), order: ints(r.order) }));
+  }
+  return s;
 }
 
 function leaveRoom(msg = '') {
@@ -466,7 +485,7 @@ function renderHome() {
     <h2>あそぶ</h2>
     <button class="primary wide" data-act="host" ${connecting ? 'disabled' : ''}>部屋を作る（ホスト）</button>
     <div class="row" style="margin-top:12px">
-      <input type="text" id="code" maxlength="4" placeholder="部屋コード（例: K7QZ）" value="${esc(prefill)}" style="text-transform:uppercase">
+      <input type="text" id="code" maxlength="${ROOM_CODE_LEN}" placeholder="部屋コード（例: K7QZ2M）" value="${esc(prefill)}" style="text-transform:uppercase">
       <button data-act="join" ${connecting ? 'disabled' : ''}>参加</button>
     </div>
     ${connecting ? '<p class="muted">接続中…</p>' : ''}
@@ -534,7 +553,7 @@ function playersHTML(s) {
       ${p.id === s.hostId ? '👑' : ''}${esc(p.name)}
       ${s.phase !== 'lobby' ? `<span class="sc">${p.score}</span>` : `<span class="muted small">お題${p.topics}</span>`}
       ${p.done === true ? '✅' : p.done === false ? '⏳' : ''}
-      ${s.phase === 'lobby' && net.isHost && p.id !== s.me ? `<button class="mini" style="padding:0 6px" data-act="kick" data-id="${p.id}">✕</button>` : ''}
+      ${s.phase === 'lobby' && net.isHost && p.id !== s.me ? `<button class="mini" style="padding:0 6px" data-act="kick" data-id="${esc(p.id)}">✕</button>` : ''}
     </span>`).join('')}</div>`;
 }
 
@@ -582,11 +601,11 @@ function renderRoom() {
   const s = pub;
   let body = '';
   if (s.phase === 'lobby') {
-    const link = location.protocol.startsWith('http') ? `${location.origin}${location.pathname}?room=${s.code}` : '';
+    const link = location.protocol.startsWith('http') ? `${location.origin}${location.pathname}?room=${esc(s.code)}` : '';
     body = `
     <section class="card" style="text-align:center">
       <div class="muted small">部屋コード</div>
-      <div class="code">${s.code}</div>
+      <div class="code">${esc(s.code)}</div>
       ${link ? `<div class="small muted" style="word-break:break-all">${esc(link)}</div>
         <button class="small" style="margin-top:6px" data-act="copy" data-text="${esc(link)}">招待リンクをコピー</button>` : ''}
     </section>
