@@ -162,6 +162,9 @@
     padding: 8px 12px; margin-bottom: 12px; font-weight: 800; font-size: 14px; text-align: center; box-shadow: 0 3px 0 var(--ink); }
   #err { position: fixed; left: 12px; right: 12px; top: 12px; z-index: 100; background: var(--miss); border: 2.5px solid var(--coral);
     border-radius: 14px; padding: 10px 14px; font-size: 13px; font-weight: 700; box-shadow: 0 4px 0 var(--ink); cursor: pointer; }
+  .seg { display: flex; gap: 6px; }
+  .seg button { flex: 1; font-size: 14px; box-shadow: none; border-width: 2px; border-color: var(--line); color: var(--muted); }
+  .seg button.on { background: var(--sky); border-color: var(--ink); color: #fff; box-shadow: 0 3px 0 var(--ink); }
   .stepper { justify-content: center; gap: 16px; }
   .stepper button { width: 48px; font-size: 22px; padding: 0; }
   .count-val { flex: none !important; font-size: 22px; font-weight: 900; min-width: 3em; text-align: center; }
@@ -341,8 +344,9 @@ let reconnectSince = 0;                  // 自動再接続を始めた時刻（
 let G = null;
 const conns = {};
 
-function newGame(gameNo = 1, players = []) {
-  return { gameNo, phase: 'lobby', players, topicsBy: {}, assign: {}, ranks: {}, order: [], round: 0, guesses: {}, reveal: null, deadline: 0 };
+const PICK_MODES = { random: '全部からランダム', each: '作成者ごとに1つずつ' };
+function newGame(gameNo = 1, players = [], mode = 'random') {
+  return { gameNo, mode, phase: 'lobby', players, topicsBy: {}, assign: {}, ranks: {}, order: [], round: 0, guesses: {}, reveal: null, deadline: 0 };
 }
 const online = () => G.players.filter(p => p.online);
 const nameOf = id => G.players.find(p => p.id === id)?.name ?? '???';
@@ -386,8 +390,11 @@ function startGame() {
   const players = online();
   const pool = topicPool(players);
   // 自作のお題を優先して配り、足りない分をサンプルで補う（柱3）
-  const custom = pool.filter(t => t.authorId), samples = pool.filter(t => !t.authorId);
-  const chosen = [...shuffle(custom), ...shuffle(samples)].slice(0, players.length);
+  const custom = shuffle(pool.filter(t => t.authorId)), samples = pool.filter(t => !t.authorId);
+  // 「作成者ごとに1つずつ」なら、自作のお題を持ってきた人から1つずつ先に選ぶ
+  const first = G.mode === 'each' ? custom.filter((t, i) => custom.findIndex(x => x.authorId === t.authorId) === i) : [];
+  const rest = custom.filter(t => !first.includes(t));
+  const chosen = [...shuffle(first), ...rest, ...shuffle(samples)].slice(0, players.length);
   // 自分が作ったお題がなるべく自分に当たらない割り振りを探す
   let best = null, bestOwn = Infinity;
   for (let i = 0; i < 300 && bestOwn > 0; i++) {
@@ -524,6 +531,10 @@ function hostHandle(pid, msg, conn) {
       checkAdvance();
       break;
     }
+    case 'mode':
+      if (!isHostMe || G.phase !== 'lobby' || !PICK_MODES[msg.mode]) return;
+      G.mode = msg.mode;
+      break;
     case 'start':
       if (!isHostMe || G.phase !== 'lobby' || canStart()) return;
       startGame();
@@ -547,7 +558,7 @@ function hostHandle(pid, msg, conn) {
       if (!isHostMe || G.phase !== 'result') return;
       const keep = online().map(p => ({ ...p, score: 0 }));
       const topicsBy = G.topicsBy;
-      G = newGame(G.gameNo + 1, keep);
+      G = newGame(G.gameNo + 1, keep, G.mode);
       keep.forEach(p => { G.topicsBy[p.id] = topicsBy[p.id] ?? []; });
       break;
     }
@@ -579,7 +590,7 @@ function hostLeave(pid) {
 function viewFor(id) {
   const tgt = currentTarget();
   return {
-    phase: G.phase, gameNo: G.gameNo, code: net.code, hostId: myId, me: id,
+    phase: G.phase, gameNo: G.gameNo, mode: G.mode, code: net.code, hostId: myId, me: id,
     players: G.players.map(p => ({
       id: p.id, name: p.name, score: p.score, online: p.online !== false,
       topics: G.topicsBy[p.id]?.length ?? 0,
@@ -1046,6 +1057,11 @@ function renderRoom() {
     <section class="card">
       <h2>参加者 ${s.players.length}/${MAX_PLAYERS}</h2>
       ${playersHTML(s)}
+      <h2 style="margin-top:16px">出題方式</h2>
+      ${net.isHost
+        ? `<div class="seg">${Object.entries(PICK_MODES).map(([k, label]) => `<button class="${s.mode === k ? 'on' : ''}" data-act="mode" data-mode="${k}">${label}</button>`).join('')}</div>`
+        : `<p style="margin:0;font-weight:800">${esc(PICK_MODES[s.mode] ?? PICK_MODES.random)}</p>`}
+      <p class="muted small" style="margin:6px 0 0">${s.mode === 'each' ? '自作のお題を持ってきた人から1つずつ必ず出します' : '全員のお題から、自作のお題を優先してランダムに選びます'}</p>
       <div style="margin-top:16px">
       ${net.isHost
         ? `<button class="primary wide" data-act="start" ${s.startError ? 'disabled' : ''}>ゲーム開始</button>
@@ -1224,6 +1240,7 @@ app.addEventListener('click', e => {
     // ルーム
     case 'start': case 'force': case 'next': case 'lobby': case 'reveal-all': send({ t: act }); return;
     case 'kick': send({ t: 'kick', id }); return;
+    case 'mode': send({ t: 'mode', mode: el.dataset.mode }); return;
     case 'share':
       navigator.share({ title: 'ティアリストウォーズ', text: `ティアリストウォーズで遊ぼう！ 部屋コード: ${pub.code}`, url: `${location.origin}${location.pathname}?room=${encodeURIComponent(pub.code)}` }).catch(() => {});
       return;
