@@ -164,6 +164,8 @@
     border-radius: 14px; padding: 10px 14px; font-size: 13px; font-weight: 700; box-shadow: 0 4px 0 var(--ink); cursor: pointer; }
   .overlay { position: fixed; inset: 0; z-index: 60; background: rgba(31,45,61,.45); display: grid; place-items: center; padding: 16px; }
   .dialog { width: 100%; max-width: 380px; margin: 0; animation: pop .25s ease-out; }
+  .top-right { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-bottom: -36px; position: relative; z-index: 1; }
+  .ver { font-size: 12px; font-weight: 800; color: var(--muted); background: rgba(255,255,255,.7); border: 2px solid var(--line); border-radius: 999px; padding: 1px 8px; }
   .seg { display: flex; gap: 6px; }
   .seg button { flex: 1; font-size: 14px; box-shadow: none; border-width: 2px; border-color: var(--line); color: var(--muted); }
   .seg button.on { background: var(--sky); border-color: var(--ink); color: #fff; box-shadow: 0 3px 0 var(--ink); }
@@ -180,6 +182,8 @@
 <div id="app"></div>
 <script>
 // ===== 設定 =====
+// 公開のたびに上げる（仕様書の版＋同じ版の中での修正番号）。古い版を開いている人がいないか確かめるため
+const APP_VERSION = 'v0.7.1';
 const DEV = new URLSearchParams(location.search).has('dev'); // ?dev で最少2人から遊べる（動作確認用）
 const MIN_PLAYERS = DEV ? 2 : 4, MAX_PLAYERS = 10, MIN_OPT = 5, MAX_OPT = 50;
 const MIN_PICK = 5, MAX_PICK = 10; // 出題数（選択肢の中からランダムに出す数）
@@ -517,7 +521,7 @@ function hostHandle(pid, msg, conn) {
         p = { id: pid, key: clean(msg.key, 64), name, score: 0 };
         G.players.push(p);
       }
-      p.name = name; p.online = true;
+      p.name = name; p.online = true; p.version = clean(msg.version, 20) || '不明';
       if (G.phase === 'lobby' && tps.length) G.topicsBy[pid] = tps;
       break;
     }
@@ -594,7 +598,7 @@ function viewFor(id) {
   return {
     phase: G.phase, gameNo: G.gameNo, mode: G.mode, code: net.code, hostId: myId, me: id,
     players: G.players.map(p => ({
-      id: p.id, name: p.name, score: p.score, online: p.online !== false,
+      id: p.id, name: p.name, score: p.score, online: p.online !== false, version: p.version,
       topics: G.topicsBy[p.id]?.length ?? 0,
       done: G.phase === 'ranking' ? !!G.ranks[p.id] : G.phase === 'guess' && p.id !== tgt ? !!G.guesses[p.id] : null,
     })),
@@ -640,7 +644,7 @@ function hostRoom() {
     net = { peer, conn: null, isHost: true, code, hb: setInterval(hostHeartbeat, HEARTBEAT_MS) };
     G = newGame();
     view = 'room';
-    hostHandle(myId, { t: 'join', name: myName, topics: broughtTopics() });
+    hostHandle(myId, { t: 'join', name: myName, topics: broughtTopics(), version: APP_VERSION });
   });
   peer.on('connection', conn => {
     conn.lastSeen = Date.now();
@@ -702,7 +706,7 @@ function connectGuest(code) {
     if (!mine()) return;
     const conn = peer.connect(PREFIX + code, { reliable: true });
     net.conn = conn;
-    conn.on('open', () => conn.send({ t: 'join', id: myId, key: myKey, name: myName, topics: broughtTopics() }));
+    conn.on('open', () => conn.send({ t: 'join', id: myId, key: myKey, name: myName, topics: broughtTopics(), version: APP_VERSION }));
     conn.on('data', m => {
       if (!mine()) return;
       net.lastSeen = Date.now();
@@ -762,7 +766,7 @@ function normalizeState(s) {
   s.round = int(s.round); s.rounds = int(s.rounds); s.gameNo = int(s.gameNo);
   s.code = String(s.code ?? '');
   s.timeLeft = s.timeLeft == null ? null : int(s.timeLeft);
-  s.players = (s.players ?? []).map(p => ({ ...p, id: String(p.id ?? ''), score: int(p.score), topics: int(p.topics) }));
+  s.players = (s.players ?? []).map(p => ({ ...p, id: String(p.id ?? ''), version: String(p.version ?? ''), score: int(p.score), topics: int(p.topics) }));
   for (const k of ['myRank', 'myGuess']) if (s[k]) s[k] = ints(s[k]);
   if (s.reveal) {
     s.reveal.shown = int(s.reveal.shown);
@@ -874,7 +878,7 @@ function renderHome() {
       <p class="muted small" style="margin:14px 0 6px">部屋コードをもらった人はこちら</p>
       <div class="row">${codeInput}<button data-act="join" ${dis}>参加</button></div>`;
   return `
-  <div style="text-align:right;margin-bottom:-36px">${soundBtn()}</div>
+  <div class="top-right"><span class="ver">${APP_VERSION}</span>${soundBtn()}</div>
   ${LOGO}
   <p class="sub">あの人の「順位」、当てられる？</p>
   <section class="card">
@@ -1067,6 +1071,11 @@ function renderRoom() {
     <section class="card">
       <h2>参加者 ${s.players.length}/${MAX_PLAYERS}</h2>
       ${playersHTML(s)}
+      ${(() => {
+        const hostVer = s.players.find(p => p.id === s.hostId)?.version;
+        const old = s.players.filter(p => p.version !== hostVer);
+        return old.length ? `<div class="notice">⚠ ホスト（${esc(hostVer)}）と違う版の人がいます：${old.map(p => `${esc(p.name)}さん（${esc(p.version)}）`).join('、')}。ページを再読み込みしてもらってください</div>` : '';
+      })()}
       <h2 style="margin-top:16px">出題方式</h2>
       ${net.isHost
         ? `<div class="seg">${Object.entries(PICK_MODES).map(([k, label]) => `<button class="${s.mode === k ? 'on' : ''}" data-act="mode" data-mode="${k}">${label}</button>`).join('')}</div>`
