@@ -91,6 +91,7 @@
 |---|---|
 | `index.html` | ゲーム本体（HTML 1枚で完結。ビルド不要） |
 | `docs/spec.md` | 仕様書。**仕様の唯一の正** |
+| `docs/architecture.md` | 技術構成（どう作るか）。React ＋ Vite ＋ TypeScript への移行案 |
 | `docs/backlog.md` | やりたいこと・改善案の一覧と優先度 |
 | `docs/playtest-log.md` | テストプレイの記録 |
 
