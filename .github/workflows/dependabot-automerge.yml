@@ -1,6 +1,6 @@
 # Dependabot の PR を区分けする（方針は docs/dependency-policy.md の2章）
 #   小     → 自動マージを予約する（チェックが全部通った時点で GitHub がマージする。main のルールでチェックを必須にしている）
-#   中・大 → 「要解析」を付けて持ち主を担当にする（毎朝の一次解析が拾う）
+#   中・大 → 「要解析」を付けて持ち主を担当にする（持ち主が頼んだときの一次解析で扱う）
 name: dependabot-triage
 
 on: pull_request
