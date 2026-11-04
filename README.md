@@ -85,25 +85,35 @@
 
 ## 開発者向け
 
+React ＋ Vite ＋ TypeScript で作っています。構成と方針は [docs/architecture.md](docs/architecture.md) を見てください。
+
 ### 構成
 
-| ファイル | 内容 |
+| 場所 | 内容 |
 |---|---|
-| `index.html` | ゲーム本体（HTML 1枚で完結。ビルド不要） |
-| `docs/spec.md` | 仕様書。**仕様の唯一の正** |
-| `docs/architecture.md` | 技術構成（どう作るか）。React ＋ Vite ＋ TypeScript への移行案 |
-| `docs/backlog.md` | やりたいこと・改善案の一覧と優先度 |
-| `docs/playtest-log.md` | テストプレイの記録 |
-
-- 通信には [PeerJS](https://peerjs.com/) 1.5.4（WebRTC）を使っています。CDN から読み込み、改ざん防止のハッシュ（SRI）で中身を照合しています
+| `src/core/` | どのモードでも共通のルール（部屋・参加・開始など）。画面も通信も使わない |
+| `src/modes/tier/` | 今のモードのルール（`rules.ts`）、見せる情報（`view.ts`）、専用の画面（`screens/`） |
+| `src/net/` | P2P 通信（PeerJS、見張り、自動再接続） |
+| `src/app/` `src/ui/` | 画面と、共通の画面部品 |
+| `src/audio/` `src/storage/` | 音、端末への保存 |
+| `tests/` | ルールの自動テストと、CPU同士のシミュレーション |
+| `docs/` | 仕様書（`spec.md`、仕様の唯一の正）、技術構成、バックログ、テスト記録 |
+| `legacy/v0.8.0.html` | 作り直す前の版（参照用。公開はされない） |
 
 ### 手元で動かす
 
 ```bash
-python3 -m http.server 8765
+npm install
+npm run dev
 ```
 
-http://localhost:8765/ を開きます。URL の末尾に `?dev` を付けると、2人から開始できます（動作確認用）。同じブラウザでもタブごとに別の参加者になるので、タブを複数開けば1人で通しで試せます。
+表示された URL（http://localhost:5173/ など）を開きます。URL の末尾に `?dev` を付けると、2人から開始できます（動作確認用）。同じブラウザでもタブごとに別の参加者になるので、タブを複数開けば1人で通しで試せます。`?dev` のときは、開発者ツールから `__tlw.store`（画面の状態）と `__tlw.session`（通信）を触れます。
+
+```bash
+npm test
+```
+
+ルールの自動テストと、300ゲームのシミュレーションが走ります。
 
 ### 進め方
 
@@ -113,6 +123,6 @@ http://localhost:8765/ を開きます。URL の末尾に `?dev` を付けると
 
 ### 公開
 
-`main` ブランチに push すると、GitHub Pages に1〜2分で反映されます。
+`main` ブランチに push すると、GitHub Actions がテスト → ビルド → GitHub Pages への公開を行います（1〜2分）。テストが通らないと公開されません。
 
-公開するたびに `index.html` の `APP_VERSION` を上げてください（ホーム右上に表示され、ホストと違う版の参加者がいるとロビーで警告が出ます）。
+公開するたびに `package.json` の `version` を上げてください。ホーム右上に表示され（マウスを載せるとコミットのIDも出ます）、ホストと違う版の参加者がいるとロビーで警告が出ます。

@@ -1,0 +1,45 @@
+// 端末に保存するもの。キー名は v0.8 と同じにして、今までのお題・名前・音の設定をそのまま読めるようにする
+import { pickCount, SAMPLE_TOPICS, type Topic } from '../core/topics';
+
+const uid = () => Math.random().toString(36).slice(2, 10);
+
+const local = {
+  get<T>(k: string, d: T): T { try { return JSON.parse(localStorage.getItem(k) ?? 'null') ?? d; } catch { return d; } },
+  set(k: string, v: unknown) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* 保存できない環境でも遊べるようにする */ } },
+};
+const session = {
+  get(k: string, make: () => string) {
+    try { const v = sessionStorage.getItem(k) || make(); sessionStorage.setItem(k, v); return v; } catch { return make(); }
+  },
+  set(k: string, v: string) { try { sessionStorage.setItem(k, v); } catch { /* 同上 */ } },
+};
+
+// 端末に保存しているお題（id と「持っていく」を含む）
+export interface StoredTopic extends Topic { id: string; bring: boolean }
+
+export function loadTopics(): StoredTopic[] {
+  const saved = local.get<Partial<StoredTopic>[] | null>('tlw-topics', null);
+  if (!saved) return SAMPLE_TOPICS.map(([title, options]) => ({ id: uid(), title, options, count: options.length, bring: true }));
+  // v0.5 以前のお題には出題数がない
+  return saved.filter(t => t && t.title && Array.isArray(t.options)).map(t => ({
+    id: t.id ?? uid(), title: t.title!, options: t.options!, count: pickCount(t as Topic), bring: t.bring !== false,
+  }));
+}
+export const saveTopics = (topics: StoredTopic[]) => local.set('tlw-topics', topics);
+export const broughtTopics = (topics: StoredTopic[]): Topic[] =>
+  topics.filter(t => t.bring).map(t => ({ title: t.title, options: t.options, count: pickCount(t) }));
+export const newTopicId = uid;
+
+export const loadName = () => local.get('tlw-name', '');
+export const saveName = (name: string) => local.set('tlw-name', name);
+
+export type SoundMode = 'all' | 'se' | 'off';
+export const loadSoundMode = (): SoundMode => local.get<SoundMode>('tlw-sound', 'all');
+export const saveSoundMode = (m: SoundMode) => local.set('tlw-sound', m);
+
+// タブごとに別プレイヤーとして扱う（リロードしても同じ人として復帰できる）。
+// myId は他の参加者にも見えるので、なりすまし防止に本人だけが知る myKey を併せて送る
+export const myId = session.get('tlw-id', () => uid() + uid());
+export const myKey = session.get('tlw-key', () => uid() + uid() + uid());
+export const loadLastRoom = () => session.get('tlw-room', () => '');
+export const saveLastRoom = (code: string) => session.set('tlw-room', code);
