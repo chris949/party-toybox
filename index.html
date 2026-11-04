@@ -183,7 +183,7 @@
 <script>
 // ===== 設定 =====
 // 公開のたびに上げる（仕様書の版＋同じ版の中での修正番号）。古い版を開いている人がいないか確かめるため
-const APP_VERSION = 'v0.7.1';
+const APP_VERSION = 'v0.8.0';
 const DEV = new URLSearchParams(location.search).has('dev'); // ?dev で最少2人から遊べる（動作確認用）
 const MIN_PLAYERS = DEV ? 2 : 4, MAX_PLAYERS = 10, MIN_OPT = 5, MAX_OPT = 50;
 const MIN_PICK = 5, MAX_PICK = 10; // 出題数（選択肢の中からランダムに出す数）
@@ -191,7 +191,7 @@ const PREFIX = 'tierlistwars-v1-';
 const ROOM_CODE_LEN = 6;
 const PERFECT_BONUS = 3;
 const REVEAL_FIRST_MS = 2000, REVEAL_STEP_MS = 3000, REVEAL_SUSPENSE_MS = 2000; // めくりの間隔（暫定値）
-const PICK_TIME_MS = 30000, PICK_GRACE_MS = 1500; // 並び替えの制限時間（暫定値）と、通信の遅れを見込んだ猶予
+const PICK_TIME_MS = 60000, PICK_GRACE_MS = 1500; // 並び替えの制限時間（暫定値）と、通信の遅れを見込んだ猶予
 const HEARTBEAT_MS = 3000, DEAD_MS = 10000, GIVEUP_MS = 15000; // 接続の見張り：合図の間隔／切れたとみなす時間／再接続をあきらめる時間
 
 // ===== 共通 =====
@@ -435,7 +435,21 @@ function startPickTimer() {
 }
 function stopPickTimer() { clearTimeout(pickTimer); pickTimer = null; if (G) G.deadline = 0; }
 
+// 途中までの並び（空きは null）の空きを、残りの選択肢でランダムに埋める。おかしな値は捨てて埋め直す
+function fillRandom(order, n) {
+  const slots = Array.from({ length: n }, (_, i) => Array.isArray(order) ? order[i] : null);
+  const seen = new Set();
+  for (let i = 0; i < n; i++) {
+    const v = slots[i];
+    if (!Number.isInteger(v) || v < 0 || v >= n || seen.has(v)) slots[i] = null; else seen.add(v);
+  }
+  const rest = shuffle([...Array(n).keys()].filter(i => !seen.has(i)));
+  return slots.map(v => v ?? rest.pop());
+}
+
+// 準備フェーズを締める。問題数を参加人数とそろえるため、並べていない人の分はランダムに埋めて、全員を当てられる側にする
 function toGuess() {
+  for (const p of G.players) if (G.assign[p.id] && !G.ranks[p.id]) G.ranks[p.id] = fillRandom([], G.assign[p.id].options.length);
   G.order = shuffle(G.players.filter(p => G.ranks[p.id]).map(p => p.id));
   G.round = 0; G.guesses = {};
   G.phase = G.order.length ? 'guess' : 'result';
@@ -525,11 +539,15 @@ function hostHandle(pid, msg, conn) {
       if (G.phase === 'lobby' && tps.length) G.topicsBy[pid] = tps;
       break;
     }
-    case 'rank':
-      if (G.phase !== 'ranking' || !G.assign[pid] || !validOrder(msg.order, G.assign[pid].options.length)) return;
-      G.ranks[pid] = msg.order;
+    case 'rank': {
+      if (G.phase !== 'ranking' || !G.assign[pid]) return;
+      // 時間切れで途中までしか並べていないときは、空きをランダムに埋める（partial）
+      const order = msg.partial ? fillRandom(msg.order, G.assign[pid].options.length) : msg.order;
+      if (!validOrder(order, G.assign[pid].options.length)) return;
+      G.ranks[pid] = order;
       checkAdvance();
       break;
+    }
     case 'guess': {
       const tgt = currentTarget();
       if (G.phase !== 'guess' || msg.round !== G.round || pid === tgt || !validOrder(msg.order, G.assign[tgt].options.length)) return;
@@ -811,7 +829,7 @@ function send(msg) {
 function submitPick() {
   if (!pub || pending) return;
   const order = [...picker.slots];
-  if (pub.phase === 'ranking') pending = { t: 'rank', order };
+  if (pub.phase === 'ranking') pending = { t: 'rank', order, partial: !pickerFull() };
   else if (pub.phase === 'guess') pending = { t: 'guess', round: pub.round, order };
   else return;
   pending.key = `${pub.phase}-${pub.gameNo}-${pub.round}`;
@@ -978,7 +996,7 @@ function pickerHTML(options, key) {
   const n = options.length, slots = picker.slots;
   const pool = options.map((_, i) => i).filter(i => !slots.includes(i));
   const left = pool.length, nextEmpty = slots.indexOf(null);
-  if (!pending && timeIsUp()) return `<div class="timeup pop">時間切れ！</div><p class="muted small" style="text-align:center">今回は未提出です</p>`;
+  if (!pending && timeIsUp()) return `<div class="timeup pop">時間切れ！</div><p class="muted small" style="text-align:center">${pub.phase === 'ranking' ? '並べられなかった分は、ランダムで埋めます' : '今回は未提出です（0点）'}</p>`;
   const done = left === 0;
   const btn = pending ? '送信中…' : done ? 'この順位で決定' : `あと${left}つ並べると決定できます`;
   return `
@@ -1024,8 +1042,9 @@ setInterval(() => {
   el.parentElement.classList.toggle('warn', sec <= 5);
   if (sec > 0 && sec <= 5 && needsToPick() && !pending) Sound.play('tick');
   if (sec === 0) {
-    // 並べ終えていれば、決定を押していなくても提出する。並べ終えていなければ未提出
-    if (needsToPick() && !pending && pickerFull()) submitPick();
+    // 並べ終えていれば、決定を押していなくても提出する。
+    // 並べ終えていないとき、準備フェーズは途中までを送ってホストに残りをランダムで埋めてもらう。予想フェーズは未提出
+    if (needsToPick() && !pending && (pickerFull() || pub.phase === 'ranking')) submitPick();
     else if (!drag) render();
   }
 }, 200);
