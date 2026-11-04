@@ -140,6 +140,32 @@
   .rank-row .nm { flex: 1; }
   .pop { animation: pop .4s cubic-bezier(.2, 1.6, .4, 1); }
   @keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: none; opacity: 1; } }
+  /* 制限時間 */
+  .timer { display: inline-flex; align-items: center; gap: 2px; background: #fff; border: 2px solid var(--ink); border-radius: 999px;
+    padding: 1px 12px; font-size: 14px; font-weight: 800; }
+  .timer b { font-size: 18px; min-width: 1.4em; text-align: center; }
+  .timer.warn { background: var(--coral); color: #fff; animation: pulse 1s infinite; }
+  @keyframes pulse { 50% { transform: scale(1.08); } }
+  .timeup { text-align: center; font-size: 30px; font-weight: 900; color: var(--coral); margin: 18px 0 4px; }
+
+  /* ドラッグ＆ドロップ */
+  .chip, .grip { touch-action: none; }
+  .grip { display: inline-block; color: var(--muted); margin: -8px 8px -8px -6px; padding: 8px 4px; font-size: 18px; cursor: grab; }
+  .dragging { opacity: .3; }
+  .drag-ghost { position: fixed; left: 0; top: 0; z-index: 50; pointer-events: none; margin: 0; box-shadow: 0 10px 20px rgba(31,45,61,.25) !important;
+    background: #fff; border: 2.5px solid var(--ink); border-radius: 12px; min-height: 42px; padding: 0 14px; display: flex; align-items: center; font-weight: 700; }
+  .slot.drop .item, .slot.drop .empty { outline: 3px dashed var(--coral); outline-offset: 2px; }
+
+  /* 音・お知らせ */
+  button.sound { width: 40px; padding: 0; font-size: 16px; }
+  .banner { position: sticky; top: 8px; z-index: 20; background: var(--sun); border: 2.5px solid var(--ink); border-radius: 14px;
+    padding: 8px 12px; margin-bottom: 12px; font-weight: 800; font-size: 14px; text-align: center; box-shadow: 0 3px 0 var(--ink); }
+  #err { position: fixed; left: 12px; right: 12px; top: 12px; z-index: 100; background: var(--miss); border: 2.5px solid var(--coral);
+    border-radius: 14px; padding: 10px 14px; font-size: 13px; font-weight: 700; box-shadow: 0 4px 0 var(--ink); cursor: pointer; }
+  .stepper { justify-content: center; gap: 16px; }
+  .stepper button { width: 48px; font-size: 22px; padding: 0; }
+  .count-val { flex: none !important; font-size: 22px; font-weight: 900; min-width: 3em; text-align: center; }
+  button { touch-action: manipulation; }
   details summary { cursor: pointer; font-weight: 800; }
   ol.rules { padding-left: 20px; margin: 10px 0 0; }
   ol.rules li { margin-bottom: 4px; }
@@ -150,11 +176,14 @@
 <script>
 // ===== 設定 =====
 const DEV = new URLSearchParams(location.search).has('dev'); // ?dev で最少2人から遊べる（動作確認用）
-const MIN_PLAYERS = DEV ? 2 : 4, MAX_PLAYERS = 10, MIN_OPT = 5, MAX_OPT = 10;
+const MIN_PLAYERS = DEV ? 2 : 4, MAX_PLAYERS = 10, MIN_OPT = 5, MAX_OPT = 50;
+const MIN_PICK = 5, MAX_PICK = 10; // 出題数（選択肢の中からランダムに出す数）
 const PREFIX = 'tierlistwars-v1-';
 const ROOM_CODE_LEN = 6;
 const PERFECT_BONUS = 3;
 const REVEAL_FIRST_MS = 2000, REVEAL_STEP_MS = 3000, REVEAL_SUSPENSE_MS = 2000; // めくりの間隔（暫定値）
+const PICK_TIME_MS = 30000, PICK_GRACE_MS = 1500; // 並び替えの制限時間（暫定値）と、通信の遅れを見込んだ猶予
+const HEARTBEAT_MS = 3000, DEAD_MS = 10000, GIVEUP_MS = 15000; // 接続の見張り：合図の間隔／切れたとみなす時間／再接続をあきらめる時間
 
 // ===== 共通 =====
 const $ = s => document.querySelector(s);
@@ -169,6 +198,92 @@ const store = {
 };
 const TIER_COLORS = ['#ff6f6f', '#ff9f43', '#ffc83d', '#bde05a', '#36c99a', '#4ac3d6', '#4aa6f0'];
 const tierColor = (r, n) => TIER_COLORS[n <= 1 ? 0 : Math.round((r / (n - 1)) * (TIER_COLORS.length - 1))];
+
+// ===== 音（BGM と効果音をブラウザの中で合成する。音源ファイルは使わない） =====
+const Sound = (() => {
+  let ctx = null, bgmGain, seGain, noiseBuf, bgmTimer = null, nextTime = 0, step = 0;
+  let mode = store.get('tlw-sound', 'all'); // all（BGM＋効果音） | se（効果音だけ） | off
+  const midi = m => 440 * 2 ** ((m - 69) / 12);
+  function ensure() {
+    if (!ctx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      ctx = new AC();
+      bgmGain = ctx.createGain(); seGain = ctx.createGain();
+      bgmGain.connect(ctx.destination); seGain.connect(ctx.destination);
+      noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+      const d = noiseBuf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    if (ctx.state === 'suspended') ctx.resume();
+    bgmGain.gain.value = mode === 'all' ? 0.05 : 0; // 通話の声を邪魔しない小さめの音量
+    seGain.gain.value = mode === 'off' ? 0 : 0.2;
+    if (mode === 'all') startBgm(); else stopBgm();
+  }
+  function tone(freq, t, dur, type, gain, dest = seGain) {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(gain, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(dest); o.start(t); o.stop(t + dur + 0.05);
+    return o;
+  }
+  function noise(t, dur, gain, dest = seGain, cutoff = 3000) {
+    const src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+    src.buffer = noiseBuf; f.type = 'highpass'; f.frequency.value = cutoff;
+    g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f); f.connect(g); g.connect(dest); src.start(t); src.stop(t + dur + 0.05);
+  }
+  // BGM：C–Am–F–G をくり返す軽いループ。少し先まで予約して鳴らす
+  const EIGHTH = 60 / 112 / 2;
+  const CHORDS = [[60, 64, 67], [57, 60, 64], [53, 57, 60], [55, 59, 62]];
+  const ARP = [0, 1, 2, 1, 0, 1, 2, 1];
+  function schedule() {
+    while (nextTime < ctx.currentTime + 0.4) {
+      const ch = CHORDS[Math.floor(step / 8) % 4], beat = step % 8;
+      if (beat % 4 === 0) tone(midi(ch[0] - 24), nextTime, EIGHTH * 3.5, 'sine', 0.9, bgmGain);
+      tone(midi(ch[ARP[beat]] + 12), nextTime, EIGHTH * 0.9, 'triangle', 0.3, bgmGain);
+      if (beat % 2 === 1) noise(nextTime, 0.04, 0.12, bgmGain, 7000);
+      nextTime += EIGHTH; step++;
+    }
+  }
+  function startBgm() { if (bgmTimer) return; nextTime = ctx.currentTime + 0.1; bgmTimer = setInterval(schedule, 120); }
+  function stopBgm() { clearInterval(bgmTimer); bgmTimer = null; }
+  const SFX = {
+    click: t => tone(880, t, 0.08, 'sine', 0.5),
+    start: t => [67, 72].forEach((m, i) => tone(midi(m), t + i * 0.1, 0.15, 'triangle', 0.6)),
+    pop: t => tone(520, t, 0.2, 'triangle', 0.8).frequency.exponentialRampToValueAtTime(1040, t + 0.12),
+    tick: t => tone(1320, t, 0.05, 'square', 0.2),
+    drumroll: t => { for (let i = 0; i < 26; i++) noise(t + i * 0.07, 0.06, 0.25 + i * 0.02, seGain, 1200); },
+    fanfare: t => [72, 76, 79, 84].forEach((m, i) => tone(midi(m), t + i * 0.11, i === 3 ? 0.7 : 0.16, 'triangle', 0.7)),
+    perfect: t => [84, 88, 91, 96, 91, 96].forEach((m, i) => tone(midi(m), t + i * 0.07, 0.14, 'sine', 0.45)),
+  };
+  return {
+    ensure,
+    get mode() { return mode; },
+    cycle() { mode = mode === 'all' ? 'se' : mode === 'se' ? 'off' : 'all'; store.set('tlw-sound', mode); ensure(); },
+    play(name, delay = 0) { if (ctx && mode !== 'off' && ctx.state === 'running') SFX[name]?.(ctx.currentTime + 0.02 + delay); },
+  };
+})();
+// ブラウザの決まりで、最初に画面に触れるまでは音を出せない
+document.addEventListener('pointerdown', () => Sound.ensure(), true);
+document.addEventListener('keydown', () => Sound.ensure(), true);
+const SOUND_ICON = { all: '🔊', se: '🔔', off: '🔇' };
+const SOUND_LABEL = { all: 'BGM＋効果音', se: '効果音だけ', off: '音なし' };
+const soundBtn = () => `<button class="small sound" data-act="sound" title="${SOUND_LABEL[Sound.mode]}（押すと切り替え）">${SOUND_ICON[Sound.mode]}</button>`;
+
+// 状態が変わったときの効果音
+function playStateSounds(prev, next) {
+  const turn = x => x && `${x.phase}-${x.gameNo}-${x.round}`;
+  if ((next.phase === 'ranking' || next.phase === 'guess') && turn(prev) !== turn(next)) Sound.play('start');
+  const r = next.reveal;
+  if (!r) return;
+  const pr = prev?.phase === 'reveal' && prev.round === next.round ? prev.reveal : null;
+  if (r.suspense && !pr?.suspense) Sound.play('drumroll');
+  if (r.shown > (pr?.shown ?? 0)) Sound.play(r.shown >= r.answer.length ? 'fanfare' : 'pop');
+  if (r.done && !pr?.done && r.rows.some(row => row.hits === r.answer.length)) Sound.play('perfect', 0.8);
+}
 
 // タブごとに別プレイヤーとして扱う（リロードしても同じ人として復帰できる）
 // myId は他の参加者にも見えるので、なりすまし防止に本人だけが知る myKey を併せて送る
@@ -196,7 +311,9 @@ const SAMPLE_TOPICS = [
 ];
 let topics = store.get('tlw-topics', null) ?? SAMPLE_TOPICS.map(([title, options]) => ({ id: uid(), title, options, bring: true }));
 const saveTopics = () => store.set('tlw-topics', topics);
-const broughtTopics = () => topics.filter(t => t.bring).map(t => ({ title: t.title, options: t.options }));
+// 出題数の既定値：v0.5 以前のお題とサンプルは、選択肢の数（最大10）をそのまま出す
+const pickCount = t => Math.max(MIN_PICK, Math.min(MAX_PICK, t.options.length, Math.trunc(t.count) || t.options.length));
+const broughtTopics = () => topics.filter(t => t.bring).map(t => ({ title: t.title, options: t.options, count: pickCount(t) }));
 
 // ===== 画面状態 =====
 let view = 'home';           // home | topics | edit | room
@@ -204,15 +321,28 @@ let editing = null;          // 編集中のお題
 let notice = '';
 let net = { peer: null, conn: null, isHost: false, code: '' };
 let pub = null;              // ホストから届いた自分向けの状態
-let picker = { key: '', placed: [] };
+// 並び替え中の枠。slots[順位] = 選択肢の番号（空きは null）
+let picker = { key: '', slots: [] };
+const pickerFull = () => picker.slots.length > 0 && picker.slots.every(v => v != null);
+// 枠 t に item を入れる。埋まっていれば下（なければ上）の空きまで1つずつずらす
+function putInSlot(item, t) {
+  const sl = picker.slots;
+  if (sl[t] == null) { sl[t] = item; return; }
+  let gap = sl.indexOf(null, t);
+  if (gap >= 0) { for (let i = gap; i > t; i--) sl[i] = sl[i - 1]; }
+  else { gap = sl.lastIndexOf(null, t); for (let i = gap; i < t; i++) sl[i] = sl[i + 1]; }
+  sl[t] = item;
+}
 let connecting = false;
+let pending = null, pendingTimer = null; // 送信してホストの受け取りを待っている並び替え
+let reconnectSince = 0;                  // 自動再接続を始めた時刻（0 = 再接続中ではない）
 
 // ===== ホスト側のゲーム進行 =====
 let G = null;
 const conns = {};
 
 function newGame(gameNo = 1, players = []) {
-  return { gameNo, phase: 'lobby', players, topicsBy: {}, assign: {}, ranks: {}, order: [], round: 0, guesses: {}, reveal: null };
+  return { gameNo, phase: 'lobby', players, topicsBy: {}, assign: {}, ranks: {}, order: [], round: 0, guesses: {}, reveal: null, deadline: 0 };
 }
 const online = () => G.players.filter(p => p.online);
 const nameOf = id => G.players.find(p => p.id === id)?.name ?? '???';
@@ -220,10 +350,10 @@ const currentTarget = () => (G.phase === 'guess' || G.phase === 'reveal') ? G.or
 
 function sanitizeTopics(list) {
   if (!Array.isArray(list)) return [];
-  return list.slice(0, 50).map(t => ({
-    title: clean(t?.title, 60),
-    options: Array.isArray(t?.options) ? t.options.map(o => clean(o, 40)).filter(Boolean).slice(0, MAX_OPT) : [],
-  })).filter(t => t.title && t.options.length >= MIN_OPT);
+  return list.slice(0, 50).map(t => {
+    const options = Array.isArray(t?.options) ? [...new Set(t.options.map(o => clean(o, 40)).filter(Boolean))].slice(0, MAX_OPT) : [];
+    return { title: clean(t?.title, 60), options, count: pickCount({ options, count: t?.count }) };
+  }).filter(t => t.title && t.options.length >= MIN_OPT);
 }
 const validOrder = (o, n) => Array.isArray(o) && o.length === n && new Set(o).size === n && o.every(i => Number.isInteger(i) && i >= 0 && i < n);
 
@@ -265,17 +395,38 @@ function startGame() {
     const own = pick.filter((t, k) => t.authorId === players[k].id).length;
     if (own < bestOwn) { best = pick; bestOwn = own; }
   }
+  // 配ったお題ごとに、選択肢から出題数だけランダムに選ぶ（並びもシャッフル）
   G.assign = {};
-  players.forEach((p, k) => { G.assign[p.id] = best[k]; });
+  players.forEach((p, k) => {
+    const t = best[k];
+    G.assign[p.id] = { title: t.title, options: shuffle(t.options).slice(0, t.count), authorId: t.authorId, authorName: t.authorName };
+  });
   G.players.forEach(p => { p.score = 0; });
   G.ranks = {}; G.guesses = {}; G.reveal = null;
   G.phase = 'ranking';
+  startPickTimer();
 }
+
+// 並び替えの制限時間。ホストが管理し、締め切りの少しあとで締める（時間切れの人は未提出扱い）
+let pickTimer = null;
+function startPickTimer() {
+  clearTimeout(pickTimer);
+  G.deadline = Date.now() + PICK_TIME_MS;
+  pickTimer = setTimeout(() => {
+    if (!G) return;
+    if (G.phase === 'ranking') toGuess();
+    else if (G.phase === 'guess') toReveal();
+    else return;
+    broadcast();
+  }, PICK_TIME_MS + PICK_GRACE_MS);
+}
+function stopPickTimer() { clearTimeout(pickTimer); pickTimer = null; if (G) G.deadline = 0; }
 
 function toGuess() {
   G.order = shuffle(G.players.filter(p => G.ranks[p.id]).map(p => p.id));
   G.round = 0; G.guesses = {};
   G.phase = G.order.length ? 'guess' : 'result';
+  if (G.phase === 'guess') startPickTimer(); else stopPickTimer();
 }
 
 // 答え合わせ：最下位から1位へ自動でめくる。shown = めくり済みの数（下から数える）
@@ -288,8 +439,10 @@ function toReveal() {
     const pts = hits + (hits === answer.length ? PERFECT_BONUS : 0);
     return { id: p.id, name: p.name, order, hits, pts };
   });
-  G.reveal = { answer, rows, shown: 0, suspense: false, done: false };
+  const timeouts = G.players.filter(p => p.id !== tgt && p.online && !G.guesses[p.id]).map(p => p.name);
+  G.reveal = { answer, rows, timeouts, shown: 0, suspense: false, done: false };
   G.phase = 'reveal';
+  stopPickTimer();
   scheduleReveal(REVEAL_FIRST_MS);
 }
 
@@ -388,6 +541,7 @@ function hostHandle(pid, msg, conn) {
       if (!isHostMe || G.phase !== 'reveal' || !G.reveal.done) return;
       G.round++; G.guesses = {}; G.reveal = null;
       G.phase = G.round < G.order.length ? 'guess' : 'result';
+      if (G.phase === 'guess') startPickTimer();
       break;
     case 'lobby': {
       if (!isHostMe || G.phase !== 'result') return;
@@ -432,6 +586,7 @@ function viewFor(id) {
       done: G.phase === 'ranking' ? !!G.ranks[p.id] : G.phase === 'guess' && p.id !== tgt ? !!G.guesses[p.id] : null,
     })),
     startError: G.phase === 'lobby' ? canStart() : null,
+    timeLeft: (G.phase === 'ranking' || G.phase === 'guess') && G.deadline ? Math.max(0, G.deadline - Date.now()) : null,
     myTopic: G.assign[id] ?? null,
     myRank: G.ranks[id] ?? null,
     round: G.round, rounds: G.order.length,
@@ -444,7 +599,7 @@ function viewFor(id) {
 function broadcast() {
   for (const p of G.players) {
     const v = viewFor(p.id);
-    if (p.id === myId) { pub = v; render(); }
+    if (p.id === myId) setPub(v);
     else if (conns[p.id]?.open) conns[p.id].send({ t: 'state', state: v });
   }
 }
@@ -469,13 +624,15 @@ function hostRoom() {
   const peer = new Peer(PREFIX + code, { debug: 0 });
   peer.on('open', () => {
     connecting = false;
-    net = { peer, conn: null, isHost: true, code };
+    net = { peer, conn: null, isHost: true, code, hb: setInterval(hostHeartbeat, HEARTBEAT_MS) };
     G = newGame();
     view = 'room';
     hostHandle(myId, { t: 'join', name: myName, topics: broughtTopics() });
   });
   peer.on('connection', conn => {
+    conn.lastSeen = Date.now();
     conn.on('data', msg => {
+      conn.lastSeen = Date.now();
       if (msg?.t === 'join' && !conn.pid) {
         const pid = String(msg.id ?? '').replace(/[^A-Za-z0-9]/g, '').slice(0, 64); // 画面に出すので英数字のみ
         if (!pid || pid === myId) return conn.close();
@@ -483,7 +640,7 @@ function hostRoom() {
         const existing = G.players.find(x => x.id === pid);
         if (existing && existing.key !== clean(msg.key, 64)) return reject(conn, 'この参加者は既に部屋にいます');
         conn.pid = pid;
-        conns[pid]?.close();
+        if (conns[pid] && conns[pid] !== conn) { const old = conns[pid]; delete conns[pid]; old.close(); }
         conns[pid] = conn;
       }
       if (conn.pid && conns[conn.pid] === conn) hostHandle(conn.pid, msg, conn);
@@ -491,6 +648,7 @@ function hostRoom() {
     const gone = () => { if (conn.pid && conns[conn.pid] === conn) { delete conns[conn.pid]; hostLeave(conn.pid); } };
     conn.on('close', gone);
     conn.on('error', gone);
+    conn.gone = gone;
   });
   peer.on('disconnected', () => { if (!peer.destroyed) peer.reconnect(); }); // ブローカーが切れても既存の接続は生きている
   peer.on('error', e => {
@@ -499,32 +657,90 @@ function hostRoom() {
   });
 }
 
+// ホスト：3秒ごとに合図を送り、10秒何も届かない参加者は切れたとみなす
+// （スマホでブラウザが裏に回ると、切れても close が届かないことがあるため）
+function hostHeartbeat() {
+  for (const conn of Object.values(conns)) {
+    if (Date.now() - conn.lastSeen > DEAD_MS) { conn.gone(); try { conn.close(); } catch {} }
+    else if (conn.open) conn.send({ t: 'ping' });
+  }
+}
+
 function joinRoom(code) {
   if (!needPeer()) return;
   code = code.toUpperCase().replace(/[^A-Z0-9]/g, '');
   if (code.length !== ROOM_CODE_LEN) { notice = `部屋コード（${ROOM_CODE_LEN}文字）を入力してください`; render(); return; }
-  connecting = true; notice = ''; render();
+  connecting = true; notice = ''; reconnectSince = 0; render();
+  connectGuest(code);
+}
+
+// 参加者：ホストにつなぐ。初回の参加にも、切れたあとの自動再接続にも使う
+function connectGuest(code) {
   const peer = new Peer({ debug: 0 });
-  const timer = setTimeout(() => { if (view !== 'room') leaveRoom('接続できませんでした。コードを確認してください'); }, 15000);
+  net = { peer, conn: null, isHost: false, code, lastSeen: Date.now(), joined: false };
+  const mine = () => net.peer === peer;
+  const fail = msg => {
+    if (!mine()) return;
+    if (reconnectSince) retryReconnect(code);
+    else leaveRoom(msg);
+  };
+  const timer = setTimeout(() => { if (mine() && !net.joined) fail('接続できませんでした。コードを確認してください'); }, GIVEUP_MS);
   peer.on('open', () => {
+    if (!mine()) return;
     const conn = peer.connect(PREFIX + code, { reliable: true });
-    net = { peer, conn, isHost: false, code };
+    net.conn = conn;
     conn.on('open', () => conn.send({ t: 'join', id: myId, key: myKey, name: myName, topics: broughtTopics() }));
     conn.on('data', m => {
-      if (m?.t === 'state') {
-        clearTimeout(timer); connecting = false; pub = normalizeState(m.state); view = 'room';
+      if (!mine()) return;
+      net.lastSeen = Date.now();
+      if (m?.t === 'ping') conn.send({ t: 'pong' });
+      else if (m?.t === 'state') {
+        clearTimeout(timer);
+        const wasReconnecting = reconnectSince;
+        net.joined = true; reconnectSince = 0; connecting = false; view = 'room';
         lastRoom = code; session.set('tlw-room', code);
-        render();
+        setPub(normalizeState(m.state));
+        if (wasReconnecting && pending) sendPending(); // 切れている間に送れなかった並び替えを送り直す
       }
-      else if (m?.t === 'error') { clearTimeout(timer); leaveRoom(m.msg); }
+      else if (m?.t === 'error') { clearTimeout(timer); reconnectSince = 0; leaveRoom(m.msg); }
     });
-    conn.on('close', () => { if (net.conn === conn) leaveRoom('ホストとの接続が切れました。同じタブで「参加」を押すと、ゲーム中でも復帰できます（部屋が残っていれば）'); });
+    conn.on('close', () => { if (mine()) startReconnect(); });
   });
   peer.on('error', e => {
     clearTimeout(timer);
-    leaveRoom(e.type === 'peer-unavailable' ? '部屋が見つかりません' : '接続エラー: ' + e.type);
+    fail(e.type === 'peer-unavailable' ? '部屋が見つかりません' : '接続エラー: ' + e.type);
   });
 }
+
+// 切れたら、ホームに戻さず同じ人として入り直す。GIVEUP_MS たってもだめならホームへ
+function startReconnect() {
+  if (net.isHost || !net.joined || reconnectSince) return;
+  reconnectSince = Date.now();
+  const { peer, code } = net;
+  net.peer = null; // 古い接続からの通知を無視する
+  try { peer?.destroy(); } catch {}
+  render();
+  connectGuest(code);
+}
+function retryReconnect(code) {
+  const { peer } = net;
+  net.peer = null;
+  try { peer?.destroy(); } catch {}
+  if (Date.now() - reconnectSince > GIVEUP_MS) {
+    reconnectSince = 0;
+    leaveRoom('ホストとの接続が切れました。部屋が残っていれば、同じタブで「参加」を押すとゲーム中でも復帰できます');
+    return;
+  }
+  setTimeout(() => { if (reconnectSince) connectGuest(code); }, 1500);
+}
+
+// 参加者：ホストから10秒何も届かなければ再接続する。ブラウザに戻ってきたときは早めに確かめる
+setInterval(() => {
+  if (!net.isHost && net.joined && !reconnectSince && Date.now() - net.lastSeen > DEAD_MS) startReconnect();
+}, 2000);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && !net.isHost && net.joined && !reconnectSince && Date.now() - net.lastSeen > HEARTBEAT_MS + 1500) startReconnect();
+});
 
 // ホストから届いた状態の数値を数値に揃える（文字列は表示時に esc する）
 function normalizeState(s) {
@@ -532,23 +748,39 @@ function normalizeState(s) {
   const ints = a => Array.isArray(a) ? a.map(int) : [];
   s.round = int(s.round); s.rounds = int(s.rounds); s.gameNo = int(s.gameNo);
   s.code = String(s.code ?? '');
+  s.timeLeft = s.timeLeft == null ? null : int(s.timeLeft);
   s.players = (s.players ?? []).map(p => ({ ...p, id: String(p.id ?? ''), score: int(p.score), topics: int(p.topics) }));
   for (const k of ['myRank', 'myGuess']) if (s[k]) s[k] = ints(s[k]);
   if (s.reveal) {
     s.reveal.shown = int(s.reveal.shown);
     s.reveal.answer = ints(s.reveal.answer);
     s.reveal.rows = (s.reveal.rows ?? []).map(r => ({ ...r, hits: int(r.hits), pts: int(r.pts), order: ints(r.order) }));
+    s.reveal.timeouts = Array.isArray(s.reveal.timeouts) ? s.reveal.timeouts.map(String) : [];
   }
   return s;
 }
 
+// 自分向けの状態を受け取ったとき（ホスト自身も通る）。締め切りを自分の時計に直し、効果音と送信待ちを片付ける
+function setPub(next) {
+  const prev = pub;
+  next.localDeadline = next.timeLeft != null ? Date.now() + next.timeLeft : 0;
+  pub = next;
+  if (pending) {
+    const moved = pending.key !== `${next.phase}-${next.gameNo}-${next.round}`;
+    if (moved || (pending.t === 'rank' && next.myRank) || (pending.t === 'guess' && next.myGuess)) { pending = null; clearTimeout(pendingTimer); }
+  }
+  playStateSounds(prev, next);
+  render();
+}
+
 function leaveRoom(msg = '') {
   const peer = net.peer;
+  clearInterval(net.hb);
   net = { peer: null, conn: null, isHost: false, code: '' };
   try { peer?.destroy(); } catch {}
   for (const k in conns) delete conns[k];
-  stopRevealTimer();
-  G = null; pub = null; connecting = false;
+  stopRevealTimer(); clearTimeout(pickTimer);
+  G = null; pub = null; connecting = false; pending = null; reconnectSince = 0;
   view = 'home'; notice = msg;
   render();
 }
@@ -558,13 +790,40 @@ function send(msg) {
   else if (net.conn?.open) net.conn.send(msg);
 }
 
+// 並び替えを送る。ホストの受け取り（状態の更新）が3秒来なければ送り直し、それでもだめなら再接続する
+function submitPick() {
+  if (!pub || pending) return;
+  const order = [...picker.slots];
+  if (pub.phase === 'ranking') pending = { t: 'rank', order };
+  else if (pub.phase === 'guess') pending = { t: 'guess', round: pub.round, order };
+  else return;
+  pending.key = `${pub.phase}-${pub.gameNo}-${pub.round}`;
+  pending.tries = 0;
+  Sound.play('click');
+  render();
+  sendPending();
+}
+function sendPending() {
+  if (!pending) return;
+  const { key, tries, ...msg } = pending;
+  pending.tries++;
+  clearTimeout(pendingTimer);
+  pendingTimer = setTimeout(() => {
+    if (!pending) return;
+    if (pending.tries >= 2) startReconnect(); else sendPending();
+  }, 3000);
+  send(msg);
+}
+
 // ===== 描画 =====
 let lastScreen = '';
+let drag = null, suppressClick = false;
 function render() {
+  if (drag?.active) return; // ドラッグ中は描き直さない（落としたあとに描き直す）
   let html;
   if (view === 'edit') html = renderEdit();
   else if (view === 'topics') html = renderTopics();
-  else if (view === 'room' && pub) html = renderRoom();
+  else if (view === 'room' && pub) html = (reconnectSince ? '<div class="banner">ホストとの接続を確認しています… 再接続中</div>' : '') + renderRoom();
   else html = renderHome();
   // 画面（フェーズ）が変わったときだけ入場の動きを付ける。同じ画面の更新では動かさない
   const screen = view === 'room' && pub ? `room-${pub.phase}-${pub.round}` : view;
@@ -578,7 +837,7 @@ const LOGO = `<div class="logo">
   <div class="bands">${TIER_COLORS.filter((_, i) => i % 2 === 0 || i === 3).map(c => `<span style="background:${c}"></span>`).join('')}</div>
   <h1>ティアリスト<br><span class="w">ウォーズ</span></h1>
 </div>`;
-const TITLE_BAR = right => `<div class="bar"><h1>ティアリスト<span class="w">ウォーズ</span></h1>${right}</div>`;
+const TITLE_BAR = right => `<div class="bar"><h1>ティアリスト<span class="w">ウォーズ</span></h1><div class="row">${soundBtn()}${right}</div></div>`;
 
 function renderHome() {
   const prefill = new URLSearchParams(location.search).get('room') || lastRoom;
@@ -594,6 +853,7 @@ function renderHome() {
       <p class="muted small" style="margin:14px 0 6px">部屋コードをもらった人はこちら</p>
       <div class="row">${codeInput}<button data-act="join" ${dis}>参加</button></div>`;
   return `
+  <div style="text-align:right;margin-bottom:-36px">${soundBtn()}</div>
   ${LOGO}
   <p class="sub">あの人の「順位」、当てられる？</p>
   <section class="card">
@@ -636,7 +896,7 @@ function renderTopics() {
     ${topics.length ? topics.map(t => `
       <div class="topic">
         <label><input type="checkbox" data-act="bring" data-id="${t.id}" ${t.bring ? 'checked' : ''}>
-          <b>${esc(t.title)}</b><span class="muted small">${t.options.length}択</span></label>
+          <b>${esc(t.title)}</b><span class="muted small">${t.options.length}個から${pickCount(t)}個</span></label>
         <button data-act="edit" data-id="${t.id}">編集</button>
         <button class="danger" data-act="del" data-id="${t.id}">削除</button>
       </div>`).join('') : '<p class="muted">まだお題がありません</p>'}
@@ -661,6 +921,15 @@ function renderEdit() {
         <button data-act="opt-del" data-i="${i}" ${t.options.length <= MIN_OPT ? 'disabled' : ''}>✕</button>
       </div>`).join('')}
     <button class="wide" data-act="opt-add" ${t.options.length >= MAX_OPT ? 'disabled' : ''}>＋ 選択肢を追加</button>
+  </section>
+  <section class="card">
+    <h2>出題数</h2>
+    <p class="muted small" style="margin:0 0 10px">ゲームでは、選択肢の中からこの数だけランダムに出します（${MIN_PICK}〜${MAX_PICK}個）。多めに作っておくと、毎回違う組み合わせで遊べます。</p>
+    <div class="row stepper">
+      <button data-act="count-dec" ${t.count <= MIN_PICK ? 'disabled' : ''}>−</button>
+      <span class="count-val">${t.count}個</span>
+      <button data-act="count-inc" ${t.count >= Math.min(MAX_PICK, t.options.length) ? 'disabled' : ''}>＋</button>
+    </div>
     ${notice ? `<div class="notice">${esc(notice)}</div>` : ''}
   </section>
   <div class="row">
@@ -680,25 +949,61 @@ function playersHTML(s) {
 }
 
 function pickerHTML(options, key) {
-  if (picker.key !== key) picker = { key, placed: [] };
-  const n = options.length, placed = picker.placed;
-  const pool = options.map((_, i) => i).filter(i => !placed.includes(i));
+  if (picker.key !== key || picker.slots.length !== options.length) picker = { key, slots: Array(options.length).fill(null) };
+  const n = options.length, slots = picker.slots;
+  const pool = options.map((_, i) => i).filter(i => !slots.includes(i));
+  const left = pool.length, nextEmpty = slots.indexOf(null);
+  if (!pending && timeIsUp()) return `<div class="timeup pop">時間切れ！</div><p class="muted small" style="text-align:center">今回は未提出です</p>`;
+  const done = left === 0;
+  const btn = pending ? '送信中…' : done ? 'この順位で決定' : `あと${left}つ並べると決定できます`;
   return `
-    <p class="muted small">画面下の選択肢を1位から順にタップ。並べた項目をタップすると戻せます。</p>
+    <p class="muted small">画面下の選択肢をタップ、またはつかんで順位の枠へ。並べた項目は ⠿ をつかむか ▲▼ で入れ替え、タップで戻せます。</p>
     ${options.map((_, r) => {
-      const idx = placed[r];
-      return `<div class="slot"><span class="badge" style="background:${tierColor(r, n)}">${r + 1}</span>
-        ${idx != null ? `<button class="item" data-act="unplace" data-r="${r}">${esc(options[idx])}</button>
+      const idx = slots[r];
+      return `<div class="slot" data-slot="${r}"><span class="badge" style="background:${tierColor(r, n)}">${r + 1}</span>
+        ${idx != null ? `<button class="item" data-act="unplace" data-r="${r}" data-drag="placed"><span class="grip" aria-hidden="true">⠿</span>${esc(options[idx])}</button>
           <button class="mini" data-act="up" data-r="${r}" ${r === 0 ? 'disabled' : ''}>▲</button>
-          <button class="mini" data-act="down" data-r="${r}" ${r === placed.length - 1 ? 'disabled' : ''}>▼</button>`
+          <button class="mini" data-act="down" data-r="${r}" ${r === n - 1 ? 'disabled' : ''}>▼</button>`
         : '<span class="empty">　</span>'}</div>`;
     }).join('')}
     <div class="tray"><div class="tray-in">
-      <div class="hint">${placed.length < n ? `${placed.length + 1}位に入れるものをタップ（残り${n - placed.length}つ）` : '並べ終わりました。▲▼で入れ替えもできます'}</div>
-      ${pool.length ? `<div class="pool">${pool.map(i => `<button class="chip" data-act="place" data-i="${i}">${esc(options[i])}</button>`).join('')}</div>` : ''}
-      <button class="primary wide" data-act="submit-pick" ${placed.length < n ? 'disabled' : ''}>${placed.length < n ? `あと${n - placed.length}つ並べると決定できます` : 'この順位で決定'}</button>
+      <div class="hint">${done ? '並べ終わりました。⠿ や ▲▼ で入れ替えもできます' : `${nextEmpty + 1}位に入れるものをタップ（残り${left}つ）`}</div>
+      ${pool.length ? `<div class="pool">${pool.map(i => `<button class="chip" data-act="place" data-i="${i}" data-drag="pool">${esc(options[i])}</button>`).join('')}</div>` : ''}
+      <button class="primary wide" data-act="submit-pick" ${!done || pending ? 'disabled' : ''}>${btn}</button>
     </div></div>`;
 }
+
+// 制限時間
+const timeLeftMs = () => pub?.localDeadline ? pub.localDeadline - Date.now() : Infinity;
+const timeIsUp = () => timeLeftMs() <= 0;
+function timerHTML() {
+  if (!pub?.localDeadline) return '';
+  const sec = Math.max(0, Math.ceil(timeLeftMs() / 1000));
+  return `<span class="timer ${sec <= 5 ? 'warn' : ''}">⏱ <b id="timer">${sec}</b>秒</span>`;
+}
+// 自分がまだ並べる必要があるか
+function needsToPick() {
+  if (!pub) return false;
+  if (pub.phase === 'ranking') return !!pub.myTopic && !pub.myRank;
+  if (pub.phase === 'guess') return pub.target?.id !== pub.me && !pub.myGuess;
+  return false;
+}
+let shownSec = null;
+setInterval(() => {
+  const el = document.getElementById('timer');
+  if (!el || !pub?.localDeadline) { shownSec = null; return; }
+  const sec = Math.max(0, Math.ceil(timeLeftMs() / 1000));
+  if (sec === shownSec) return;
+  shownSec = sec;
+  el.textContent = sec;
+  el.parentElement.classList.toggle('warn', sec <= 5);
+  if (sec > 0 && sec <= 5 && needsToPick() && !pending) Sound.play('tick');
+  if (sec === 0) {
+    // 並べ終えていれば、決定を押していなくても提出する。並べ終えていなければ未提出
+    if (needsToPick() && !pending && pickerFull()) submitPick();
+    else if (!drag) render();
+  }
+}, 200);
 
 function orderHTML(options, order) {
   return order.map((idx, r) => `<div class="ans"><span class="badge" style="background:${tierColor(r, order.length)}">${r + 1}</span><span class="txt">${esc(options[idx])}</span></div>`).join('');
@@ -751,7 +1056,7 @@ function renderRoom() {
   } else if (s.phase === 'ranking') {
     const t = s.myTopic;
     body = `<section class="card">
-      <span class="status">準備フェーズ</span>
+      <div class="row" style="justify-content:space-between"><span class="status">準備フェーズ</span>${s.myRank ? '' : timerHTML()}</div>
       ${t ? `<div class="qtitle">${esc(t.title)}</div>
         <p class="muted small">作成: ${esc(t.authorName)}　／　<b>あなた自身の好み</b>で並べてください。みんながこれを当てにきます。</p>
         ${s.myRank ? `<h2>あなたの回答</h2>${orderHTML(t.options, s.myRank)}${waitingHTML(s, '他の人の並び替えを待っています')}`
@@ -762,7 +1067,7 @@ function renderRoom() {
     const tg = s.target, t = tg.topic;
     const isMe = tg.id === s.me;
     body = `<section class="card">
-      <span class="status">ラウンド ${s.round + 1} / ${s.rounds}</span>
+      <div class="row" style="justify-content:space-between"><span class="status">ラウンド ${s.round + 1} / ${s.rounds}</span>${s.myGuess ? '' : timerHTML()}</div>
       <p style="margin:10px 0 0"><span class="who">${esc(tg.name)}</span> さんの</p>
       <div class="qtitle">「${esc(t.title)}」の順位は？</div>
       <p class="muted small">お題作成: ${esc(t.authorName)}</p>
@@ -795,6 +1100,7 @@ function renderRoom() {
       <p style="margin:10px 0 0"><span class="who">${esc(tg.name)}</span> さんの</p>
       <div class="qtitle">「${esc(t.title)}」</div>
       <p class="muted small">お題作成: ${esc(t.authorName)}</p>
+      ${r.timeouts.length ? `<p class="small" style="margin:0"><b class="who">時間切れ：</b>${r.timeouts.map(nm => `${esc(nm)}さん`).join('、')}</p>` : ''}
       ${focus}
       ${canSkip ? '<button class="wide small" data-act="reveal-all">残りを一気にめくる</button>' : ''}
     </section>
@@ -856,6 +1162,7 @@ app.addEventListener('keydown', e => {
 });
 
 app.addEventListener('click', e => {
+  if (suppressClick) { suppressClick = false; return; } // ドラッグの直後のクリックは無視
   const el = e.target.closest('[data-act]');
   if (!el) return;
   const act = el.dataset.act;
@@ -868,23 +1175,29 @@ app.addEventListener('click', e => {
       if (t) { t.bring = el.checked; saveTopics(); render(); }
       return;
     }
-    case 'new': editing = { id: null, title: '', options: Array(MIN_OPT).fill('') }; notice = ''; view = 'edit'; break;
+    case 'new': editing = { id: null, title: '', options: Array(MIN_OPT).fill(''), count: MIN_PICK }; notice = ''; view = 'edit'; break;
     case 'edit': {
       const t = topics.find(x => x.id === id);
-      editing = { id, title: t.title, options: [...t.options] }; notice = ''; view = 'edit'; break;
+      editing = { id, title: t.title, options: [...t.options], count: pickCount(t) }; notice = ''; view = 'edit'; break;
     }
     case 'del': {
       const t = topics.find(x => x.id === id);
       if (t && confirm(`「${t.title}」を削除しますか？`)) { topics = topics.filter(x => x.id !== id); saveTopics(); }
       break;
     }
+    case 'sound': Sound.cycle(); break;
     case 'topics': notice = ''; view = 'topics'; break;
     case 'home': notice = ''; view = 'home'; break;
     case 'host': hostRoom(); return;
     case 'join': joinRoom($('#code').value); return;
     // お題編集
     case 'opt-add': if (editing.options.length < MAX_OPT) editing.options.push(''); break;
-    case 'opt-del': if (editing.options.length > MIN_OPT) editing.options.splice(+el.dataset.i, 1); break;
+    case 'opt-del':
+      if (editing.options.length > MIN_OPT) editing.options.splice(+el.dataset.i, 1);
+      editing.count = Math.min(editing.count, Math.max(MIN_PICK, editing.options.length));
+      break;
+    case 'count-dec': editing.count = Math.max(MIN_PICK, editing.count - 1); break;
+    case 'count-inc': editing.count = Math.min(MAX_PICK, editing.options.length, editing.count + 1); break;
     case 'edit-cancel': editing = null; notice = ''; view = 'topics'; break;
     case 'edit-save': {
       const title = editing.title.trim();
@@ -892,23 +1205,22 @@ app.addEventListener('click', e => {
       if (!title) notice = 'お題を入力してください';
       else if (opts.length < MIN_OPT) notice = `選択肢を${MIN_OPT}個以上入力してください`;
       else if (new Set(opts).size !== opts.length) notice = '同じ選択肢が重複しています';
+      else if (editing.count > opts.length) notice = `出題数（${editing.count}個）が選択肢の数（${opts.length}個）より多くなっています`;
       else {
         const existing = topics.find(x => x.id === editing.id);
-        if (existing) Object.assign(existing, { title, options: opts });
-        else topics.push({ id: uid(), title, options: opts, bring: true });
+        const count = Math.max(MIN_PICK, Math.min(MAX_PICK, editing.count));
+        if (existing) Object.assign(existing, { title, options: opts, count });
+        else topics.push({ id: uid(), title, options: opts, count, bring: true });
         saveTopics(); editing = null; notice = ''; view = 'topics';
       }
       break;
     }
     // 並び替え
-    case 'place': picker.placed.push(+el.dataset.i); break;
-    case 'unplace': picker.placed.splice(r, 1); break;
-    case 'up': [picker.placed[r - 1], picker.placed[r]] = [picker.placed[r], picker.placed[r - 1]]; break;
-    case 'down': [picker.placed[r + 1], picker.placed[r]] = [picker.placed[r], picker.placed[r + 1]]; break;
-    case 'submit-pick':
-      if (pub.phase === 'ranking') send({ t: 'rank', order: [...picker.placed] });
-      else if (pub.phase === 'guess') send({ t: 'guess', round: pub.round, order: [...picker.placed] });
-      return;
+    case 'place': { const t = picker.slots.indexOf(null); if (t >= 0) picker.slots[t] = +el.dataset.i; break; }
+    case 'unplace': picker.slots[r] = null; break;
+    case 'up': [picker.slots[r - 1], picker.slots[r]] = [picker.slots[r], picker.slots[r - 1]]; break;
+    case 'down': [picker.slots[r + 1], picker.slots[r]] = [picker.slots[r], picker.slots[r + 1]]; break;
+    case 'submit-pick': submitPick(); return;
     // ルーム
     case 'start': case 'force': case 'next': case 'lobby': case 'reveal-all': send({ t: act }); return;
     case 'kick': send({ t: 'kick', id }); return;
@@ -925,6 +1237,78 @@ app.addEventListener('click', e => {
   }
   render();
 });
+
+// ===== ドラッグ＆ドロップ（指・マウス共通。タップ操作はそのまま使える） =====
+function dropTarget(y) {
+  const trayTop = document.querySelector('.tray')?.getBoundingClientRect().top ?? innerHeight;
+  const slots = [...document.querySelectorAll('.slot[data-slot]')];
+  if (!slots.length || y >= trayTop) return null;
+  if (y < slots[0].getBoundingClientRect().top - 30 || y > slots.at(-1).getBoundingClientRect().bottom + 30) return null;
+  const i = slots.findIndex(el => el.getBoundingClientRect().bottom >= y);
+  return i < 0 ? slots.length - 1 : i;
+}
+app.addEventListener('pointerdown', e => {
+  const el = e.target.closest('[data-drag]');
+  if (!el || e.button > 0 || pending) return;
+  // 指で並べ済みの項目を動かすのは ⠿ をつかんだときだけ（項目の上をなぞってスクロールできるように）
+  if (el.dataset.drag === 'placed' && e.pointerType !== 'mouse' && !e.target.closest('.grip')) return;
+  drag = { el, kind: el.dataset.drag, from: +(el.dataset.drag === 'placed' ? el.dataset.r : el.dataset.i), x0: e.clientX, y0: e.clientY, id: e.pointerId, active: false };
+});
+window.addEventListener('pointermove', e => {
+  if (!drag || e.pointerId !== drag.id) return;
+  if (!drag.active) {
+    if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 6) return; // 少し動いただけならタップ扱い
+    const rect = drag.el.getBoundingClientRect();
+    drag.active = true;
+    drag.dx = drag.x0 - rect.left; drag.dy = drag.y0 - rect.top;
+    drag.ghost = drag.el.cloneNode(true);
+    drag.ghost.className = 'drag-ghost';
+    drag.ghost.style.width = rect.width + 'px';
+    document.body.appendChild(drag.ghost);
+    drag.el.classList.add('dragging');
+  }
+  e.preventDefault();
+  drag.ghost.style.transform = `translate(${e.clientX - drag.dx}px, ${e.clientY - drag.dy}px) rotate(-2deg)`;
+  const trayTop = document.querySelector('.tray')?.getBoundingClientRect().top ?? innerHeight;
+  if (e.clientY < 70) scrollBy(0, -12); else if (e.clientY > trayTop - 50 && e.clientY < trayTop) scrollBy(0, 12);
+  const t = dropTarget(e.clientY);
+  document.querySelectorAll('.slot.drop').forEach(x => x.classList.remove('drop'));
+  if (t != null) document.querySelector(`.slot[data-slot="${t}"]`)?.classList.add('drop');
+}, { passive: false });
+function endDrag(e) {
+  if (!drag || e.pointerId !== drag.id) return;
+  const d = drag;
+  drag = null;
+  if (!d.active) return; // タップは click に任せる
+  d.ghost.remove();
+  suppressClick = true;
+  setTimeout(() => { suppressClick = false; }, 400);
+  const t = e.type === 'pointerup' ? dropTarget(e.clientY) : null;
+  if (t != null) {
+    let item = d.from;
+    if (d.kind === 'placed') { item = picker.slots[d.from]; picker.slots[d.from] = null; }
+    putInSlot(item, t);
+    Sound.play('click');
+  }
+  render();
+}
+window.addEventListener('pointerup', endDrag);
+window.addEventListener('pointercancel', endDrag);
+
+// ===== 予期しないエラーを画面に出す（テストプレイで報告してもらえるように） =====
+function showError(msg) {
+  let el = document.getElementById('err');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'err';
+    el.title = 'タップで閉じる';
+    el.addEventListener('click', () => el.remove());
+    document.body.appendChild(el);
+  }
+  el.textContent = `エラーが起きました（タップで閉じる）：${msg}`;
+}
+window.addEventListener('error', e => showError(e.message || String(e.error)));
+window.addEventListener('unhandledrejection', e => showError(String(e.reason?.message ?? e.reason)));
 
 window.addEventListener('beforeunload', () => { try { net.peer?.destroy(); } catch {} });
 
