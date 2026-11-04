@@ -37,6 +37,10 @@ export type SoundMode = 'all' | 'se' | 'off';
 export const loadSoundMode = (): SoundMode => local.get<SoundMode>('tlw-sound', 'all');
 export const saveSoundMode = (m: SoundMode) => local.set('tlw-sound', m);
 
+export interface Volumes { bgm: number; se: number } // 0〜1
+export const loadVolumes = (): Volumes => ({ bgm: 0.3, se: 0.7, ...local.get<Partial<Volumes>>('tlw-volume', {}) });
+export const saveVolumes = (v: Volumes) => local.set('tlw-volume', v);
+
 // タブごとに別プレイヤーとして扱う（リロードしても同じ人として復帰できる）。
 // myId は他の参加者にも見えるので、なりすまし防止に本人だけが知る myKey を併せて送る
 export const myId = session.get('tlw-id', () => uid() + uid());

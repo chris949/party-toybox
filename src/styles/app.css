@@ -3,7 +3,7 @@
   --bg: #e3f2fb; --dot: #cfe7f6; --card: #ffffff; --ink: #1f2d3d; --muted: #6b7c90; --line: #d5e4ef; --field: #f6fafd;
   --coral: #ff6f6f; --sun: #ffc83d; --mint: #36c99a; --sky: #4aa6f0;
   --hit: #e3f8ef; --miss: #ffecec; --miss-line: #ffb3b3;
-  --round: "Hiragino Maru Gothic ProN", "Hiragino Maru Gothic Pro", "Zen Maru Gothic", "M PLUS Rounded 1c", "Arial Rounded MT Bold", system-ui, sans-serif;
+  --round: "M PLUS Rounded 1c", "Hiragino Maru Gothic ProN", "Hiragino Maru Gothic Pro", "Zen Maru Gothic", "M PLUS Rounded 1c", "Arial Rounded MT Bold", system-ui, sans-serif;
 }
 * { box-sizing: border-box; }
 body { margin: 0; color: var(--ink); font-family: var(--round); line-height: 1.5;
@@ -168,3 +168,9 @@ button { touch-action: manipulation; }
 details summary { cursor: pointer; font-weight: 800; }
 ol.rules { padding-left: 20px; margin: 10px 0 0; }
 ol.rules li { margin-bottom: 4px; }
+
+/* 答え合わせの演出（v0.10） */
+.flip-area { perspective: 600px; }
+.rank-row.first { font-size: 22px; }
+.rank-row.first .n { font-size: 32px; }
+.rank-row.first .pts { font-size: 24px; }

@@ -79,7 +79,7 @@ export function Standings({ players, me }: { players: PlayerSummary[]; me: strin
   return <>{sorted.map((p, i) => {
     if (i === 0 || p.score < sorted[i - 1].score) rank = i;
     return (
-      <div className="rank-row" key={p.id}>
+      <div className={`rank-row ${rank === 0 ? 'first' : ''}`} key={p.id}>
         <span className="n">{medal[rank] ?? rank + 1}</span>
         <span className="nm">{p.name}{p.id === me ? '（あなた）' : ''}</span>
         <span className="pts">{p.score}点</span>

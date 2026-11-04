@@ -10,13 +10,14 @@ import { ROOM_CODE_LEN } from '../net/protocol';
 import {
   broughtTopics, loadLastRoom, loadName, loadTopics, myId, myKey, saveLastRoom, saveName, saveTopics, type StoredTopic,
 } from '../storage/local';
+import { playStateEffects } from './effects';
 import { playStateSounds } from './sounds';
 
 export const APP_VERSION = __APP_VERSION__;
 export const COMMIT = __COMMIT__;
 export const DEV = new URLSearchParams(location.search).has('dev'); // ?dev で最少2人から遊べる（動作確認用）
 
-export type Screen = 'home' | 'topics' | 'edit' | 'room';
+export type Screen = 'home' | 'topics' | 'edit' | 'sound' | 'room';
 // 受け取った状態。締め切りは自分の時計に直して持つ
 export type Pub = PlayerView & { localDeadline: number };
 export interface Editing { id: string | null; title: string; options: string[]; count: number }
@@ -67,6 +68,7 @@ function setPub(view: PlayerView, rejoined = false) {
     }
   }
   playStateSounds(prev, next);
+  playStateEffects(prev, next);
   set({ pub: next, pending, screen: 'room', connecting: false });
   if (rejoined && pending) sendPending(); // 切れている間に送れなかった並び替えを送り直す
 }

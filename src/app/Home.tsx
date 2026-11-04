@@ -29,6 +29,11 @@ export function Home() {
         <button className="wide" onClick={() => setScreen('topics')}>お題の設定</button>
       </section>
       <section className="card">
+        <h2>音</h2>
+        <p className="muted small" style={{ margin: '0 0 10px' }}>BGM・効果音の音量や、場面ごとの曲を変えられます</p>
+        <button className="wide" onClick={() => setScreen('sound')}>音の設定</button>
+      </section>
+      <section className="card">
         <h2>あそぶ</h2>
         {/* 部屋コードが入っているとき（招待リンク・切断から戻った）は「参加」が主役 */}
         {prefilled ? (

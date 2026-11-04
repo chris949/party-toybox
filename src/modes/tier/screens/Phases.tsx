@@ -6,6 +6,11 @@ import { OrderList, Timer, useDeadline, Waiting } from './parts';
 import { Picker } from './Picker';
 
 const pop = { initial: { scale: 0.6, opacity: 0 }, animate: { scale: 1, opacity: 1 }, transition: { type: 'spring' as const, stiffness: 500, damping: 18 } };
+// めくった枠：カードを裏返すようにくるっと回って表になる
+const flip = { initial: { rotateX: -100, opacity: 0.3 }, animate: { rotateX: 0, opacity: 1 }, transition: { type: 'spring' as const, stiffness: 260, damping: 16 } };
+// 外した人は左右に揺れ、当てた人はぴょんと跳ねる（めくるたびに鳴らし直す）
+const shake = { initial: { x: 0 }, animate: { x: [0, -10, 10, -7, 7, -3, 0] }, transition: { duration: 0.5, delay: 0.25 } };
+const hop = { initial: { y: 0 }, animate: { y: [0, -10, 0, -4, 0] }, transition: { duration: 0.5, delay: 0.25 } };
 
 export function Ranking({ pub }: { pub: Pub }) {
   const sec = useDeadline(pub);
@@ -50,7 +55,11 @@ export function Reveal({ pub }: { pub: Pub }) {
   const from = n - r.shown; // この位置より下（数字が大きい側）はめくり済み
   const canSkip = !r.done && (isHost() || tg.id === pub.me);
   let focus;
-  if (r.suspense) focus = <motion.div className="focus" key="suspense" {...pop}><div className="focus-rank">1位は…</div></motion.div>;
+  if (r.suspense) focus = (
+    <motion.div className="focus" key="suspense" initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: [1, 1.18, 1.05, 1.22], opacity: 1 }} transition={{ duration: 2, ease: 'easeInOut' }}>
+      <div className="focus-rank">1位は…</div>
+    </motion.div>
+  );
   else if (r.shown > 0) {
     const ans = r.answer[from];
     focus = (
@@ -59,10 +68,10 @@ export function Reveal({ pub }: { pub: Pub }) {
         {r.rows.length > 0 && <div className="picks">{r.rows.map(row => {
           const hit = row.order[from] === ans, me = row.id === pub.me;
           return (
-            <div key={row.id} className={`pick ${hit ? 'hit' : 'miss'} ${me ? 'me' : ''}`}>
+            <motion.div key={row.id} className={`pick ${hit ? 'hit' : 'miss'} ${me ? 'me' : ''}`} {...(hit ? hop : shake)}>
               <span className="mark">{hit ? '✓' : '✗'}</span><span>{row.name}</span>{me && <span className="you">あなた</span>}
               <span className="opt">{t.options[row.order[from]]}</span>
-            </div>
+            </motion.div>
           );
         })}</div>}
       </motion.div>
@@ -79,10 +88,10 @@ export function Reveal({ pub }: { pub: Pub }) {
       {focus}
       {canSkip && <button className="wide small" onClick={() => send({ t: 'reveal-all' })}>残りを一気にめくる</button>}
     </section>
-    <section className="card">
+    <section className="card flip-area">
       <h2>正解</h2>
       {r.answer.map((idx, pos) => pos >= from
-        ? <motion.div className="ans" key={`a${pos}`} {...(pos === from && !r.suspense ? pop : {})}><Badge r={pos} n={n} /><span className="txt">{t.options[idx]}</span></motion.div>
+        ? <motion.div className="ans" key={`a${pos}`} {...(pos === from && !r.suspense ? flip : {})}><Badge r={pos} n={n} /><span className="txt">{t.options[idx]}</span></motion.div>
         : <div className="ans" key={`h${pos}`}><Badge r={pos} n={n} hidden /><span className="txt muted">？？？</span></div>)}
     </section>
     {r.done && <>

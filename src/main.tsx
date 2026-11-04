@@ -1,4 +1,8 @@
 import { createRoot } from 'react-dom/client';
+// 丸ゴシックを同梱する（Windows・Android でも同じ見た目に。使う文字の分だけ読み込まれる）
+import '@fontsource/m-plus-rounded-1c/400.css';
+import '@fontsource/m-plus-rounded-1c/700.css';
+import '@fontsource/m-plus-rounded-1c/800.css';
 import './styles/app.css';
 import { App } from './app/App';
 import { showError } from './app/store';
