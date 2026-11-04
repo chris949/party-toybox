@@ -1,6 +1,8 @@
 // BGM と効果音。曲・効果音のファイルがあれば Howler.js で鳴らし、ないものはブラウザの中で合成して鳴らす。
-// 曲の優先順：各自が端末で選んだ曲 → 同梱の曲（public/audio/manifest.json）→ 合成BGM
+// 曲の優先順：各自が端末で選んだ曲 → 同梱の曲（public/audio/manifest.json）→ 内蔵のスーファミ風BGM（audio/snes）
 import { Howl } from 'howler';
+import { SnesPlayer } from './snes/engine';
+import { SONGS } from './snes/songs';
 import { deleteCustomTrack, loadCustomTracks, saveCustomTrack } from '../storage/audioFiles';
 import { loadSoundMode, loadVolumes, saveSoundMode, saveVolumes, type SoundMode, type Volumes } from '../storage/local';
 
@@ -14,7 +16,7 @@ let mode: SoundMode = loadSoundMode();
 let vol: Volumes = loadVolumes();
 let started = false; // 最初に画面に触れたか（ブラウザの決まりで、それまでは音を出せない）
 let scene: Scene = 'lobby';
-let playing: { url: string | null; howl: Howl | null } | null = null; // url が null なら合成BGM
+let playing: { url: string | null; howl: Howl | null; scene: Scene } | null = null; // url が null なら内蔵のBGM
 
 const effBgm = () => mode === 'all' ? vol.bgm : 0;
 const effSe = () => mode === 'off' ? 0 : vol.se;
@@ -44,7 +46,7 @@ function trackFor(s: Scene): Track | null {
   return null;
 }
 
-export const sourceOf = (s: Scene) => custom[s] ? `自分の曲：${custom[s]!.name}` : manifest.bgm[s] ? '同梱の曲' : '合成BGM';
+export const sourceOf = (s: Scene) => custom[s] ? `自分の曲：${custom[s]!.name}` : manifest.bgm[s] ? '同梱の曲' : `内蔵の曲「${SONGS[s].title}」`;
 export const hasCustom = (s: Scene) => !!custom[s];
 
 // ===== BGM（ファイル） =====
@@ -67,7 +69,7 @@ function startScene() {
   if (!started) return;
   const t = trackFor(scene);
   const url = t?.url ?? null;
-  if (playing && playing.url === url && (url !== null || synthTimer)) { applyVolumes(); return; }
+  if (playing && playing.url === url && (url !== null || playing.scene === scene)) { applyVolumes(); return; }
   const old = playing?.howl;
   if (old) { old.fade(old.volume(), 0, 1000); setTimeout(() => { if (playing?.howl !== old) old.stop(); }, 1050); }
   if (t) {
@@ -75,17 +77,16 @@ function startScene() {
     const h = howlOf(t);
     if (!h.playing()) h.play();
     h.fade(h.volume(), effBgm(), 1000);
-    playing = { url, howl: h };
+    playing = { url, howl: h, scene };
   } else {
-    playing = { url: null, howl: null };
+    playing = { url: null, howl: null, scene };
     startSynth();
   }
 }
 
-// ===== 合成音（ファイルがないとき） =====
+// ===== 内蔵の音（ファイルがないとき） =====
 let ctx: AudioContext | null = null;
-let synthGain: GainNode, seGain: GainNode, noiseBuf: AudioBuffer;
-let synthTimer: ReturnType<typeof setInterval> | null = null, nextTime = 0, step = 0;
+let seGain: GainNode, noiseBuf: AudioBuffer;
 const midi = (m: number) => 440 * 2 ** ((m - 69) / 12);
 
 function ensureCtx() {
@@ -93,8 +94,8 @@ function ensureCtx() {
     const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!AC) return;
     ctx = new AC();
-    synthGain = ctx.createGain(); seGain = ctx.createGain();
-    synthGain.connect(ctx.destination); seGain.connect(ctx.destination);
+    seGain = ctx.createGain();
+    seGain.connect(ctx.destination);
     noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
     const d = noiseBuf.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
@@ -118,22 +119,18 @@ function noise(t: number, dur: number, gain: number, dest: AudioNode = seGain, c
   src.connect(f); f.connect(g); g.connect(dest); src.start(t); src.stop(t + dur + 0.05);
 }
 
-// 合成BGM：C–Am–F–G をくり返す軽いループ。場面ごとに速さを変える
-const TEMPO: Record<Scene, number> = { lobby: 104, pick: 132, reveal: 92, result: 120 };
-const CHORDS = [[60, 64, 67], [57, 60, 64], [53, 57, 60], [55, 59, 62]];
-const ARP = [0, 1, 2, 1, 0, 1, 2, 1];
-function schedule() {
-  const eighth = 60 / TEMPO[scene] / 2;
-  while (nextTime < ctx!.currentTime + 0.4) {
-    const ch = CHORDS[Math.floor(step / 8) % 4], beat = step % 8;
-    if (beat % 4 === 0) tone(midi(ch[0] - 24), nextTime, eighth * 3.5, 'sine', 0.9, synthGain);
-    tone(midi(ch[ARP[beat]] + 12), nextTime, eighth * 0.9, 'triangle', 0.3, synthGain);
-    if (beat % 2 === 1) noise(nextTime, 0.04, 0.12, synthGain, 7000);
-    nextTime += eighth; step++;
-  }
+// 内蔵のBGM（スーファミ風のオリジナル曲）。曲が変わるときは、2台の再生機を入れ替えて前の曲を小さくしていく
+const SNES_LEVEL = 0.5; // 音量の設定 100% のときの大きさ
+let snes: [SnesPlayer, SnesPlayer] | null = null, active = 0, snesOn = false;
+function startSynth() {
+  if (!ctx) return;
+  snes ??= [new SnesPlayer(ctx), new SnesPlayer(ctx)];
+  if (snesOn) snes[active].stop(1);
+  active = 1 - active;
+  snes[active].play(SONGS[scene], effBgm() * SNES_LEVEL, 1);
+  snesOn = true;
 }
-function startSynth() { if (synthTimer || !ctx) return; nextTime = ctx.currentTime + 0.1; synthTimer = setInterval(schedule, 120); applyVolumes(); }
-function stopSynth() { if (synthTimer) clearInterval(synthTimer); synthTimer = null; }
+function stopSynth() { if (snes && snesOn) snes[active].stop(1); snesOn = false; }
 
 const SYNTH_SFX: Record<SfxName, (t: number) => void> = {
   click: t => { tone(880, t, 0.08, 'sine', 0.5); },
@@ -155,7 +152,8 @@ function seHowl(name: SfxName): Howl | null {
 }
 
 function applyVolumes() {
-  if (ctx) { synthGain.gain.value = effBgm() * 0.17; seGain.gain.value = effSe() * 0.28; }
+  if (ctx) seGain.gain.value = effSe() * 0.28;
+  if (snes && snesOn) snes[active].setVolume(effBgm() * SNES_LEVEL);
   if (playing?.howl) playing.howl.volume(effBgm());
 }
 

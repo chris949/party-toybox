@@ -132,6 +132,6 @@ npm test
 2. `public/audio/manifest.json` にパスを書く（例：`"bgm": { "lobby": "bgm/lobby.mp3" }`）。場面は `lobby`・`pick`・`reveal`・`result`、効果音は `click`・`start`・`pop`・`tick`・`drumroll`・`fanfare`・`perfect`
 3. 出典と利用規約を [docs/credits.md](docs/credits.md) に書く
 
-書いていないものは、ブラウザの中で合成した音で鳴ります。**公開リポジトリに入るので、再配布してよい音源だけを置いてください。**
+書いていないものは、内蔵の音で鳴ります。BGM は `src/audio/snes/songs.ts` に楽譜として書いたスーファミ風のオリジナル曲で、`npm run dev` のあと `/bgm-preview.html` で試聴できます。楽譜の書き方は `src/audio/snes/engine.ts` の先頭にあります。**公開リポジトリに入るので、再配布してよい音源だけを置いてください。**
 
 公開するたびに `package.json` の `version` を上げてください。ホーム右上に表示され（マウスを載せるとコミットのIDも出ます）、ホストと違う版の参加者がいるとロビーで警告が出ます。
