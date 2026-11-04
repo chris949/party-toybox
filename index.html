@@ -162,6 +162,8 @@
     padding: 8px 12px; margin-bottom: 12px; font-weight: 800; font-size: 14px; text-align: center; box-shadow: 0 3px 0 var(--ink); }
   #err { position: fixed; left: 12px; right: 12px; top: 12px; z-index: 100; background: var(--miss); border: 2.5px solid var(--coral);
     border-radius: 14px; padding: 10px 14px; font-size: 13px; font-weight: 700; box-shadow: 0 4px 0 var(--ink); cursor: pointer; }
+  .overlay { position: fixed; inset: 0; z-index: 60; background: rgba(31,45,61,.45); display: grid; place-items: center; padding: 16px; }
+  .dialog { width: 100%; max-width: 380px; margin: 0; animation: pop .25s ease-out; }
   .seg { display: flex; gap: 6px; }
   .seg button { flex: 1; font-size: 14px; box-shadow: none; border-width: 2px; border-color: var(--line); color: var(--muted); }
   .seg button.on { background: var(--sky); border-color: var(--ink); color: #fff; box-shadow: 0 3px 0 var(--ink); }
@@ -828,6 +830,14 @@ function sendPending() {
 
 // ===== 描画 =====
 let lastScreen = '';
+// 確認ダイアログ。ブラウザ標準の confirm() は、アプリ内ブラウザなどで表示されずに「キャンセル」扱いになることがあるため使わない
+let dialog = null;
+function askConfirm(msg, okLabel, onOk) { dialog = { msg, okLabel, onOk }; render(); }
+const dialogHTML = () => dialog ? `<div class="overlay" data-act="dialog-cancel"><div class="card dialog" role="dialog" aria-modal="true" data-act="noop">
+  <p style="margin:0 0 16px;font-weight:800">${esc(dialog.msg)}</p>
+  <div class="row"><button class="wide" data-act="dialog-cancel">キャンセル</button><button class="primary wide" data-act="dialog-ok">${esc(dialog.okLabel)}</button></div>
+</div></div>` : '';
+
 let drag = null, suppressClick = false;
 function render() {
   if (drag?.active) return; // ドラッグ中は描き直さない（落としたあとに描き直す）
@@ -838,7 +848,7 @@ function render() {
   else html = renderHome();
   // 画面（フェーズ）が変わったときだけ入場の動きを付ける。同じ画面の更新では動かさない
   const screen = view === 'room' && pub ? `room-${pub.phase}-${pub.round}` : view;
-  app.innerHTML = screen !== lastScreen ? `<div class="enter">${html}</div>` : html;
+  app.innerHTML = (screen !== lastScreen ? `<div class="enter">${html}</div>` : html) + dialogHTML();
   if (screen !== lastScreen) window.scrollTo(0, 0);
   lastScreen = screen;
   app.classList.toggle('has-tray', !!app.querySelector('.tray'));
@@ -1198,7 +1208,7 @@ app.addEventListener('click', e => {
     }
     case 'del': {
       const t = topics.find(x => x.id === id);
-      if (t && confirm(`「${t.title}」を削除しますか？`)) { topics = topics.filter(x => x.id !== id); saveTopics(); }
+      if (t) askConfirm(`「${t.title}」を削除しますか？`, '削除する', () => { topics = topics.filter(x => x.id !== id); saveTopics(); });
       break;
     }
     case 'sound': Sound.cycle(); break;
@@ -1246,11 +1256,14 @@ app.addEventListener('click', e => {
       return;
     case 'copy': navigator.clipboard?.writeText(el.dataset.text).then(() => { el.textContent = 'コピーしました'; }, () => {}); return;
     case 'leave':
-      if (confirm(net.isHost ? 'ホストが退出すると部屋が解散します。退出しますか？' : '退出しますか？')) {
+      askConfirm(net.isHost ? 'ホストが退出すると部屋が解散します。退出しますか？' : '退出しますか？', '退出する', () => {
         lastRoom = ''; session.set('tlw-room', '');
         leaveRoom();
-      }
+      });
       return;
+    case 'dialog-ok': { const fn = dialog?.onOk; dialog = null; fn?.(); break; }
+    case 'dialog-cancel': dialog = null; break;
+    case 'noop': return; // ダイアログの中の余白を押しても閉じない
   }
   render();
 });
