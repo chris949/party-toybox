@@ -1,0 +1,40 @@
+# 依存の更新（方針は docs/dependency-policy.md）
+# まとめ方は、自動マージの区分（小）とそろえている：
+#   dev-tools     … 開発用の道具の minor・patch            → 小（自動マージ）
+#   runtime-patch … ゲームで使うライブラリの patch          → 小（自動マージ）
+#   それ以外（ゲームで使うライブラリの minor、すべての major）は1件ずつ → 中・大（一次解析）
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '07:00'
+      timezone: Asia/Tokyo
+    open-pull-requests-limit: 5
+    # 公開から3日たった版だけを候補にする（乗っ取られたパッケージの悪い版を避ける）。脆弱性の修正は待たない
+    cooldown:
+      default-days: 3
+    groups:
+      dev-tools:
+        dependency-type: development
+        update-types: [minor, patch]
+      runtime-patch:
+        dependency-type: production
+        update-types: [patch]
+    labels: [dependencies]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '07:00'
+      timezone: Asia/Tokyo
+    cooldown:
+      default-days: 3
+    groups:
+      actions:
+        update-types: [minor, patch]
+    labels: [dependencies]

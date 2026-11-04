@@ -1,10 +1,13 @@
-# push するとテスト → ビルド → GitHub Pages に公開する。テストが通らなければ公開しない
+# チェック（脆弱性・型・テスト・画面の通しテスト・ビルド）→ GitHub Pages に公開。チェックが1つでも落ちたら公開しない。
+# 自動マージされた更新は push のきっかけにならない（GitHub の決まり）ため、1時間ごとにも見に行き、未公開の更新があれば公開する
 name: deploy
 
 on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    - cron: '17 * * * *'
   workflow_dispatch:
 
 permissions:
@@ -13,11 +16,29 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  group: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || 'pages' }}
   cancel-in-progress: true
 
 jobs:
-  build:
+  # 定期実行のときだけ：公開中の版が main の最新と同じなら何もしない
+  changed:
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.c.outputs.run }}
+    steps:
+      - id: c
+        env:
+          SHA: ${{ github.sha }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT" != "schedule" ]; then echo "run=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          site=https://chris949.github.io/tier-list-wars/
+          js=$(curl -fsSL "$site" | grep -o 'assets/index-[^"]*\.js' | head -1 || true)
+          if [ -n "$js" ] && curl -fsSL "$site$js" | grep -q "${SHA:0:7}"; then echo "run=false" >> "$GITHUB_OUTPUT"; else echo "run=true" >> "$GITHUB_OUTPUT"; fi
+
+  check:
+    needs: changed
+    if: needs.changed.outputs.run == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,15 +47,30 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npm test
-      - run: npm run build
-      - uses: actions/upload-pages-artifact@v3
+      - name: 既知の脆弱性（深刻度 high 以上）がないか
+        run: npm audit --audit-level=high
+      - name: 型チェック・ビルド
+        run: npm run build
+      - name: ルールのテスト・シミュレーション・楽譜のテスト
+        run: npm test
+      - name: 画面の通しテスト（ブラウザ2つで1ゲーム遊ぶ）
+        run: |
+          npx playwright install --with-deps chromium
+          npx playwright test
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: test-results
+          retention-days: 7
+      - if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v3
         with:
           path: dist
 
   deploy:
     if: github.event_name != 'pull_request'
-    needs: build
+    needs: check
     runs-on: ubuntu-latest
     environment:
       name: github-pages

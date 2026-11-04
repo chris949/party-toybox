@@ -98,6 +98,7 @@ React ＋ Vite ＋ TypeScript で作っています。構成と方針は [docs/a
 | `src/app/` `src/ui/` | 画面と、共通の画面部品 |
 | `src/audio/` `src/storage/` | 音、端末への保存 |
 | `tests/` | ルールの自動テストと、CPU同士のシミュレーション |
+| `e2e/` | 画面の通しテスト（Playwright） |
 | `docs/` | 仕様書（`spec.md`、仕様の唯一の正）、技術構成、バックログ、テスト記録 |
 | `legacy/v0.8.0.html` | 作り直す前の版（参照用。公開はされない） |
 
@@ -115,6 +116,14 @@ npm test
 ```
 
 ルールの自動テストと、300ゲームのシミュレーションが走ります。
+
+```bash
+npm run build && npm run e2e
+```
+
+画面の通しテスト（ブラウザ2つで1ゲーム遊ぶ）が走ります。初回は `npx playwright install chromium` が必要です。
+
+依存ライブラリの更新とセキュリティの運用は [docs/dependency-policy.md](docs/dependency-policy.md) にまとめています。
 
 ### 進め方
 
