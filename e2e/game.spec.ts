@@ -36,13 +36,17 @@ test('2人で1ゲーム遊べる', async ({ browser }) => {
   const firstChip = host.locator('.chip').first();
   const label = (await firstChip.textContent())!;
   // dnd-kit は「押して少し動かす」とつかむので、マウスを少しずつ動かす
-  const from = (await firstChip.boundingBox())!, to = (await host.locator('.slot').nth(2).boundingBox())!;
+  const target = host.locator('.slot').nth(2);
+  await target.scrollIntoViewIfNeeded();
+  const from = (await firstChip.boundingBox())!, to = (await target.boundingBox())!;
+  const trayTop = (await host.locator('.tray').boundingBox())!.y;
+  expect(to.y + to.height, 'ドラッグ先の枠がトレイに隠れていない').toBeLessThan(trayTop);
   await host.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
   await host.mouse.down();
   await host.mouse.move(from.x + from.width / 2, from.y + from.height / 2 - 10, { steps: 3 });
   await host.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 15 });
   await host.mouse.up();
-  await expect(host.locator('.slot').nth(2)).toContainText(label);
+  await expect(target).toContainText(label);
   await arrangeAndSubmit(host);
   await arrangeAndSubmit(guest);
 
