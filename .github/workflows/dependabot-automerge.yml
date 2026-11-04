@@ -1,0 +1,43 @@
+# Dependabot の PR を区分けする（方針は docs/dependency-policy.md の2章）
+#   小     → 自動マージを予約する（チェックが全部通った時点で GitHub がマージする。main のルールでチェックを必須にしている）
+#   中・大 → 「要解析」を付けて持ち主を担当にする（毎朝の一次解析が拾う）
+name: dependabot-triage
+
+on: pull_request
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  triage:
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    env:
+      PR: ${{ github.event.pull_request.html_url }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - id: meta
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - id: size
+        env:
+          UPDATE: ${{ steps.meta.outputs.update-type }}
+          DEP: ${{ steps.meta.outputs.dependency-type }}
+          ECO: ${{ steps.meta.outputs.package-ecosystem }}
+        run: |
+          small=false
+          if [ "$UPDATE" != "version-update:semver-major" ]; then
+            if [ "$DEP" = "direct:development" ] || [ "$UPDATE" = "version-update:semver-patch" ] || [ "$ECO" = "github_actions" ]; then small=true; fi
+          fi
+          echo "small=$small" >> "$GITHUB_OUTPUT"
+          echo "区分: $([ $small = true ] && echo 小 || echo 中・大)（$UPDATE / $DEP / $ECO）" >> "$GITHUB_STEP_SUMMARY"
+      - name: 小 → 自動マージを予約
+        if: steps.size.outputs.small == 'true'
+        run: |
+          gh pr edit "$PR" --add-label "自動マージ"
+          gh pr merge --auto --merge "$PR"
+      - name: 中・大 → 一次解析待ち
+        if: steps.size.outputs.small != 'true'
+        run: gh pr edit "$PR" --add-label "要解析" --add-assignee chris949

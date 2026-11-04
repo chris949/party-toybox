@@ -3,6 +3,7 @@ import Peer, { type DataConnection } from 'peerjs';
 import type { Action } from '../core/types';
 import type { Topic } from '../core/topics';
 import type { PlayerView } from '../modes/tier/view';
+import { peerOptions } from './peerOptions';
 import { DEAD_MS, GIVEUP_MS, HEARTBEAT_MS, normalizeView, PREFIX, type GuestMsg } from './protocol';
 
 export interface GuestOptions {
@@ -23,7 +24,7 @@ export function startGuest(o: GuestOptions): GuestSession {
   let closed = false;
 
   function connect() {
-    const p = new Peer({ debug: 0 });
+    const p = new Peer(peerOptions());
     peer = p;
     lastSeen = Date.now();
     let gotState = false;

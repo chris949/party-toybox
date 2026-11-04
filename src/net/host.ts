@@ -4,6 +4,7 @@ import { createRoom, joinError, nextTimer, reduce } from '../core/room';
 import type { Action, RoomState } from '../core/types';
 import type { Topic } from '../core/topics';
 import { viewFor, type PlayerView } from '../modes/tier/view';
+import { peerOptions } from './peerOptions';
 import { cleanId, DEAD_MS, genCode, HEARTBEAT_MS, parseAction, PREFIX, type HostMsg } from './protocol';
 
 type Conn = DataConnection & { pid?: string; lastSeen: number };
@@ -19,7 +20,7 @@ export interface HostOptions {
 
 export function startHost(o: HostOptions): void {
   const code = genCode();
-  const peer = new Peer(PREFIX + code, { debug: 0 });
+  const peer = new Peer(PREFIX + code, peerOptions());
   const conns: Record<string, Conn> = {};
   let room: RoomState = createRoom(code, o.id, o.minPlayers);
   let timer: ReturnType<typeof setTimeout> | null = null;
