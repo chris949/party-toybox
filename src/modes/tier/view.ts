@@ -24,6 +24,7 @@ export interface PlayerSummary {
   haikus: number;   // ハイカー575 のお題の数
   chara: number;    // キャラクターの番号
   editing: boolean; // ロビーでお題を編集中か
+  bot: boolean;     // CPU の参加者か
   done: boolean | null; // 提出済みか（対象外なら null）
 }
 
@@ -84,7 +85,7 @@ export function viewFor(room: RoomState, id: string, now: number): PlayerView {
     players: room.players.map(p => ({
       id: p.id, name: p.name, score: p.score, online: p.online, version: p.version,
       topics: room.topicsBy[p.id]?.length ?? 0, fives: room.fivesBy[p.id]?.length ?? 0,
-      fates: room.fatesBy[p.id]?.length ?? 0, haikus: room.haikusBy[p.id]?.length ?? 0, chara: p.chara, editing: !!p.editing,
+      fates: room.fatesBy[p.id]?.length ?? 0, haikus: room.haikusBy[p.id]?.length ?? 0, chara: p.chara, editing: !!p.editing, bot: !!p.bot,
       done: h ? (h.phase === 'write' ? (h.ring.includes(p.id) ? p.id in h.drafts : null) : h.show?.rating && p.id !== hOwner ? p.id in currentSheet(h)!.ratings : null)
         : f ? (f.phase === 'answer' && answers(f, p.id) ? !!f.picks[p.id] : null)
         : !g ? null : g.phase === 'ranking' ? !!g.ranks[p.id] : g.phase === 'guess' && p.id !== tgt ? !!g.guesses[p.id] : null,

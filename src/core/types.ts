@@ -17,6 +17,7 @@ export interface Player {
   version: string;  // 参加者が開いているアプリの版
   chara: number;    // 運命の二者択一で使うキャラクターの番号
   editing?: boolean; // ロビーでお題を編集中か
+  bot?: boolean;     // CPU の参加者か（ホストが足す。運命の二者択一とハイカー575 でだけ動く）
 }
 
 export const PICK_MODES = { random: '全部からランダム', each: '作成者ごとに1つずつ' } as const;
@@ -49,7 +50,7 @@ export interface RoomState {
 
 // 状態を進める操作。from は操作した人（タイマーはホスト）
 export type Action =
-  | { t: 'join'; name: string; key: string; topics: Topic[]; fives?: FiveTopic[]; fates?: FateQuestion[]; haikus?: string[]; chara?: number; version: string }
+  | { t: 'join'; name: string; key: string; topics: Topic[]; fives?: FiveTopic[]; fates?: FateQuestion[]; haikus?: string[]; chara?: number; version: string; bot?: boolean }
   | { t: 'leave' }
   | { t: 'mode'; mode: PickMode }
   | { t: 'time'; sec: number }

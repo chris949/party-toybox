@@ -21,6 +21,7 @@ export function joinError(room: RoomState, id: string, a: Extract<Action, { t: '
   if (existing) return existing.key === clean(a.key, 64) ? null : 'この参加者は既に部屋にいます';
   if (room.game) return 'ゲーム進行中のため参加できません';
   if (room.players.length >= MAX_PLAYERS) return `満員です（最大${MAX_PLAYERS}人）`;
+  if (a.bot) return null; // CPU は、お題を持ってこない
   if (!sanitizeTopics(a.topics).length && !sanitizeFives(a.fives).length && !sanitizeFates(a.fates).length && !sanitizeHaikus(a.haikus).length) return 'お題を1つ以上持ってきてください';
   return null;
 }
@@ -39,6 +40,7 @@ export function reduce(state: RoomState, a: ActionFrom, ctx: Ctx): RoomState {
         room.players.push(p);
       }
       p.name = clean(a.name, NAME_MAX) || '名無し';
+      if (a.bot) p.bot = true;
       p.online = true;
       p.version = clean(a.version, 20) || '不明';
       p.chara = charaOf(a.chara) ?? p.chara;
@@ -120,7 +122,7 @@ export function reduce(state: RoomState, a: ActionFrom, ctx: Ctx): RoomState {
       return room;
     }
     case 'start':
-      if (!isHost || room.game || MODES[room.gameMode].startError(room)) return state;
+      if (!isHost || room.game || startErrorOf(room)) return state;
       room.players.forEach(p => { p.editing = false; });
       room.game = MODES[room.gameMode].start(room, ctx);
       return room;
@@ -141,4 +143,9 @@ export function reduce(state: RoomState, a: ActionFrom, ctx: Ctx): RoomState {
 }
 
 export const nextTimer = (room: RoomState): Timer | null => room.game ? modeOf(room.game).nextTimer(room.game) : null;
-export const startErrorOf = (room: RoomState) => MODES[room.gameMode].startError(room);
+// CPU が動くモード
+export const BOT_MODES: readonly string[] = ['fate', 'haiku'];
+export const startErrorOf = (room: RoomState) =>
+  room.players.some(p => p.bot) && !BOT_MODES.includes(room.gameMode)
+    ? 'CPU は、このモードでは動きません。CPU を外すか、運命の二者択一・ハイカー575 で遊んでください'
+    : MODES[room.gameMode].startError(room);

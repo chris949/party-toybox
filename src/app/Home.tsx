@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { MAX_OPT, MAX_PLAYERS, MIN_OPT, NAME_MAX, PERFECT_BONUS } from '../core/constants';
+import { MAX_OPT, MAX_PLAYERS, MIN_OPT, NAME_MAX, PERFECT_BONUS, MIN_PLAYERS_DEFAULT } from '../core/constants';
 import { ROOM_CODE_LEN } from '../net/protocol';
 import { Logo, Notice, SoundButton, Version } from '../ui/common';
 import { CharaPicker } from '../modes/fate/charas';
-import { DEV, hostRoom, joinRoom, setChara, setName, setScreen, useStore } from './store';
+import { hostRoom, joinRoom, setChara, setName, setScreen, useStore } from './store';
 
 export function Home() {
   const { name, topics, fives, fates, haikus, chara, notice, connecting, lastRoom } = useStore();
@@ -59,7 +59,7 @@ export function Home() {
         <summary>あそびかた</summary>
         <ol className="rules">
           <li>事前に「お題の設定」でお題と選択肢（{MIN_OPT}〜{MAX_OPT}個）を作っておく。いくつでもストックできます。</li>
-          <li>{DEV ? 2 : 4}〜{MAX_PLAYERS}人で部屋に集まり、ホストが開始。</li>
+          <li>{MIN_PLAYERS_DEFAULT}〜{MAX_PLAYERS}人で部屋に集まり、ホストが開始。</li>
           <li>みんなのお題がランダムに1人1つ配られるので、<b>自分の好み</b>で順位をつける。</li>
           <li>メインゲーム：「〇〇さんの『お題』の順位は？」を本人以外が予想。</li>
           <li>答え合わせ。順位が1つ合うごとに1点、全部ピッタリならボーナス+{PERFECT_BONUS}点。</li>

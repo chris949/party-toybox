@@ -1,5 +1,5 @@
 // ゲーム全体の決まり（数字の根拠は docs/spec.md）
-export const MIN_PLAYERS_DEFAULT = 4;
+export const MIN_PLAYERS_DEFAULT = 2; // v0.19 で4人から下げた
 export const MIN_PLAYERS_DEV = 2; // URL に ?dev を付けたとき（動作確認用）
 export const MAX_PLAYERS = 10;
 

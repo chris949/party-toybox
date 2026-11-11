@@ -146,6 +146,8 @@ export function leaveByUser() {
 }
 
 export function send(a: Action) { session?.send(a); }
+// CPU の参加者を1人足す（ホストだけ。ロビーにいる間）
+export function addBot() { if (session?.isHost && get().pub?.phase === 'lobby') session.addBot(); }
 
 // ===== ロビーでお題を選び直す・編集する（v0.16） =====
 export function openRoomTopics() {

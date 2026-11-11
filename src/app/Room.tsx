@@ -9,7 +9,7 @@ import { FateResult, FateStage } from '../modes/fate/screens';
 import { HaikuRecite, HaikuResult, HaikuWrite } from '../modes/haiku/screens';
 import { HAIKU_STYLES, type HaikuStyle } from '../core/haikus';
 import { Notice, TitleBar } from '../ui/common';
-import { isHost, leaveByUser, openRoomTopics, send, setChara, useStore, type Pub } from './store';
+import { addBot, isHost, leaveByUser, openRoomTopics, send, setChara, useStore, type Pub } from './store';
 
 export function Room() {
   const pub = useStore(s => s.pub)!;
@@ -39,7 +39,7 @@ function Players({ pub }: { pub: Pub }) {
   return (
     <div className="players">{pub.players.map(p => (
       <span key={p.id} className={`pl ${p.online ? '' : 'off'} ${p.id === pub.me ? 'me' : ''}`}>
-        {p.id === pub.hostId && '👑'}{pub.phase === 'lobby' && pub.gameMode === 'fate' && charaOf(p.chara).face}{p.name}
+        {p.id === pub.hostId && '👑'}{p.bot && '🤖'}{pub.phase === 'lobby' && pub.gameMode === 'fate' && charaOf(p.chara).face}{p.name}
         {pub.phase !== 'lobby' ? <span className="sc">{p.score}</span>
           : <span className="muted small">{pub.gameMode === 'fate' ? `問題${p.fates + p.fives}` : pub.gameMode === 'haiku' ? `お題${p.haikus}` : `お題${pub.gameMode === 'five' ? p.fives : p.topics}`}</span>}
         {p.done === true ? '✅' : p.done === false ? '⏳' : ''}
@@ -75,6 +75,8 @@ function Lobby({ pub }: { pub: Pub }) {
       <Players pub={pub} />
       {/* 部屋に入ったまま、持っていくお題を選び直したり編集したりできる */}
       <button className="wide small" style={{ marginTop: 10 }} onClick={openRoomTopics}>お題を選ぶ・編集する</button>
+      {/* 人数が足りないとき用：CPU が動くモードを選んでいる間だけ、ホストが足せる */}
+      {host && (fate || haiku) && <button className="wide small" style={{ marginTop: 8 }} disabled={pub.players.length >= MAX_PLAYERS} onClick={addBot}>＋ CPUを追加</button>}
       {host && pub.players.some(p => p.editing && p.id !== pub.me) && <p className="muted small" style={{ margin: '6px 0 0' }}>✏️ {pub.players.filter(p => p.editing && p.id !== pub.me).map(p => `${p.name}さん`).join('、')}がお題を編集中です</p>}
       {old.length > 0 && <Notice>⚠ ホスト（{hostVer}）と違う版の人がいます：{old.map(p => `${p.name}さん（${p.version}）`).join('、')}。ページを再読み込みしてもらってください</Notice>}
       <h2 style={{ marginTop: 16 }}>モード</h2>
