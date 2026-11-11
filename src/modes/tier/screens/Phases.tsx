@@ -1,6 +1,6 @@
 // フェーズごとの画面：準備・予想・答え合わせ・最終結果
 import { motion } from 'motion/react';
-import { isHost, send, type Pub } from '../../../app/store';
+import { isHost, retract, send, type Pub } from '../../../app/store';
 import { Badge, Standings, tierColor } from '../../../ui/common';
 import { OrderList, Timer, useDeadline, Waiting } from './parts';
 import { Picker } from './Picker';
@@ -44,7 +44,9 @@ export function Guess({ pub }: { pub: Pub }) {
       <div className="qtitle">「{t.title}」の順位は？</div>
       <p className="muted small">お題作成: {t.authorName}</p>
       {isMe ? <><p className="muted">あなたのお題です。みんなの予想を待ちましょう。</p><OrderList options={t.options} order={pub.myRank ?? []} /><Waiting pub={pub} label="予想中" /></>
-        : pub.myGuess ? <><h2>あなたの予想</h2><OrderList options={t.options} order={pub.myGuess} /><Waiting pub={pub} label="他の人の予想を待っています" /></>
+        : pub.myGuess ? <><h2>あなたの予想</h2><OrderList options={t.options} order={pub.myGuess} />
+          <button className="wide small" style={{ marginTop: 8 }} onClick={retract}>予想を直す</button>
+          <Waiting pub={pub} label="他の人の予想を待っています" /></>
         : <Picker options={t.options} pickKey={`guess-${pub.gameNo}-${pub.round}`} timeUp={sec === 0} />}
     </section>
   );

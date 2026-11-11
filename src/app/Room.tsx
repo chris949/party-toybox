@@ -7,14 +7,16 @@ import { Answer, FiveReveal } from '../modes/five/screens';
 import { charaOf, CharaPicker } from '../modes/fate/charas';
 import { FateResult, FateStage } from '../modes/fate/screens';
 import { Notice, TitleBar } from '../ui/common';
-import { isHost, leaveByUser, send, setChara, useStore, type Pub } from './store';
+import { isHost, leaveByUser, openRoomTopics, send, setChara, useStore, type Pub } from './store';
 
 export function Room() {
   const pub = useStore(s => s.pub)!;
   const reconnecting = useStore(s => s.reconnecting);
+  const notice = useStore(s => s.notice);
   return <>
     {reconnecting && <div className="banner">ホストとの接続を確認しています… 再接続中</div>}
     <TitleBar right={<button className="small" onClick={leaveByUser}>退出</button>} />
+    {notice && <Notice>{notice}</Notice>}
     {/* 運命の二者択一は、舞台の上に全員が出ているので、参加者の一覧は出さない */}
     {pub.phase !== 'lobby' && pub.game !== 'fate' && <section className="card"><Players pub={pub} /></section>}
     {pub.phase === 'lobby' ? <Lobby pub={pub} />
@@ -36,6 +38,7 @@ function Players({ pub }: { pub: Pub }) {
         {pub.phase !== 'lobby' ? <span className="sc">{p.score}</span>
           : <span className="muted small">{pub.gameMode === 'fate' ? `問題${p.fates}` : `お題${pub.gameMode === 'five' ? p.fives : p.topics}`}</span>}
         {p.done === true ? '✅' : p.done === false ? '⏳' : ''}
+        {pub.phase === 'lobby' && p.editing && <span className="small">✏️ 編集中</span>}
         {pub.phase === 'lobby' && isHost() && p.id !== pub.me && <button className="mini" style={{ padding: '0 6px' }} onClick={() => send({ t: 'kick', id: p.id })}>✕</button>}
       </span>
     ))}</div>
@@ -64,6 +67,9 @@ function Lobby({ pub }: { pub: Pub }) {
     <section className="card">
       <h2>参加者 {pub.players.length}/{MAX_PLAYERS}</h2>
       <Players pub={pub} />
+      {/* 部屋に入ったまま、持っていくお題を選び直したり編集したりできる */}
+      <button className="wide small" style={{ marginTop: 10 }} onClick={openRoomTopics}>お題を選ぶ・編集する</button>
+      {host && pub.players.some(p => p.editing && p.id !== pub.me) && <p className="muted small" style={{ margin: '6px 0 0' }}>✏️ {pub.players.filter(p => p.editing && p.id !== pub.me).map(p => `${p.name}さん`).join('、')}がお題を編集中です</p>}
       {old.length > 0 && <Notice>⚠ ホスト（{hostVer}）と違う版の人がいます：{old.map(p => `${p.name}さん（${p.version}）`).join('、')}。ページを再読み込みしてもらってください</Notice>}
       <h2 style={{ marginTop: 16 }}>モード</h2>
       {host

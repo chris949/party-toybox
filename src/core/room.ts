@@ -84,8 +84,24 @@ export function reduce(state: RoomState, a: ActionFrom, ctx: Ctx): RoomState {
       p.chara = n;
       return room;
     }
+    case 'topics': {
+      // ロビーにいる間は、自分の持っていくお題を何度でも送り直せる（空でもよい。足りなければ開始できない理由に出る）
+      const p = room.players.find(x => x.id === a.from);
+      if (!p || room.game) return state;
+      room.topicsBy[a.from] = sanitizeTopics(a.topics);
+      room.fivesBy[a.from] = sanitizeFives(a.fives);
+      room.fatesBy[a.from] = sanitizeFates(a.fates);
+      return room;
+    }
+    case 'editing': {
+      const p = room.players.find(x => x.id === a.from);
+      if (!p || room.game || !!p.editing === !!a.on) return state;
+      p.editing = !!a.on;
+      return room;
+    }
     case 'start':
       if (!isHost || room.game || MODES[room.gameMode].startError(room)) return state;
+      room.players.forEach(p => { p.editing = false; });
       room.game = MODES[room.gameMode].start(room, ctx);
       return room;
     case 'lobby':

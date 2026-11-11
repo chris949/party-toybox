@@ -134,6 +134,10 @@ export function reduce(room: RoomState, g: FiveState, a: ActionFrom, ctx: Ctx): 
       checkAdvance(room, g, ctx);
       return true;
     }
+    case 'retract': // 決定した回答を取り消す（答える人が全員そろうと答え合わせに進むので、それまでの間だけ）
+      if (g.phase !== 'answer' || a.round !== g.round || !g.picks[a.from]) return false;
+      delete g.picks[a.from];
+      return true;
     case 'force':
       if (!isHost || g.phase !== 'answer') return false;
       toReveal(room, g, ctx);

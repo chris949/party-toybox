@@ -172,6 +172,10 @@ export function reduce(room: RoomState, g: TierState, a: ActionFrom, ctx: Ctx): 
       checkAdvance(room, g, ctx);
       return true;
     }
+    case 'retract': // 決定した予想を取り消す（全員そろうと答え合わせに進むので、それまでの間だけ）
+      if (g.phase !== 'guess' || a.round !== g.round || !g.guesses[a.from]) return false;
+      delete g.guesses[a.from];
+      return true;
     case 'force':
       if (!isHost) return false;
       if (g.phase === 'ranking') toGuess(room, g, ctx);

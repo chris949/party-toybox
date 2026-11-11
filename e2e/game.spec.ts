@@ -30,6 +30,16 @@ test('2人で1ゲーム遊べる', async ({ browser }) => {
   await guest.getByRole('button', { name: 'この部屋に参加する' }).click();
   await expect(host.getByText('参加者 2/10')).toBeVisible({ timeout: 20_000 });
 
+  // 部屋に入ったまま、持っていくお題を選び直す（ホストには編集中と出る。戻ると数が変わる）
+  const guestRow = host.locator('.pl', { hasText: 'たろう' });
+  await expect(guestRow).toContainText('お題10');
+  await guest.getByRole('button', { name: 'お題を選ぶ・編集する' }).click();
+  await expect(guestRow).toContainText('編集中');
+  await guest.locator('.topic input[type=checkbox]').first().uncheck();
+  await guest.getByRole('button', { name: '部屋に戻る' }).click();
+  await expect(guestRow).toContainText('お題9');
+  await expect(guestRow).not.toContainText('編集中');
+
   // 準備フェーズ：ホストはドラッグで1つ置いてから残りをタップ、参加者はタップだけ
   await host.getByRole('button', { name: 'ゲーム開始' }).click();
   await expect(host.getByText('準備フェーズ')).toBeVisible();
@@ -96,6 +106,15 @@ test('セレクトファイブを2人で1ゲーム遊べる', async ({ browser }
       for (let i = 0; i < 5; i++) await cards.nth(i).click();
       await expect(cards.nth(5)).toBeDisabled(); // 6つ目は選べない
       await p.getByRole('button', { name: 'この5つで決定' }).click();
+      if (round === 1 && p === host) {
+        // 決定したあとも、相手がそろうまでは選び直せる（選んだ5つは残っている）
+        await p.getByRole('button', { name: '選び直す' }).click();
+        await expect(p.getByRole('button', { name: 'この5つで決定' })).toBeVisible();
+        await cards.nth(0).click();
+        await cards.nth(5).click();
+        await p.getByRole('button', { name: 'この5つで決定' }).click();
+        await expect(p.getByText('あなたの回答')).toBeVisible();
+      }
     }
     await expect(host.getByText('答え合わせ')).toBeVisible({ timeout: 20_000 });
     await host.getByRole('button', { name: '残りを一気にめくる' }).click();

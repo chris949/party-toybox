@@ -6,7 +6,7 @@ import { FIVE_PICK } from '../core/fives';
 import type { Action } from '../core/types';
 import type { Side } from '../modes/fate/rules';
 import type { PlayerView } from '../modes/tier/view';
-import { startGuest, type GuestSession } from '../net/guest';
+import { startGuest, type GuestOptions, type GuestSession } from '../net/guest';
 import { startHost, type HostSession } from '../net/host';
 import { ROOM_CODE_LEN } from '../net/protocol';
 import {
@@ -32,6 +32,7 @@ interface Pending { msg: Action; key: string; tries: number }
 
 interface State {
   screen: Screen;
+  roomEdit: boolean; // 部屋に入ったまま、お題の設定を開いている（v0.16）
   notice: string;
   connecting: boolean;
   reconnecting: boolean;
@@ -54,10 +55,11 @@ interface State {
 }
 
 let session: HostSession | GuestSession | null = null;
+let guestOpts: GuestOptions | null = null; // 再接続のときに送り直す参加の情報（お題を送り直したら更新する）
 let pendingTimer: ReturnType<typeof setTimeout> | null = null;
 
 export const useStore = create<State>(() => ({
-  screen: 'home', notice: '', connecting: false, reconnecting: false, pub: null, pending: null,
+  screen: 'home', roomEdit: false, notice: '', connecting: false, reconnecting: false, pub: null, pending: null,
   dialog: null, editing: null, editingFive: null, editingFate: null, topicsTab: 'tier', error: null,
   name: loadName(), topics: loadTopics(), fives: loadFives(), fates: loadFates(), chara: loadChara(), lastRoom: loadLastRoom(),
   picker: { key: '', slots: [] }, fivePick: { key: '', sel: [] },
@@ -82,6 +84,9 @@ function setPub(view: PlayerView, rejoined = false) {
   }
   playStateSounds(prev, next);
   playStateEffects(prev, next);
+  // ロビーでお題の設定を開いている間は、その画面のままにする。ゲームが始まったら部屋に戻す（保存していない編集は消える）
+  if (get().roomEdit && next.phase === 'lobby') { set({ pub: next, pending, connecting: false }); return; }
+  if (get().roomEdit) set({ roomEdit: false, editing: null, editingFive: null, editingFate: null, notice: 'ゲームが始まったので部屋に戻りました（保存していない編集は消えました）' });
   set({ pub: next, pending, screen: 'room', connecting: false });
   if (rejoined && pending) sendPending(); // 切れている間に送れなかった並び替えを送り直す
 }
@@ -111,7 +116,7 @@ export function joinRoom(raw: string) {
   const code = raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
   if (code.length !== ROOM_CODE_LEN) { set({ notice: `部屋コード（${ROOM_CODE_LEN}文字）を入力してください` }); return; }
   set({ connecting: true, notice: '' });
-  session = startGuest({
+  session = startGuest(guestOpts = {
     code, id: myId, key: myKey, name: get().name, topics: broughtTopics(get().topics), fives: broughtFives(get().fives), fates: broughtFates(get().fates), chara: get().chara, version: APP_VERSION,
     onView: (v, rejoined) => {
       if (get().lastRoom !== code) { saveLastRoom(code); set({ lastRoom: code }); }
@@ -125,6 +130,8 @@ export function joinRoom(raw: string) {
 export function leaveRoom(msg = '') {
   session?.close();
   session = null;
+  guestOpts = null;
+  set({ roomEdit: false });
   if (pendingTimer) clearTimeout(pendingTimer);
   set({ screen: 'home', pub: null, pending: null, connecting: false, reconnecting: false, notice: msg, dialog: null });
 }
@@ -138,6 +145,30 @@ export function leaveByUser() {
 }
 
 export function send(a: Action) { session?.send(a); }
+
+// ===== ロビーでお題を選び直す・編集する（v0.16） =====
+export function openRoomTopics() {
+  if (get().pub?.phase !== 'lobby') return;
+  set({ roomEdit: true, screen: 'topics', notice: '' });
+  send({ t: 'editing', on: true });
+}
+// 部屋に戻る。持っていくお題をホストに送り直す
+export function backToRoom() {
+  const topics = broughtTopics(get().topics), fives = broughtFives(get().fives), fates = broughtFates(get().fates);
+  if (guestOpts) Object.assign(guestOpts, { topics, fives, fates });
+  set({ roomEdit: false, screen: 'room', notice: '' });
+  if (get().pub?.phase !== 'lobby') return;
+  send({ t: 'topics', topics, fives, fates });
+  send({ t: 'editing', on: false });
+}
+
+// 決定した予想・回答を取り消して、選び直す（全員そろう前まで）
+export function retract() {
+  const pub = get().pub;
+  if (!pub || get().pending || (pub.phase !== 'guess' && pub.phase !== 'answer')) return;
+  Sound.play('click');
+  send({ t: 'retract', round: pub.round });
+}
 
 // ===== 並び替え =====
 export function ensurePicker(key: string, n: number) {

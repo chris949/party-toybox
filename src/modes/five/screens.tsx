@@ -1,7 +1,7 @@
 // セレクトファイブの画面：答える・答え合わせ（docs/spec.md の10.6・10.7）
 import { useEffect } from 'react';
 import { motion } from 'motion/react';
-import { ensureFivePick, isHost, send, submitFive, toggleFive, useStore, type Pub } from '../../app/store';
+import { ensureFivePick, isHost, retract, send, submitFive, toggleFive, type Pub, useStore } from '../../app/store';
 import { FIVE_PICK } from '../../core/fives';
 import { Standings } from '../../ui/common';
 import { Timer, useDeadline, Waiting } from '../tier/screens/parts';
@@ -45,6 +45,7 @@ export function Answer({ pub }: { pub: Pub }) {
       </> : f.myPicks ? <>
         <h2>あなたの回答</h2>
         <div className="fgrid">{f.myPicks.map(i => <div key={i} className="fcard on">{f.options[i]}</div>)}</div>
+        <button className="wide small" style={{ marginTop: 8 }} onClick={retract}>選び直す</button>
         <Waiting pub={pub} label="他の人の回答を待っています" />
       </> : <>
         <div className="fgrid">{f.options.map((o, i) => (
