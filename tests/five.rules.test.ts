@@ -135,3 +135,22 @@ describe('ゲームの流れ', () => {
     expect(t.room.gameMode).toBe('five');
   });
 });
+
+describe('選び直す（v0.16）', () => {
+  it('決定したあとも、答える人が全員そろうまでは取り消して選び直せる', () => {
+    const t = fiveRoom([[five('A')], [five('B')], [five('C')]]);
+    t.host({ t: 'start' });
+    const [a, b] = answerers(t);
+    t.act(a, { t: 'five', round: 0, picks: correctIdx(t).slice(0, 5) });
+    t.act(a, { t: 'retract', round: 1 });               // 違うラウンドの取り消しは受け付けない
+    expect(t.five.picks[a]).toBeDefined();
+    t.act(a, { t: 'retract', round: 0 });
+    expect(t.five.picks[a]).toBeUndefined();
+    t.act(a, { t: 'five', round: 0, picks: [...correctIdx(t).slice(0, 4), dummyIdx(t)[0]] });
+    expect(t.five.picks[a]).toHaveLength(5);
+    t.act(b, { t: 'five', round: 0, picks: correctIdx(t).slice(0, 5) });
+    expect(t.five.phase).toBe('reveal');
+    t.act(a, { t: 'retract', round: 0 });               // 答え合わせに入ったら直せない
+    expect(t.five.reveal!.rows.find(r => r.id === a)!.hits).toBe(4);
+  });
+});

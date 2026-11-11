@@ -14,6 +14,7 @@ export interface Player {
   score: number;
   version: string;  // 参加者が開いているアプリの版
   chara: number;    // 運命の二者択一で使うキャラクターの番号
+  editing?: boolean; // ロビーでお題を編集中か
 }
 
 export const PICK_MODES = { random: '全部からランダム', each: '作成者ごとに1つずつ' } as const;
@@ -48,6 +49,9 @@ export type Action =
   | { t: 'game'; mode: GameMode }
   | { t: 'fateTime'; sec: number }
   | { t: 'chara'; n: number }
+  | { t: 'topics'; topics: Topic[]; fives?: FiveTopic[]; fates?: FateQuestion[] } // ロビーで持っていくお題を送り直す
+  | { t: 'editing'; on: boolean }
+  | { t: 'retract'; round: number } // 決定した予想・回答を取り消す
   | { t: 'move'; side: Side }
   | { t: 'pause' }
   | { t: 'five'; round: number; picks: number[]; partial?: boolean }

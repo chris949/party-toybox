@@ -38,6 +38,9 @@ export function parseAction(m: any): Action | null {
     case 'five': return Array.isArray(m.picks) && Number.isInteger(m.round) ? { t: 'five', round: m.round, picks: m.picks.slice(0, 8), partial: !!m.partial } : null;
     case 'move': return m.side === 'L' || m.side === 'R' ? { t: 'move', side: m.side } : null;
     case 'chara': return Number.isInteger(m.n) ? { t: 'chara', n: m.n } : null;
+    case 'topics': return { t: 'topics', topics: m.topics, fives: m.fives, fates: m.fates }; // 中身はホストが検査して整える
+    case 'editing': return { t: 'editing', on: !!m.on };
+    case 'retract': return Number.isInteger(m.round) ? { t: 'retract', round: m.round } : null;
     case 'fateTime': return Number.isInteger(m.sec) ? { t: 'fateTime', sec: m.sec } : null;
     case 'time': return Number.isInteger(m.sec) ? { t: 'time', sec: m.sec } : null;
     case 'kick': return { t: 'kick', id: cleanId(m.id) };
@@ -66,7 +69,7 @@ export function normalizeView(s: any): PlayerView {
     me: str(s.me),
     players: (Array.isArray(s.players) ? s.players : []).map((p: any) => ({
       id: str(p.id), name: str(p.name), score: int(p.score), online: p.online !== false, version: str(p.version),
-      topics: int(p.topics), fives: int(p.fives), fates: int(p.fates), chara: Math.max(0, int(p.chara)), done: p.done === true ? true : p.done === false ? false : null,
+      topics: int(p.topics), fives: int(p.fives), fates: int(p.fates), chara: Math.max(0, int(p.chara)), editing: p.editing === true, done: p.done === true ? true : p.done === false ? false : null,
     })),
     startError: s.startError == null ? null : str(s.startError),
     timeLeft: s.timeLeft == null ? null : int(s.timeLeft),

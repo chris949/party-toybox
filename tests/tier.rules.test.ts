@@ -244,3 +244,35 @@ describe('ロビーに戻る', () => {
     expect(JSON.stringify(t.room)).toBe(frozen);
   });
 });
+
+describe('予想を直す・ロビーでお題を送り直す（v0.16）', () => {
+  it('決定した予想は、全員がそろうまで取り消せる', () => {
+    const t = testRoom([samples(), samples(), samples()]);
+    t.host({ t: 'start' });
+    for (const id of t.ids) t.act(id, { t: 'rank', order: identity(t.tier.assign[id].options.length) });
+    const tgt = t.tier.order[0];
+    const [g1, g2] = t.ids.filter(id => id !== tgt);
+    const n = t.tier.assign[tgt].options.length;
+    t.act(g1, { t: 'guess', round: 0, order: identity(n) });
+    t.act(g1, { t: 'retract', round: 0 });
+    expect(t.tier.guesses[g1]).toBeUndefined();
+    t.act(g1, { t: 'guess', round: 0, order: identity(n).reverse() });
+    t.act(g2, { t: 'guess', round: 0, order: identity(n) });
+    expect(t.tier.phase).toBe('reveal');
+    expect(t.tier.reveal!.rows.find(r => r.id === g1)!.order).toEqual(identity(n).reverse());
+  });
+  it('ロビーでは持っていくお題を送り直せる。編集中の印は開始で消える。ゲーム中は送り直せない', () => {
+    const t = testRoom([samples(), samples()]);
+    t.act('p1', { t: 'editing', on: true });
+    expect(t.room.players.find(p => p.id === 'p1')!.editing).toBe(true);
+    t.act('p1', { t: 'topics', topics: [custom('新しいお題')], fives: [], fates: [] });
+    expect(t.room.topicsBy.p1.map(x => x.title)).toEqual(['新しいお題']);
+    t.host({ t: 'start' });
+    expect(t.room.players.every(p => !p.editing)).toBe(true);
+    expect(Object.values(t.tier.assign).some(a => a.title === '新しいお題')).toBe(true);
+    t.act('p1', { t: 'topics', topics: samples() });
+    expect(t.room.topicsBy.p1.map(x => x.title)).toEqual(['新しいお題']);
+    t.act('p1', { t: 'editing', on: true });
+    expect(t.room.players.find(p => p.id === 'p1')!.editing).toBeFalsy();
+  });
+});

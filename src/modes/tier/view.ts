@@ -19,6 +19,7 @@ export interface PlayerSummary {
   fives: number;    // セレクトファイブのお題の数
   fates: number;    // 運命の二者択一の問題の数
   chara: number;    // キャラクターの番号
+  editing: boolean; // ロビーでお題を編集中か
   done: boolean | null; // 提出済みか（対象外なら null）
 }
 
@@ -68,7 +69,7 @@ export function viewFor(room: RoomState, id: string, now: number): PlayerView {
     players: room.players.map(p => ({
       id: p.id, name: p.name, score: p.score, online: p.online, version: p.version,
       topics: room.topicsBy[p.id]?.length ?? 0, fives: room.fivesBy[p.id]?.length ?? 0,
-      fates: room.fatesBy[p.id]?.length ?? 0, chara: p.chara,
+      fates: room.fatesBy[p.id]?.length ?? 0, chara: p.chara, editing: !!p.editing,
       done: f ? (f.phase === 'answer' && answers(f, p.id) ? !!f.picks[p.id] : null)
         : !g ? null : g.phase === 'ranking' ? !!g.ranks[p.id] : g.phase === 'guess' && p.id !== tgt ? !!g.guesses[p.id] : null,
     })),

@@ -3,17 +3,21 @@ import { MAX_OPT, MAX_PICK, MIN_OPT, MIN_PICK, OPTION_MAX, TITLE_MAX } from '../
 import { pickCount } from '../core/topics';
 import { newTopicId } from '../storage/local';
 import { Notice, TitleBar } from '../ui/common';
-import { askConfirm, setScreen, updateTopics, useStore, type Editing } from './store';
+import { askConfirm, backToRoom, setScreen, updateTopics, useStore, type Editing } from './store';
 import { FiveList } from './TopicsFive';
 import { FateList } from './TopicsFate';
 import { GAME_MODES, type GameMode } from '../core/types';
 
 export function Topics() {
   const tab = useStore(s => s.topicsTab);
+  const roomEdit = useStore(s => s.roomEdit);
   return (
     <>
-      <TitleBar right={<button className="small" onClick={() => setScreen('home')}>← 戻る</button>} />
+      <TitleBar right={roomEdit
+        ? <button className="small primary" onClick={backToRoom}>部屋に戻る</button>
+        : <button className="small" onClick={() => setScreen('home')}>← 戻る</button>} />
       <h2 style={{ fontSize: 20, margin: '0 0 12px' }}>お題の設定</h2>
+      {roomEdit && <p className="muted small" style={{ margin: '0 0 10px' }}>部屋に入ったまま編集しています。「部屋に戻る」を押すと、チェックを入れたお題が部屋に反映されます。</p>}
       {/* お題の形がモードごとに違うので、ストックを分ける */}
       <div className="seg" style={{ marginBottom: 12 }}>{(Object.entries(GAME_MODES) as [GameMode, string][]).map(([k, label]) => (
         <button key={k} className={tab === k ? 'on' : ''} onClick={() => useStore.setState({ topicsTab: k })}>{label}</button>
