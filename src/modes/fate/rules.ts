@@ -103,8 +103,9 @@ export function reduce(room: RoomState, g: FateState, a: ActionFrom, ctx: Ctx): 
   const isHost = a.from === room.hostId;
   switch (a.t) {
     case 'move':
-      // ゴーストも作った人も動ける（結果には関わらない）
+      // ゴーストは動ける（結果には関わらない）。作った人は、お立ち台に立っていて動けない
       if (g.phase !== 'question' || !isSide(a.side) || !room.players.some(p => p.id === a.from)) return false;
+      if (cardOf(g).authorIds.includes(a.from)) return false;
       if (g.deadline && ctx.now > g.deadline + FATE_GRACE_MS) return false;
       if (g.pos[a.from] === a.side) return false;
       g.pos[a.from] = a.side;

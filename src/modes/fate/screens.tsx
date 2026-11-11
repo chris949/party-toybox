@@ -4,10 +4,10 @@ import { motion } from 'motion/react';
 import { isHost, moveFate, send, type Pub } from '../../app/store';
 import { Sound } from '../../audio/sound';
 import { FATE_WARN_SEC } from '../../core/constants';
-import { Chara, PLAYER_COLORS, type Pose } from './charas';
+import { Chara, PLAYER_COLORS, variantOf, type Pose } from './charas';
 import { loadFateView, saveFateView, type FateViewMode } from '../../storage/local';
 import { fateRanks, type Pos, type Side } from './rules';
-import type { Piece3D } from './three/scene';
+import type { Piece3D, StagePos } from './three/scene';
 
 // 3Dの舞台は、3D表示を選んだ人だけが読み込む
 const Stage3D = lazy(() => import('./three/Stage3D'));
@@ -18,9 +18,10 @@ const ROW = 58, FLOOR_COLS = 3, PAD_COLS = 5, PAD_H = 124, GAP = 12;
 const floorHeight = (most: number) => 16 + Math.max(3, Math.ceil(most / FLOOR_COLS)) * ROW;
 
 // 立ち位置（x は舞台の幅に対する％、y は px）
-function slot(pos: Pos, i: number, padTop: number) {
+function slot(pos: StagePos, i: number, padTop: number) {
+  if (pos === 'P') return { x: 50, y: 12 + i * ROW }; // お立ち台（左右の床のあいだ）
   if (pos === 'C') return { x: 4 + (i % PAD_COLS + 0.5) * (92 / PAD_COLS), y: padTop + 8 + Math.floor(i / PAD_COLS) * ROW };
-  return { x: (pos === 'L' ? 1 : 52) + (i % FLOOR_COLS + 0.5) * (47 / FLOOR_COLS), y: 12 + Math.floor(i / FLOOR_COLS) * ROW };
+  return { x: (pos === 'L' ? 0 : 56) + (i % FLOOR_COLS + 0.5) * (44 / FLOOR_COLS), y: 12 + Math.floor(i / FLOOR_COLS) * ROW };
 }
 
 // 残り時間（ミリ秒）。締め切りがない（発表中・一時停止中）ときは null
@@ -42,13 +43,13 @@ function useClock(pub: Pub, active: boolean) {
 }
 
 // 位置が変わった直後だけ「移動中」のポーズにする
-function useMoving(pos: Pos) {
+function useMoving(pos: StagePos) {
   const [moving, setMoving] = useState(false);
   const last = useRef(pos);
   useEffect(() => {
     if (last.current === pos) return;
     last.current = pos;
-    if (pos === 'C') return; // 次の問題で真ん中に戻るときは、歩かせない
+    if (pos === 'C' || pos === 'P') return; // 次の問題で真ん中に戻るとき・お立ち台に上がるときは、歩かせない
     setMoving(true);
     const id = setTimeout(() => setMoving(false), 450);
     return () => clearTimeout(id);
@@ -58,7 +59,7 @@ function useMoving(pos: Pos) {
 
 type PieceProps = Piece3D & { index: number; padTop: number };
 
-function Piece({ name, chara, color, pos, index, padTop, me, ghost, author, fate }: PieceProps) {
+function Piece({ name, chara, color, variant, pos, index, padTop, me, ghost, author, fate }: PieceProps) {
   const moving = useMoving(pos);
   const { x, y } = slot(pos, index, padTop);
   const falling = fate === 'fall';
@@ -72,7 +73,7 @@ function Piece({ name, chara, color, pos, index, padTop, me, ghost, author, fate
       transition={falling ? { delay: 0.55, duration: 0.8, ease: 'easeIn' } : { type: 'spring', stiffness: 380, damping: 26 }}>
       {me && <span className="arrow">▼</span>}
       <div className={fate === 'fall' || fate === 'shock' ? 'hang' : fate === 'safe' && !ghost ? 'hop' : ghost ? 'float' : ''}>
-        <Chara n={chara} pose={pose} color={color} />
+        <Chara n={chara} pose={pose} color={color} variant={variant} />
       </div>
       {author && <span className="tag">出題</span>}
       <span className="nm">{name}</span>
@@ -82,13 +83,13 @@ function Piece({ name, chara, color, pos, index, padTop, me, ghost, author, fate
 
 export function FateStage({ pub }: { pub: Pub }) {
   const f = pub.fate!, v = f.verdict;
-  const myPos = f.pos[pub.me] ?? 'C';
-  const iAmGhost = pub.me in f.out && !v?.fallen.includes(pub.me);
   const iAmAuthor = f.authorIds.includes(pub.me);
+  const myPos = iAmAuthor ? 'C' : f.pos[pub.me] ?? 'C'; // 自分が作った問題のあいだは、お立ち台にいる
+  const iAmGhost = pub.me in f.out && !v?.fallen.includes(pub.me);
   const { ms, sec, warn } = useClock(pub, !iAmGhost);
   const [mode, setMode] = useState<FateViewMode>(loadFateView);
   const pickMode = (m: FateViewMode) => { saveFateView(m); setMode(m); };
-  const canMove = pub.phase === 'question' && !f.paused && ms !== 0;
+  const canMove = pub.phase === 'question' && !f.paused && ms !== 0 && !iAmAuthor;
   const alive = pub.players.filter(p => !(p.id in f.out)).length;
   const nameOf = (id: string) => pub.players.find(p => p.id === id)?.name ?? '???';
 
@@ -107,17 +108,18 @@ export function FateStage({ pub }: { pub: Pub }) {
   const floorState = (side: Pos) => !v ? '' : side === v.rightSide ? 'ok' : v.saved ? 'blink' : 'open';
   // 舞台に立つ全員（2D でも 3D でも同じものを描く）
   const pieces: Piece3D[] = pub.players.map((p, i) => {
-    const pos = f.pos[p.id] ?? 'C';
+    const author = f.authorIds.includes(p.id);
+    const pos: StagePos = author ? 'P' : f.pos[p.id] ?? 'C'; // 作った人は、お立ち台に立つ
     const fell = !!v?.fallen.includes(p.id);
     const ghost = p.id in f.out && !fell;
     return {
-      id: p.id, name: p.name, chara: p.chara, color: PLAYER_COLORS[i % PLAYER_COLORS.length], pos,
-      me: p.id === pub.me, ghost, author: f.authorIds.includes(p.id),
-      fate: !v ? null : fell ? 'fall' : pos === v.rightSide ? 'safe' : ghost ? null : 'shock',
+      id: p.id, name: p.name, chara: p.chara, color: PLAYER_COLORS[i % PLAYER_COLORS.length], variant: variantOf(pub.players, i), pos,
+      me: p.id === pub.me, ghost, author,
+      fate: !v ? null : fell ? 'fall' : author || pos === v.rightSide ? 'safe' : ghost ? null : 'shock',
     };
   });
-  const order: Record<Pos, number> = { L: 0, R: 0, C: 0 };
-  const count = (side: Side) => pub.players.filter(p => f.pos[p.id] === side).length;
+  const order: Record<StagePos, number> = { L: 0, R: 0, C: 0, P: 0 };
+  const count = (side: Side) => pieces.filter(p => p.pos === side).length;
   const floorH = floorHeight(Math.max(count('L'), count('R'))), padTop = floorH + GAP;
   const strip = f.paused ? <div className="big">⏸ 一時停止中</div>
     : v ? <>
@@ -131,7 +133,7 @@ export function FateStage({ pub }: { pub: Pub }) {
       </motion.div>
     </>
     : iAmGhost ? <div>👻 あなたはゴースト。動き回って、みんなを惑わせよう</div>
-    : iAmAuthor ? <div>あなたが作った問題です（自動でセーフ）。動いて惑わせてもOK</div>
+    : iAmAuthor ? <div>あなたが作った問題です。お立ち台から見守りましょう（自動でセーフ）</div>
     : myPos === 'C' ? <div><b>左右どちらかへ移動！</b>　真ん中のままだと不正解</div>
     : <div>締め切りまで、何度でも動けます</div>;
 
@@ -168,6 +170,7 @@ export function FateStage({ pub }: { pub: Pub }) {
       </Suspense>
       : <div className={`fstage ${v?.fallen.length ? 'quake' : ''}`} style={{ height: padTop + PAD_H }}>
         {floor('L')}{floor('R')}
+        <div className="podium" style={{ height: floorH }}><span className="lbl">お立ち台</span></div>
         <div className={`pad ${v ? (v.saved ? 'blink' : 'open') : ''}`} style={{ top: padTop, height: PAD_H }}>
           <span className="hole" /><span className="door a" /><span className="door b" /><span className="lbl">スタート</span>
         </div>
@@ -194,14 +197,14 @@ export function FateResult({ pub }: { pub: Pub }) {
     <section className="card">
       <h2>最終結果</h2>
       <div className="fwin">
-        <div className="row" style={{ justifyContent: 'center' }}>{winners.map(p => <div className="hop" key={p.id}><Chara n={p.chara} size={72} color={colorOf(p.id)} /></div>)}</div>
+        <div className="row" style={{ justifyContent: 'center' }}>{winners.map(p => <div className="hop" key={p.id}><Chara n={p.chara} size={72} color={colorOf(p.id)} variant={variantOf(pub.players, pub.players.indexOf(p))} /></div>)}</div>
         <div className="big">🏆 {winners.length === 1 ? `${winners[0].name} の勝ち！` : `生き残った${winners.length}人の勝ち！`}</div>
         <div className="muted small">{winners.length === 1 ? '最後の1人まで生き残りました' : '問題がなくなるまで生き残りました'}</div>
       </div>
       {sorted.map(p => (
         <div className={`rank-row ${ranks[p.id] === 1 ? 'first' : ''}`} key={p.id}>
           <span className="n">{medal[ranks[p.id] - 1] ?? ranks[p.id]}</span>
-          <Chara n={p.chara} size={36} color={colorOf(p.id)} pose={ranks[p.id] === 1 ? 'stand' : 'ghost'} />
+          <Chara n={p.chara} size={36} color={colorOf(p.id)} variant={variantOf(pub.players, pub.players.indexOf(p))} pose={ranks[p.id] === 1 ? 'stand' : 'ghost'} />
           <span className="nm">{p.name}{p.id === pub.me ? '（あなた）' : ''}</span>
           <span className="small muted">{p.id in f.out ? `第${f.out[p.id] + 1}問で脱落` : '生き残り'}</span>
         </div>

@@ -15,10 +15,16 @@ export const PLAYER_COLORS = ['#ff6f6f', '#4aa6f0', '#36c99a', '#ffb020', '#a77b
 
 export const charaOf = (n: number) => CHARAS[((Math.trunc(n) || 0) % CHARAS.length + CHARAS.length) % CHARAS.length];
 
-export function Chara({ n, pose = 'stand', size = 44, color = 'var(--ink)' }: { n: number; pose?: Pose; size?: number; color?: string }) {
+// 同じキャラクターを選んだ人のうち何人目か（0 = 1人目）。2人目からは色合いを変えて見分ける
+export const variantOf = (players: readonly { chara: number }[], i: number) =>
+  players.slice(0, i).filter(p => charaOf(p.chara) === charaOf(players[i].chara)).length;
+
+export function Chara({ n, pose = 'stand', size = 44, color = 'var(--ink)', variant = 0 }: { n: number; pose?: Pose; size?: number; color?: string; variant?: number }) {
+  const alt = variant > 0 && pose !== 'ghost';
   return (
-    <span className={`chara ${pose}`} style={{ width: size, height: size, fontSize: size * 0.62, borderColor: color }} aria-hidden>
-      <span className="face">{charaOf(n).face}</span>
+    <span className={`chara ${pose}`} aria-hidden
+      style={{ width: size, height: size, fontSize: size * 0.62, borderColor: color, background: alt ? `color-mix(in srgb, ${color} 30%, #fff)` : undefined }}>
+      <span className="face" style={alt ? { filter: `hue-rotate(${variant * 75}deg)` } : undefined}>{charaOf(n).face}</span>
       {pose === 'fall' && <span className="fx">💦</span>}
       {pose === 'ghost' && <span className="fx">👻</span>}
     </span>

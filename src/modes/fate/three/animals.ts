@@ -1,6 +1,7 @@
 // おもちゃ風の動物（docs/spec.md の11.12）。球と円すいを組み合わせて作る。並びは 2D のキャラクター（charas.tsx）と同じ
 import * as THREE from 'three';
 import { CHIBIS, makeChibi } from './chibis';
+import { tinted } from './tint';
 
 const BALL = new THREE.SphereGeometry(1, 24, 16);
 const CONE = new THREE.ConeGeometry(1, 1, 16);
@@ -35,16 +36,16 @@ export interface Animal {
   dispose(): void;
 }
 
-export function makeAnimal(n: number, ringColor: string): Animal {
+export function makeAnimal(n: number, ringColor: string, variant = 0): Animal {
   // 並びは charas.tsx と同じ：動物12種 → アニメ風の人5種
   const total = LOOKS.length + CHIBIS.length, idx = ((Math.trunc(n) || 0) % total + total) % total;
-  if (idx >= LOOKS.length) return makeChibi(idx - LOOKS.length, ringColor);
+  if (idx >= LOOKS.length) return makeChibi(idx - LOOKS.length, ringColor, variant);
   const look = LOOKS[idx];
   const root = new THREE.Group();
   const mats = new Map<string, THREE.MeshStandardMaterial>();
   const mat = (c: string) => {
     let m = mats.get(c);
-    if (!m) { m = new THREE.MeshStandardMaterial({ color: c, roughness: 0.55, metalness: 0 }); m.userData.base = new THREE.Color(c); mats.set(c, m); }
+    if (!m) { const col = tinted(c, variant, ringColor); m = new THREE.MeshStandardMaterial({ color: col, roughness: 0.55, metalness: 0 }); m.userData.base = col.clone(); mats.set(c, m); }
     return m;
   };
   const add = (geo: THREE.BufferGeometry, c: string, p: [number, number, number], s: [number, number, number], r?: [number, number, number], parent: THREE.Object3D = root) => {

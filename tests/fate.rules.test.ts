@@ -173,7 +173,8 @@ describe('作った人', () => {
     const t = fateRoom([[q('a')], [], []]);
     t.host({ t: 'start' });
     expect(cardOf(t.fate).text).toBe('a');
-    t.act(t.ids[0], { t: 'move', side: t.wrong() }); // 作った人は動けるが、結果には関わらない
+    t.act(t.ids[0], { t: 'move', side: t.wrong() }); // 作った人は、お立ち台に立っていて動けない
+    expect(t.fate.pos[t.ids[0]]).toBe('C');
     t.act(t.ids[1], { t: 'move', side: t.right() });
     t.act(t.ids[2], { t: 'move', side: t.wrong() });
     t.close();
@@ -182,7 +183,6 @@ describe('作った人', () => {
   it('作った人のほかが全員不正解なら、全員セーフ（自分の問題で勝ち残れない）', () => {
     const t = fateRoom([[q('a')], []]);
     t.host({ t: 'start' });
-    t.act(t.ids[0], { t: 'move', side: t.right() });
     t.act(t.ids[1], { t: 'move', side: t.wrong() });
     t.close();
     expect(t.fate.verdict).toEqual({ fallen: [], saved: true });
