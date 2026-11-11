@@ -12,11 +12,11 @@ import { cleanId, DEAD_MS, genCode, HEARTBEAT_MS, parseAction, PREFIX, type Host
 
 type Conn = DataConnection & { pid?: string; lastSeen: number };
 
-export interface HostSession { isHost: true; code: string; send(a: Action): void; close(): void }
+export interface HostSession { isHost: true; code: string; send(a: Action): void; addBot(): void; close(): void }
 
 export interface HostOptions {
-  id: string; key: string; name: string; topics: Topic[]; fives: FiveTopic[]; fates: FateQuestion[]; chara: number; version: string; minPlayers: number;
-  bots?: number; // 動作確認用：CPU の参加者の数（運命の二者択一でだけ動く）
+  id: string; key: string; name: string; topics: Topic[]; fives: FiveTopic[]; fates: FateQuestion[]; haikus: string[]; chara: number; version: string; minPlayers: number;
+  bots?: number; // 最初から入れておく CPU の参加者の数（動作確認用。?dev&bots=9）
   onOpen(session: HostSession): void;
   onView(view: PlayerView): void;
   onFail(msg: string): void;
@@ -33,13 +33,37 @@ export function startHost(o: HostOptions): void {
 
   const sendTo = (c: Conn | undefined, m: HostMsg) => { if (c?.open) c.send(m); };
 
-  // ===== 動作確認用の CPU（?dev&bots=9）。運命の二者択一で、出題のたびに左右へ動く =====
+  // ===== CPU の参加者（docs/spec.md の2.1）。ホストがロビーで足す。運命の二者択一とハイカー575 でだけ動く =====
   const BOT_NAMES = ['じろう', 'さくら', 'ゆうき', 'みさき', 'けんた', 'あおい', 'りく', 'ひなた', 'そうた'];
-  const bots = BOT_NAMES.slice(0, Math.max(0, Math.min(BOT_NAMES.length, o.bots ?? 0))).map((name, i) => ({ id: `bot${i + 1}`, name }));
+  const botsNow = () => room.players.filter(p => p.bot);
+  // 空いている番号で1人足す（満員なら、部屋のルールが断る）
+  function addBot() {
+    const i = BOT_NAMES.findIndex((_, k) => !room.players.some(p => p.id === `bot${k + 1}`));
+    if (i < 0) return;
+    dispatch(`bot${i + 1}`, { t: 'join', name: BOT_NAMES[i], key: 'bot', topics: [], chara: (o.chara + 1 + i * 2) % CHARA_COUNT, version: o.version, bot: true });
+  }
   let botTimers: ReturnType<typeof setTimeout>[] = [];
   let botTurn = '';
-  function runBots() {
+  // ハイカー575：ランダムなひらがなを書き、作品にはランダムに★を付ける
+  function runHaikuBots() {
     const g = room.game;
+    const bots = botsNow();
+    if (!bots.length || g?.kind !== 'haiku' || g.phase === 'result') return;
+    const rating = g.phase === 'recite' && !!g.show?.rating;
+    if (g.phase === 'recite' && !rating) return;
+    const turn = `${room.gameNo}-${g.phase}-${g.phase === 'write' ? g.step : g.show!.idx}`;
+    if (turn === botTurn) return;
+    botTurn = turn;
+    botTimers.forEach(clearTimeout);
+    const kana = 'あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわん';
+    botTimers = bots.map(b => setTimeout(() => dispatch(b.id, rating
+      ? { t: 'rate', round: g.show!.idx, n: 1 + Math.floor(Math.random() * 5) }
+      : { t: 'kana', step: g.step, ch: kana[Math.floor(Math.random() * kana.length)] }), 600 + Math.random() * 2500));
+  }
+  function runBots() {
+    runHaikuBots();
+    const g = room.game;
+    const bots = botsNow();
     if (!bots.length || g?.kind !== 'fate' || g.phase !== 'question') return;
     const turn = `${room.gameNo}-${g.round}`;
     if (turn === botTurn) return;
@@ -96,10 +120,10 @@ export function startHost(o: HostOptions): void {
         else sendTo(c, { t: 'ping' });
       }
     }, HEARTBEAT_MS);
-    dispatch(o.id, { t: 'join', name: o.name, key: o.key, topics: o.topics, fives: o.fives, fates: o.fates, chara: o.chara, version: o.version });
-    bots.forEach((b, i) => dispatch(b.id, { t: 'join', name: b.name, key: 'bot', topics: o.topics, chara: (o.chara + 1 + i * 2) % CHARA_COUNT, version: o.version }));
+    dispatch(o.id, { t: 'join', name: o.name, key: o.key, topics: o.topics, fives: o.fives, fates: o.fates, haikus: o.haikus, chara: o.chara, version: o.version });
+    for (let i = 0; i < Math.min(BOT_NAMES.length, o.bots ?? 0); i++) addBot();
     const session: HostSession = {
-      isHost: true, code,
+      isHost: true, code, addBot,
       send(a) {
         if (a.t === 'kick') {
           sendTo(conns[a.id], { t: 'error', msg: 'ホストに退出させられました' });
@@ -132,7 +156,7 @@ export function startHost(o: HostOptions): void {
         const old = conns[pid];
         if (old && old !== c) { delete conns[pid]; old.close(); }
         conns[pid] = c;
-        dispatch(pid, { t: 'join', name: m.name, key: m.key, topics: m.topics, fives: m.fives, fates: m.fates, chara: m.chara, version: m.version });
+        dispatch(pid, { t: 'join', name: m.name, key: m.key, topics: m.topics, fives: m.fives, fates: m.fates, haikus: m.haikus, chara: m.chara, version: m.version });
         return;
       }
       if (!c.pid || conns[c.pid] !== c || m?.t === 'pong') return;

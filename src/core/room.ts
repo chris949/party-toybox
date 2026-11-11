@@ -6,11 +6,13 @@ import { GAME_MODES, PICK_MODES, type Action, type ActionFrom, type Ctx, type Ro
 import { MODES, modeOf } from '../modes';
 import { sanitizeFives } from './fives';
 import { sanitizeFates } from './fates';
+import { HAIKU_STYLES, sanitizeHaikus } from './haikus';
+import { DEFAULT_HAIKU_TIME, HAIKU_TIMES } from './constants';
 
 const charaOf = (n: unknown) => Number.isInteger(n) && (n as number) >= 0 && (n as number) < CHARA_MAX ? n as number : null;
 
 export function createRoom(code: string, hostId: string, minPlayers: number): RoomState {
-  return { code, hostId, minPlayers, gameNo: 1, gameMode: 'tier', pickMode: 'random', timeLimit: DEFAULT_TIME_LIMIT, fateTime: DEFAULT_FATE_TIME, fateQuota: DEFAULT_FATE_QUOTA, fateLives: DEFAULT_FATE_LIVES, players: [], topicsBy: {}, fivesBy: {}, fatesBy: {}, game: null };
+  return { code, hostId, minPlayers, gameNo: 1, gameMode: 'tier', pickMode: 'random', timeLimit: DEFAULT_TIME_LIMIT, fateTime: DEFAULT_FATE_TIME, fateQuota: DEFAULT_FATE_QUOTA, fateLives: DEFAULT_FATE_LIVES, haikuStyle: 'theme', haikuTime: DEFAULT_HAIKU_TIME, haikusBy: {}, players: [], topicsBy: {}, fivesBy: {}, fatesBy: {}, game: null };
 }
 
 // 参加を受け付けるか。断るときはその理由
@@ -19,7 +21,8 @@ export function joinError(room: RoomState, id: string, a: Extract<Action, { t: '
   if (existing) return existing.key === clean(a.key, 64) ? null : 'この参加者は既に部屋にいます';
   if (room.game) return 'ゲーム進行中のため参加できません';
   if (room.players.length >= MAX_PLAYERS) return `満員です（最大${MAX_PLAYERS}人）`;
-  if (!sanitizeTopics(a.topics).length && !sanitizeFives(a.fives).length && !sanitizeFates(a.fates).length) return 'お題を1つ以上持ってきてください';
+  if (a.bot) return null; // CPU は、お題を持ってこない
+  if (!sanitizeTopics(a.topics).length && !sanitizeFives(a.fives).length && !sanitizeFates(a.fates).length && !sanitizeHaikus(a.haikus).length) return 'お題を1つ以上持ってきてください';
   return null;
 }
 
@@ -30,17 +33,18 @@ export function reduce(state: RoomState, a: ActionFrom, ctx: Ctx): RoomState {
   switch (a.t) {
     case 'join': {
       if (joinError(room, a.from, a)) return state;
-      const tps = sanitizeTopics(a.topics), fvs = sanitizeFives(a.fives), fts = sanitizeFates(a.fates);
+      const tps = sanitizeTopics(a.topics), fvs = sanitizeFives(a.fives), fts = sanitizeFates(a.fates), hks = sanitizeHaikus(a.haikus);
       let p = room.players.find(x => x.id === a.from);
       if (!p) {
         p = { id: a.from, key: clean(a.key, 64), name: '', online: true, score: 0, version: '', chara: 0 };
         room.players.push(p);
       }
       p.name = clean(a.name, NAME_MAX) || '名無し';
+      if (a.bot) p.bot = true;
       p.online = true;
       p.version = clean(a.version, 20) || '不明';
       p.chara = charaOf(a.chara) ?? p.chara;
-      if (!room.game && (tps.length || fvs.length || fts.length)) { room.topicsBy[a.from] = tps; room.fivesBy[a.from] = fvs; room.fatesBy[a.from] = fts; }
+      if (!room.game && (tps.length || fvs.length || fts.length || hks.length)) { room.topicsBy[a.from] = tps; room.fivesBy[a.from] = fvs; room.fatesBy[a.from] = fts; room.haikusBy[a.from] = hks; }
       return room;
     }
     case 'leave': {
@@ -51,6 +55,7 @@ export function reduce(state: RoomState, a: ActionFrom, ctx: Ctx): RoomState {
         delete room.topicsBy[a.from];
         delete room.fivesBy[a.from];
         delete room.fatesBy[a.from];
+        delete room.haikusBy[a.from];
       } else {
         p.online = false;
         modeOf(room.game).checkAdvance(room, room.game, ctx);
@@ -72,6 +77,14 @@ export function reduce(state: RoomState, a: ActionFrom, ctx: Ctx): RoomState {
     case 'time':
       if (!isHost || room.game || !(TIME_LIMITS as readonly number[]).includes(a.sec)) return state;
       room.timeLimit = a.sec;
+      return room;
+    case 'haikuStyle':
+      if (!isHost || room.game || !(a.style in HAIKU_STYLES)) return state;
+      room.haikuStyle = a.style;
+      return room;
+    case 'haikuTime':
+      if (!isHost || room.game || !(HAIKU_TIMES as readonly number[]).includes(a.sec)) return state;
+      room.haikuTime = a.sec;
       return room;
     case 'fateTime':
       if (!isHost || room.game || !(FATE_TIMES as readonly number[]).includes(a.sec)) return state;
@@ -99,6 +112,7 @@ export function reduce(state: RoomState, a: ActionFrom, ctx: Ctx): RoomState {
       room.topicsBy[a.from] = sanitizeTopics(a.topics);
       room.fivesBy[a.from] = sanitizeFives(a.fives);
       room.fatesBy[a.from] = sanitizeFates(a.fates);
+      room.haikusBy[a.from] = sanitizeHaikus(a.haikus);
       return room;
     }
     case 'editing': {
@@ -108,7 +122,7 @@ export function reduce(state: RoomState, a: ActionFrom, ctx: Ctx): RoomState {
       return room;
     }
     case 'start':
-      if (!isHost || room.game || MODES[room.gameMode].startError(room)) return state;
+      if (!isHost || room.game || startErrorOf(room)) return state;
       room.players.forEach(p => { p.editing = false; });
       room.game = MODES[room.gameMode].start(room, ctx);
       return room;
@@ -118,6 +132,7 @@ export function reduce(state: RoomState, a: ActionFrom, ctx: Ctx): RoomState {
       room.topicsBy = Object.fromEntries(room.players.map(p => [p.id, room.topicsBy[p.id] ?? []]));
       room.fivesBy = Object.fromEntries(room.players.map(p => [p.id, room.fivesBy[p.id] ?? []]));
       room.fatesBy = Object.fromEntries(room.players.map(p => [p.id, room.fatesBy[p.id] ?? []]));
+      room.haikusBy = Object.fromEntries(room.players.map(p => [p.id, room.haikusBy[p.id] ?? []]));
       room.gameNo++;
       room.game = null;
       return room;
@@ -128,4 +143,9 @@ export function reduce(state: RoomState, a: ActionFrom, ctx: Ctx): RoomState {
 }
 
 export const nextTimer = (room: RoomState): Timer | null => room.game ? modeOf(room.game).nextTimer(room.game) : null;
-export const startErrorOf = (room: RoomState) => MODES[room.gameMode].startError(room);
+// CPU が動くモード
+export const BOT_MODES: readonly string[] = ['fate', 'haiku'];
+export const startErrorOf = (room: RoomState) =>
+  room.players.some(p => p.bot) && !BOT_MODES.includes(room.gameMode)
+    ? 'CPU は、このモードでは動きません。CPU を外すか、運命の二者択一・ハイカー575 で遊んでください'
+    : MODES[room.gameMode].startError(room);

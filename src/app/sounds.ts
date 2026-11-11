@@ -13,6 +13,14 @@ export function playStateSounds(prev: PlayerView | null, next: PlayerView) {
     else if (next.phase === 'result') Sound.play('fanfare');
     return;
   }
+  // ハイカー575：短冊が回ってきたらポロン、1行めくるたびにポン、採点を締め切ったらファンファーレ
+  if (next.haiku) {
+    const w = next.haiku.work, pw = prev?.phase === 'recite' && prev.round === next.round ? prev.haiku?.work : null;
+    if (next.phase === 'write' && turn(prev) !== turn(next)) Sound.play('start');
+    if (w && w.shown > (pw?.shown ?? 0)) Sound.play(w.shown >= 3 ? 'drumroll' : 'pop');
+    if (w?.done && !pw?.done) Sound.play((w.pts ?? 0) >= 40 ? 'perfect' : 'fanfare');
+    return;
+  }
   if ((next.phase === 'ranking' || next.phase === 'guess' || next.phase === 'answer') && turn(prev) !== turn(next)) Sound.play('start');
   // セレクトファイブ：正解をめくるたびにポン、最後の正解（ダミーも同時に明かす）でファンファーレ
   const fr = next.five?.reveal;

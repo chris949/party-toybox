@@ -3,6 +3,8 @@
 import { DEFAULT_FATE_LIVES, FATE_LIVES, DEFAULT_FATE_QUOTA, DEFAULT_FATE_TIME, DEFAULT_TIME_LIMIT, FATE_QUOTAS, FATE_TIMES, TIME_LIMITS } from '../core/constants';
 import { GAME_MODES, type GameMode } from '../core/types';
 import type { FateView } from '../modes/fate/view';
+import type { HaikuView, HaikuWork } from '../modes/haiku/view';
+import { DEFAULT_HAIKU_TIME, HAIKU_TIMES } from '../core/constants';
 import type { Action } from '../core/types';
 import type { PlayerView } from '../modes/tier/view';
 import type { FiveView } from '../modes/five/view';
@@ -16,7 +18,7 @@ export type HostMsg =
   | { t: 'ping' }
   | { t: 'error'; msg: string };
 
-export type JoinMsg = { t: 'join'; id: string; key: string; name: string; topics: unknown; fives?: unknown; fates?: unknown; chara?: unknown; version: string };
+export type JoinMsg = { t: 'join'; id: string; key: string; name: string; topics: unknown; fives?: unknown; fates?: unknown; haikus?: unknown; chara?: unknown; version: string };
 export type GuestMsg = JoinMsg | { t: 'pong' } | Action;
 
 export const genCode = () => {
@@ -38,9 +40,13 @@ export function parseAction(m: any): Action | null {
     case 'five': return Array.isArray(m.picks) && Number.isInteger(m.round) ? { t: 'five', round: m.round, picks: m.picks.slice(0, 8), partial: !!m.partial } : null;
     case 'move': return m.side === 'L' || m.side === 'R' ? { t: 'move', side: m.side } : null;
     case 'chara': return Number.isInteger(m.n) ? { t: 'chara', n: m.n } : null;
-    case 'topics': return { t: 'topics', topics: m.topics, fives: m.fives, fates: m.fates }; // 中身はホストが検査して整える
+    case 'topics': return { t: 'topics', topics: m.topics, fives: m.fives, fates: m.fates, haikus: m.haikus }; // 中身はホストが検査して整える
     case 'editing': return { t: 'editing', on: !!m.on };
     case 'retract': return Number.isInteger(m.round) ? { t: 'retract', round: m.round } : null;
+    case 'haikuStyle': return m.style === 'theme' || m.style === 'free' ? { t: 'haikuStyle', style: m.style } : null;
+    case 'haikuTime': return Number.isInteger(m.sec) ? { t: 'haikuTime', sec: m.sec } : null;
+    case 'kana': return Number.isInteger(m.step) && typeof m.ch === 'string' ? { t: 'kana', step: m.step, ch: m.ch.slice(0, 4) } : null;
+    case 'rate': return Number.isInteger(m.round) && Number.isInteger(m.n) ? { t: 'rate', round: m.round, n: m.n } : null;
     case 'fateTime': return Number.isInteger(m.sec) ? { t: 'fateTime', sec: m.sec } : null;
     case 'fateQuota': return Number.isInteger(m.n) ? { t: 'fateQuota', n: m.n } : null;
     case 'fateLives': return Number.isInteger(m.n) ? { t: 'fateLives', n: m.n } : null;
@@ -68,12 +74,14 @@ export function normalizeView(s: any): PlayerView {
     fateTime: (FATE_TIMES as readonly number[]).includes(int(s.fateTime)) ? int(s.fateTime) : DEFAULT_FATE_TIME,
     fateQuota: (FATE_QUOTAS as readonly number[]).includes(int(s.fateQuota)) ? int(s.fateQuota) : DEFAULT_FATE_QUOTA,
     fateLives: (FATE_LIVES as readonly number[]).includes(int(s.fateLives)) ? int(s.fateLives) : DEFAULT_FATE_LIVES,
+    haikuStyle: s.haikuStyle === 'free' ? 'free' : 'theme',
+    haikuTime: (HAIKU_TIMES as readonly number[]).includes(int(s.haikuTime)) ? int(s.haikuTime) : DEFAULT_HAIKU_TIME,
     code: str(s.code),
     hostId: str(s.hostId),
     me: str(s.me),
     players: (Array.isArray(s.players) ? s.players : []).map((p: any) => ({
       id: str(p.id), name: str(p.name), score: int(p.score), online: p.online !== false, version: str(p.version),
-      topics: int(p.topics), fives: int(p.fives), fates: int(p.fates), chara: Math.max(0, int(p.chara)), editing: p.editing === true, done: p.done === true ? true : p.done === false ? false : null,
+      topics: int(p.topics), fives: int(p.fives), fates: int(p.fates), haikus: int(p.haikus), chara: Math.max(0, int(p.chara)), editing: p.editing === true, bot: p.bot === true, done: p.done === true ? true : p.done === false ? false : null,
     })),
     startError: s.startError == null ? null : str(s.startError),
     timeLeft: s.timeLeft == null ? null : int(s.timeLeft),
@@ -91,6 +99,27 @@ export function normalizeView(s: any): PlayerView {
     } : null,
     five: s.five ? normalizeFive(s.five) : null,
     fate: s.fate ? normalizeFate(s.fate) : null,
+    haiku: s.haiku ? normalizeHaiku(s.haiku) : null,
+  };
+}
+
+function normalizeHaiku(h: any): HaikuView {
+  const int = (v: unknown) => Number.isFinite(Number(v)) ? Math.trunc(Number(v)) : 0;
+  const str = (v: unknown) => String(v ?? '');
+  const nint = (v: unknown) => v == null ? null : int(v);
+  const work = (w: any): HaikuWork => ({ ownerId: str(w.ownerId), ownerName: str(w.ownerName), themeBy: str(w.themeBy), text: str(w.text), pts: nint(w.pts) });
+  const w = h.work;
+  return {
+    style: h.style === 'free' ? 'free' : 'theme', step: int(h.step), steps: int(h.steps),
+    writing: !!h.writing, text: str(h.text), themeLen: int(h.themeLen), myDraft: h.myDraft == null ? null : str(h.myDraft),
+    work: w ? {
+      ...work(w), idx: int(w.idx), total: int(w.total), shown: int(w.shown),
+      lines: Array.isArray(w.lines) ? w.lines.map(str) : [],
+      cells: Array.isArray(w.cells) ? w.cells.map((c: any) => ({ ch: str(c.ch), by: c.by == null ? null : str(c.by), byName: str(c.byName), auto: !!c.auto })) : null,
+      rating: !!w.rating, done: !!w.done, myRating: nint(w.myRating),
+      ratings: Array.isArray(w.ratings) ? w.ratings.map((r: any) => ({ id: str(r.id), name: str(r.name), n: int(r.n) })) : null,
+    } : null,
+    gallery: Array.isArray(h.gallery) ? h.gallery.map(work) : null,
   };
 }
 

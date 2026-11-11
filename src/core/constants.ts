@@ -1,5 +1,5 @@
 // ゲーム全体の決まり（数字の根拠は docs/spec.md）
-export const MIN_PLAYERS_DEFAULT = 4;
+export const MIN_PLAYERS_DEFAULT = 2; // v0.19 で4人から下げた
 export const MIN_PLAYERS_DEV = 2; // URL に ?dev を付けたとき（動作確認用）
 export const MAX_PLAYERS = 10;
 
@@ -28,3 +28,9 @@ export const FATE_LIVES = [1, 2, 3] as const;        // ライフ（残機）。
 export const DEFAULT_FATE_LIVES = 3;
 export const CHARA_COUNT = 17;                       // 用意しているキャラクターの数（動物12＋アニメ風の人5）
 export const CHARA_MAX = 64;                        // キャラクターの番号の上限（絵の数は画面側で決める）
+
+// ハイカー575（docs/spec.md の12章）
+export const HAIKU_TIMES = [10, 15, 20] as const;   // 1文字の制限時間（秒）。ホストがロビーで選ぶ
+export const DEFAULT_HAIKU_TIME = 15;
+export const HAIKU_RATE_SEC = 30;                   // 採点の制限時間（秒）
+export const HAIKU_REVEAL_FIRST_MS = 1500, HAIKU_REVEAL_STEP_MS = 2500; // 発表で、1行ずつめくる間隔
