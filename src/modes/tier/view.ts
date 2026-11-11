@@ -18,6 +18,7 @@ export interface PlayerView {
   phase: ViewPhase;
   gameNo: number;
   mode: RoomState['pickMode'];
+  timeLimit: number;
   code: string;
   hostId: string;
   me: string;
@@ -41,6 +42,7 @@ export function viewFor(room: RoomState, id: string, now: number): PlayerView {
     phase: g ? g.phase : 'lobby',
     gameNo: room.gameNo,
     mode: room.pickMode,
+    timeLimit: room.timeLimit,
     code: room.code,
     hostId: room.hostId,
     me: id,

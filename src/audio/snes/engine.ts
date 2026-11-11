@@ -61,7 +61,7 @@ export class SnesPlayer {
   private noise: AudioBuffer;
   private pulse: PeriodicWave;
   private timer: ReturnType<typeof setInterval> | null = null;
-  private song: { intro: NoteEvent[]; introSteps: number; loop: NoteEvent[]; loopSteps: number; stepSec: number } | null = null;
+  private song: { intro: NoteEvent[]; introSteps: number; loop: NoteEvent[]; loopSteps: number; stepSec: number; baseStep: number } | null = null;
   private pos = 0;        // 次に予約する16分音符（イントロを含めた通し番号）
   private startAt = 0;    // 曲の始まりの時刻
 
@@ -101,12 +101,21 @@ export class SnesPlayer {
       if (part.intro) { const p = parse(part.intro, part, song.title); intro.events.push(...p.events); intro.steps = Math.max(intro.steps, p.steps); }
       const p = parse(part.loop, part, song.title); loop.events.push(...p.events); loop.steps = Math.max(loop.steps, p.steps);
     }
-    this.song = { intro: intro.events, introSteps: intro.steps, loop: loop.events, loopSteps: loop.steps, stepSec: 60 / song.bpm / 4 };
+    this.song = { intro: intro.events, introSteps: intro.steps, loop: loop.events, loopSteps: loop.steps, stepSec: 60 / song.bpm / 4, baseStep: 60 / song.bpm / 4 };
     this.pos = 0;
     this.startAt = this.ctx.currentTime + 0.1;
     this.setVolume(volume, fadeSec);
     this.timer = setInterval(() => this.schedule(), 25);
     this.schedule();
+  }
+
+  // 速さを変える（1 = 元の速さ）。次に鳴らす音の時刻はそのままにして、そこから先の間隔だけ変える
+  setRate(rate: number) {
+    const s = this.song;
+    if (!s) return;
+    const next = this.startAt + this.pos * s.stepSec;
+    s.stepSec = s.baseStep / rate;
+    this.startAt = next - this.pos * s.stepSec;
   }
 
   stop(fadeSec = 1) {

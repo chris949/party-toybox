@@ -1,12 +1,12 @@
 // 部屋の進行（どのモードでも共通）：参加・退出・ロビーの設定・開始・ロビーに戻る。
 // ゲーム中の操作はモードに渡す。画面・通信・ブラウザの機能は使わない
-import { MAX_PLAYERS, NAME_MAX } from './constants';
+import { DEFAULT_TIME_LIMIT, MAX_PLAYERS, NAME_MAX, TIME_LIMITS } from './constants';
 import { clean, sanitizeTopics } from './topics';
 import { PICK_MODES, type Action, type ActionFrom, type Ctx, type RoomState, type Timer } from './types';
 import { tierMode } from '../modes';
 
 export function createRoom(code: string, hostId: string, minPlayers: number): RoomState {
-  return { code, hostId, minPlayers, gameNo: 1, pickMode: 'random', players: [], topicsBy: {}, game: null };
+  return { code, hostId, minPlayers, gameNo: 1, pickMode: 'random', timeLimit: DEFAULT_TIME_LIMIT, players: [], topicsBy: {}, game: null };
 }
 
 // 参加を受け付けるか。断るときはその理由
@@ -57,6 +57,10 @@ export function reduce(state: RoomState, a: ActionFrom, ctx: Ctx): RoomState {
     case 'mode':
       if (!isHost || room.game || !(a.mode in PICK_MODES)) return state;
       room.pickMode = a.mode;
+      return room;
+    case 'time':
+      if (!isHost || room.game || !(TIME_LIMITS as readonly number[]).includes(a.sec)) return state;
+      room.timeLimit = a.sec;
       return room;
     case 'start':
       if (!isHost || room.game || tierMode.startError(room)) return state;

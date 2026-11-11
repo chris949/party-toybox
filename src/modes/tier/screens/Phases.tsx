@@ -18,7 +18,7 @@ export function Ranking({ pub }: { pub: Pub }) {
   return (
     <section className="card">
       <div className="row" style={{ justifyContent: 'space-between' }}>
-        <span className="status">準備フェーズ</span>{!pub.myRank && <Timer sec={sec} />}
+        <span className="status">準備フェーズ</span>{!pub.myRank && <Timer sec={sec} limit={pub.timeLimit} />}
       </div>
       {t ? <>
         <div className="qtitle">{t.title}</div>
@@ -38,7 +38,7 @@ export function Guess({ pub }: { pub: Pub }) {
   return (
     <section className="card">
       <div className="row" style={{ justifyContent: 'space-between' }}>
-        <span className="status">ラウンド {pub.round + 1} / {pub.rounds}</span>{!pub.myGuess && <Timer sec={sec} />}
+        <span className="status">ラウンド {pub.round + 1} / {pub.rounds}</span>{!pub.myGuess && <Timer sec={sec} limit={pub.timeLimit} />}
       </div>
       <p style={{ margin: '10px 0 0' }}><span className="who">{tg.name}</span> さんの</p>
       <div className="qtitle">「{t.title}」の順位は？</div>

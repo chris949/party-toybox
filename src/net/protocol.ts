@@ -1,5 +1,6 @@
 // ホストと参加者がやり取りするメッセージ。形は v0.8 と同じにして、古い版の人ともつながるようにする
 // （版が違うと、ロビーで警告が出る）
+import { DEFAULT_TIME_LIMIT, TIME_LIMITS } from '../core/constants';
 import type { Action } from '../core/types';
 import type { PlayerView } from '../modes/tier/view';
 
@@ -30,6 +31,7 @@ export function parseAction(m: any): Action | null {
     case 'start': case 'force': case 'next': case 'lobby': case 'reveal-all':
       return { t: m.t };
     case 'mode': return typeof m.mode === 'string' ? { t: 'mode', mode: m.mode } : null;
+    case 'time': return Number.isInteger(m.sec) ? { t: 'time', sec: m.sec } : null;
     case 'kick': return { t: 'kick', id: cleanId(m.id) };
     case 'rank': return Array.isArray(m.order) ? { t: 'rank', order: m.order.slice(0, 64), partial: !!m.partial } : null;
     case 'guess': return Array.isArray(m.order) && Number.isInteger(m.round) ? { t: 'guess', round: m.round, order: m.order.slice(0, 64) } : null;
@@ -47,6 +49,7 @@ export function normalizeView(s: any): PlayerView {
     phase: s.phase,
     gameNo: int(s.gameNo),
     mode: s.mode === 'each' ? 'each' : 'random',
+    timeLimit: (TIME_LIMITS as readonly number[]).includes(int(s.timeLimit)) ? int(s.timeLimit) : DEFAULT_TIME_LIMIT,
     code: str(s.code),
     hostId: str(s.hostId),
     me: str(s.me),

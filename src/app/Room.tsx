@@ -1,6 +1,6 @@
 // ルーム：ロビーと、ゲーム中の画面の切り替え
 import { useState } from 'react';
-import { MAX_PLAYERS } from '../core/constants';
+import { MAX_PLAYERS, TIME_LIMITS } from '../core/constants';
 import { PICK_MODES, type PickMode } from '../core/types';
 import { Guess, Ranking, Result, Reveal } from '../modes/tier/screens/Phases';
 import { Notice, TitleBar } from '../ui/common';
@@ -63,6 +63,13 @@ function Lobby({ pub }: { pub: Pub }) {
           ))}</div>
         : <p style={{ margin: 0, fontWeight: 800 }}>{PICK_MODES[pub.mode] ?? PICK_MODES.random}</p>}
       <p className="muted small" style={{ margin: '6px 0 0' }}>{pub.mode === 'each' ? '自作のお題を持ってきた人から1つずつ必ず出します' : '全員のお題から、自作のお題を優先してランダムに選びます'}</p>
+      <h2 style={{ marginTop: 16 }}>制限時間</h2>
+      {host
+        ? <div className="seg">{TIME_LIMITS.map(sec => (
+            <button key={sec} className={pub.timeLimit === sec ? 'on' : ''} onClick={() => send({ t: 'time', sec })}>{sec}秒</button>
+          ))}</div>
+        : <p style={{ margin: 0, fontWeight: 800 }}>{pub.timeLimit}秒</p>}
+      <p className="muted small" style={{ margin: '6px 0 0' }}>自分の順位を決めるときと、予想するときの持ち時間です</p>
       <div style={{ marginTop: 16 }}>
         {host ? <>
           <button className="primary wide" disabled={!!pub.startError} onClick={() => send({ t: 'start' })}>ゲーム開始</button>

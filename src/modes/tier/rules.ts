@@ -1,6 +1,6 @@
 // ティアリストウォーズのルール。画面・通信・ブラウザの機能は使わない（時刻と乱数は ctx で受け取る）
 import {
-  PERFECT_BONUS, PICK_GRACE_MS, PICK_TIME_MS, REVEAL_FIRST_MS, REVEAL_STEP_MS, REVEAL_SUSPENSE_MS,
+  PERFECT_BONUS, PICK_GRACE_MS, REVEAL_FIRST_MS, REVEAL_STEP_MS, REVEAL_SUSPENSE_MS,
 } from '../../core/constants';
 import { shuffle } from '../../core/random';
 import { SAMPLE_KEYS, topicKey } from '../../core/topics';
@@ -100,8 +100,10 @@ export function start(room: RoomState, ctx: Ctx): TierState {
     assign[p.id] = { title: t.title, options: shuffle(t.options, ctx.random).slice(0, t.count), authorId: t.authorId, authorName: t.authorName };
   });
   room.players.forEach(p => { p.score = 0; });
-  return { phase: 'ranking', assign, ranks: {}, order: [], round: 0, guesses: {}, reveal: null, deadline: ctx.now + PICK_TIME_MS };
+  return { phase: 'ranking', assign, ranks: {}, order: [], round: 0, guesses: {}, reveal: null, deadline: ctx.now + limitMs(room) };
 }
+
+const limitMs = (room: RoomState) => room.timeLimit * 1000;
 
 export const currentTarget = (g: TierState) => (g.phase === 'guess' || g.phase === 'reveal') ? g.order[g.round] : undefined;
 
@@ -111,7 +113,7 @@ function toGuess(room: RoomState, g: TierState, ctx: Ctx) {
   g.order = shuffle(room.players.filter(p => g.ranks[p.id]).map(p => p.id), ctx.random);
   g.round = 0; g.guesses = {};
   g.phase = g.order.length ? 'guess' : 'result';
-  g.deadline = g.phase === 'guess' ? ctx.now + PICK_TIME_MS : 0;
+  g.deadline = g.phase === 'guess' ? ctx.now + limitMs(room) : 0;
 }
 
 function toReveal(room: RoomState, g: TierState, ctx: Ctx) {
@@ -204,7 +206,7 @@ export function reduce(room: RoomState, g: TierState, a: ActionFrom, ctx: Ctx): 
       if (!isHost || g.phase !== 'reveal' || !g.reveal?.done) return false;
       g.round++; g.guesses = {}; g.reveal = null;
       g.phase = g.round < g.order.length ? 'guess' : 'result';
-      g.deadline = g.phase === 'guess' ? ctx.now + PICK_TIME_MS : 0;
+      g.deadline = g.phase === 'guess' ? ctx.now + limitMs(room) : 0;
       return true;
     default:
       return false;

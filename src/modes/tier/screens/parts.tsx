@@ -3,8 +3,9 @@ import { useEffect, useRef, useState } from 'react';
 import { Sound } from '../../../audio/sound';
 import { isHost, needsToPick, onTimeUp, send, useStore, type Pub } from '../../../app/store';
 import { Badge } from '../../../ui/common';
+import { warnSec } from '../../../core/constants';
 
-// 締め切りまでの残り秒数。残り5秒からカチカチ鳴らし、0秒で時間切れの処理をする（画面に1つだけ置く）
+// 締め切りまでの残り秒数。残りわずか（5秒、90秒のときは10秒）からカチカチ鳴らして BGM を速め、0秒で時間切れの処理をする（画面に1つだけ置く）
 export function useDeadline(pub: Pub): number | null {
   const calc = () => pub.localDeadline ? Math.max(0, Math.ceil((pub.localDeadline - Date.now()) / 1000)) : null;
   const [sec, setSec] = useState(calc);
@@ -19,15 +20,24 @@ export function useDeadline(pub: Pub): number | null {
     last.current = sec;
     const now = useStore.getState();
     if (sec == null || !now.pub || now.pending || !needsToPick(now.pub)) return;
-    if (sec > 0 && sec <= 5) Sound.play('tick');
+    if (sec > 0 && sec <= warnSec(pub.timeLimit)) Sound.play('tick');
     if (sec === 0) onTimeUp();
   }, [sec]);
+  // BGM を速めるのは、まだ提出していない間だけ
+  const hurry = sec != null && sec > 0 && sec <= warnSec(pub.timeLimit) && needsToPick(pub);
+  useEffect(() => { Sound.setHurry(hurry); }, [hurry]);
+  useEffect(() => () => Sound.setHurry(false), []);
   return sec;
 }
 
-export function Timer({ sec }: { sec: number | null }) {
+// 残り秒数。残りわずかになったら赤く脈打ち、画面のふちも赤く点滅させる（提出済みの人には出さない）
+export function Timer({ sec, limit }: { sec: number | null; limit: number }) {
   if (sec == null) return null;
-  return <span className={`timer ${sec <= 5 ? 'warn' : ''}`}>⏱ <b>{sec}</b>秒</span>;
+  const warn = sec > 0 && sec <= warnSec(limit);
+  return <>
+    <span className={`timer ${warn ? 'warn' : ''}`}>⏱ <b>{sec}</b>秒</span>
+    {warn && <div className="hurry-edge" aria-hidden />}
+  </>;
 }
 
 export function OrderList({ options, order }: { options: string[]; order: number[] }) {

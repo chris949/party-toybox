@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PERFECT_BONUS, PICK_GRACE_MS, PICK_TIME_MS } from '../src/core/constants';
+import { PERFECT_BONUS, PICK_GRACE_MS, DEFAULT_TIME_LIMIT } from '../src/core/constants';
 import { joinError, nextTimer, reduce } from '../src/core/room';
 import { seeded } from '../src/core/random';
 import { fillRandom, validOrder } from '../src/modes/tier/rules';
@@ -85,10 +85,37 @@ describe('並び替えと時間切れ', () => {
     expect(g().ranks.p1.slice(0, 2)).toEqual([3, 1]);
     expect(validOrder(g().ranks.p1, n1)).toBe(true);
     // p2 は何もしない → 締め切りでランダムに埋まる
-    t.advance(PICK_TIME_MS + PICK_GRACE_MS);
+    t.advance(DEFAULT_TIME_LIMIT * 1000 + PICK_GRACE_MS);
     t.host({ t: 'timeUp' });
     expect(g().phase).toBe('guess');
     expect(g().order).toHaveLength(3);
+  });
+  it('ホストが選んだ制限時間で、準備と予想の締め切りが決まる', () => {
+    const t = testRoom([samples(), samples(), samples()]);
+    t.act('p1', { t: 'time', sec: 30 });            // ホスト以外は変えられない
+    expect(t.room.timeLimit).toBe(DEFAULT_TIME_LIMIT);
+    t.host({ t: 'time', sec: 45 });                  // 選択肢にない長さは受け付けない
+    expect(t.room.timeLimit).toBe(DEFAULT_TIME_LIMIT);
+    t.host({ t: 'time', sec: 30 });
+    t.host({ t: 'start' });
+    expect(t.room.game!.deadline).toBe(t.ctx.now + 30_000);
+    t.host({ t: 'time', sec: 90 });                  // ゲーム中は変えられない
+    expect(t.room.timeLimit).toBe(30);
+    t.advance(30_000 + PICK_GRACE_MS);
+    t.host({ t: 'timeUp' });
+    expect(t.room.game!.phase).toBe('guess');
+    expect(t.room.game!.deadline).toBe(t.ctx.now + 30_000);
+  });
+  it('制限時間はロビーに戻っても引き継ぐ', () => {
+    const t = testRoom([samples(), samples()]);
+    t.host({ t: 'time', sec: 90 });
+    t.host({ t: 'start' });
+    while (t.room.game!.phase !== 'result') {
+      if (t.room.game!.phase === 'ranking' || t.room.game!.phase === 'guess') t.host({ t: 'force' });
+      else if (t.room.game!.phase === 'reveal') { t.host({ t: 'reveal-all' }); t.host({ t: 'next' }); }
+    }
+    t.host({ t: 'lobby' });
+    expect(t.room.timeLimit).toBe(90);
   });
   it('締め切り前の timeUp は無視する', () => {
     const t = testRoom([samples(), samples()]);
@@ -105,7 +132,7 @@ describe('並び替えと時間切れ', () => {
     const tgt = g.order[0];
     const [guesser, idle] = t.ids.filter(id => id !== tgt);
     t.act(guesser, { t: 'guess', round: 0, order: identity(g.assign[tgt].options.length) });
-    t.advance(PICK_TIME_MS + PICK_GRACE_MS);
+    t.advance(DEFAULT_TIME_LIMIT * 1000 + PICK_GRACE_MS);
     t.host({ t: 'timeUp' });
     const r = t.room.game!.reveal!;
     expect(r.rows.map(x => x.id)).toEqual([guesser]);

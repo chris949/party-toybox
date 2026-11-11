@@ -21,6 +21,7 @@ export interface RoomState {
   minPlayers: number;
   gameNo: number;
   pickMode: PickMode;
+  timeLimit: number; // 並び替えの制限時間（秒）
   players: Player[];
   topicsBy: Record<string, Topic[]>;
   game: TierState | null; // null = ロビー
@@ -31,6 +32,7 @@ export type Action =
   | { t: 'join'; name: string; key: string; topics: Topic[]; version: string }
   | { t: 'leave' }
   | { t: 'mode'; mode: PickMode }
+  | { t: 'time'; sec: number }
   | { t: 'start' }
   | { t: 'kick'; id: string }
   | { t: 'lobby' }

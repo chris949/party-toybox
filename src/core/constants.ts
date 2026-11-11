@@ -9,5 +9,9 @@ export const MAX_TOPICS_PER_PLAYER = 50;
 export const NAME_MAX = 16, TITLE_MAX = 60, OPTION_MAX = 40;
 
 export const PERFECT_BONUS = 3;
-export const PICK_TIME_MS = 60000, PICK_GRACE_MS = 1500; // 並び替えの制限時間（暫定値）と、通信の遅れを見込んだ猶予
+export const TIME_LIMITS = [30, 60, 90] as const;  // 並び替えの制限時間（秒）。ホストがロビーで選ぶ
+export const DEFAULT_TIME_LIMIT = 60;
+export const PICK_GRACE_MS = 1500;                  // 通信の遅れを見込んだ猶予
+// 残りわずかの演出を始める秒数（長い制限時間ほど早めに知らせる）
+export const warnSec = (limit: number) => limit >= 90 ? 10 : 5;
 export const REVEAL_FIRST_MS = 2000, REVEAL_STEP_MS = 3000, REVEAL_SUSPENSE_MS = 2000; // めくりの間隔（暫定値）

@@ -120,6 +120,8 @@ function noise(t: number, dur: number, gain: number, dest: AudioNode = seGain, c
 }
 
 // 内蔵のBGM（スーファミ風のオリジナル曲）。曲が変わるときは、2台の再生機を入れ替えて前の曲を小さくしていく
+const HURRY_RATE = 1.25; // 残りわずかのときの BGM の速さ
+let hurry = false;
 const SNES_LEVEL = 0.5; // 音量の設定 100% のときの大きさ
 let snes: [SnesPlayer, SnesPlayer] | null = null, active = 0, snesOn = false;
 function startSynth() {
@@ -129,6 +131,10 @@ function startSynth() {
   active = 1 - active;
   snes[active].play(SONGS[scene], effBgm() * SNES_LEVEL, 1);
   snesOn = true;
+}
+function setRate(r: number) {
+  if (snes && snesOn) snes[active].setRate(r);
+  playing?.howl?.rate(r);
 }
 function stopSynth() { if (snes && snesOn) snes[active].stop(1); snesOn = false; }
 
@@ -177,7 +183,9 @@ export const Sound = {
     saveVolumes(vol);
     applyVolumes();
   },
-  setScene(s: Scene) { if (s === scene) return; scene = s; startScene(); },
+  setScene(s: Scene) { if (s === scene) return; Sound.setHurry(false); scene = s; startScene(); },
+  // 制限時間の残りわずか：BGM を少し速くする
+  setHurry(on: boolean) { if (on === hurry) return; hurry = on; setRate(on ? HURRY_RATE : 1); },
   play(name: SfxName, delay = 0) {
     if (effSe() === 0) return;
     const h = seHowl(name);
