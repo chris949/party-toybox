@@ -291,3 +291,8 @@ button.floor:active:not(:disabled) { transform: none; }
   background: linear-gradient(#ffe08a, var(--sun)); box-shadow: 0 3px 0 var(--ink); }
 .podium .lbl { position: absolute; left: 0; right: 0; bottom: 6px; text-align: center; writing-mode: vertical-rl; margin: 0 auto;
   font-size: 10px; font-weight: 800; color: #9a6a00; letter-spacing: .1em; }
+
+/* ライフ（残機） */
+.hp { color: var(--coral); font-weight: 900; letter-spacing: 1px; }
+.piece .hp { display: block; width: 50px; margin-left: -3px; text-align: center; font-size: 9px; line-height: 1; -webkit-text-stroke: 2px #fff; paint-order: stroke fill; }
+.hp.big { font-size: 15px; }

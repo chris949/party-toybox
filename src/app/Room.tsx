@@ -1,6 +1,6 @@
 // ルーム：ロビーと、ゲーム中の画面の切り替え
 import { useState } from 'react';
-import { FATE_TIMES, MAX_PLAYERS, TIME_LIMITS } from '../core/constants';
+import { FATE_LIVES, FATE_QUOTAS, FATE_TIMES, MAX_PLAYERS, TIME_LIMITS } from '../core/constants';
 import { GAME_MODES, PICK_MODES, type GameMode, type PickMode } from '../core/types';
 import { Guess, Ranking, Result, Reveal } from '../modes/tier/screens/Phases';
 import { Answer, FiveReveal } from '../modes/five/screens';
@@ -36,7 +36,7 @@ function Players({ pub }: { pub: Pub }) {
       <span key={p.id} className={`pl ${p.online ? '' : 'off'} ${p.id === pub.me ? 'me' : ''}`}>
         {p.id === pub.hostId && '👑'}{pub.phase === 'lobby' && pub.gameMode === 'fate' && charaOf(p.chara).face}{p.name}
         {pub.phase !== 'lobby' ? <span className="sc">{p.score}</span>
-          : <span className="muted small">{pub.gameMode === 'fate' ? `問題${p.fates}` : `お題${pub.gameMode === 'five' ? p.fives : p.topics}`}</span>}
+          : <span className="muted small">{pub.gameMode === 'fate' ? `問題${p.fates + p.fives}` : `お題${pub.gameMode === 'five' ? p.fives : p.topics}`}</span>}
         {p.done === true ? '✅' : p.done === false ? '⏳' : ''}
         {pub.phase === 'lobby' && p.editing && <span className="small">✏️ 編集中</span>}
         {pub.phase === 'lobby' && isHost() && p.id !== pub.me && <button className="mini" style={{ padding: '0 6px' }} onClick={() => send({ t: 'kick', id: p.id })}>✕</button>}
@@ -91,6 +91,20 @@ function Lobby({ pub }: { pub: Pub }) {
             ))}</div>
           : <p style={{ margin: 0, fontWeight: 800 }}>{pub.fateTime}秒</p>}
         <p className="muted small" style={{ margin: '6px 0 0' }}>1問ごとの持ち時間です。締め切りの瞬間にいた側が、あなたの答えになります</p>
+        <h2 style={{ marginTop: 16 }}>ライフ</h2>
+        {host
+          ? <div className="seg">{FATE_LIVES.map(n => (
+              <button key={n} className={pub.fateLives === n ? 'on' : ''} aria-label={`ライフ${n}`} onClick={() => send({ t: 'fateLives', n })}>{'♥'.repeat(n)}</button>
+            ))}</div>
+          : <p style={{ margin: 0, fontWeight: 800 }}>{'♥'.repeat(pub.fateLives)}</p>}
+        <p className="muted small" style={{ margin: '6px 0 0' }}>不正解で落ちるたびに1つ減り、なくなったら脱落です{pub.fateLives > 1 ? `（${pub.fateLives - 1}回のミスまで大丈夫）` : '（1回のミスで脱落）'}</p>
+        <h2 style={{ marginTop: 16 }}>お立ち台の回数</h2>
+        {host
+          ? <div className="seg">{FATE_QUOTAS.map(n => (
+              <button key={n} className={pub.fateQuota === n ? 'on' : ''} onClick={() => send({ t: 'fateQuota', n })}>{n}回</button>
+            ))}</div>
+          : <p style={{ margin: 0, fontWeight: 800 }}>{pub.fateQuota}回</p>}
+        <p className="muted small" style={{ margin: '6px 0 0' }}>全員が順番に、この回数だけ出題者としてお立ち台に立ちます（その問題では自動でセーフ）。自分の問題がない人には、サンプルの問題を割り当てます</p>
       </> : <>
       <h2 style={{ marginTop: 16 }}>出題方式</h2>
       {host

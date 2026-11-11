@@ -33,6 +33,8 @@ export interface RoomState {
   pickMode: PickMode;
   timeLimit: number; // 並び替えの制限時間（秒）
   fateTime: number;  // 運命の二者択一の1問の制限時間（秒）
+  fateQuota: number; // 運命の二者択一で、1人がお立ち台に立つ回数
+  fateLives: number; // 運命の二者択一のライフ（残機）
   players: Player[];
   topicsBy: Record<string, Topic[]>;
   fivesBy: Record<string, FiveTopic[]>; // セレクトファイブのお題
@@ -48,6 +50,8 @@ export type Action =
   | { t: 'time'; sec: number }
   | { t: 'game'; mode: GameMode }
   | { t: 'fateTime'; sec: number }
+  | { t: 'fateQuota'; n: number }
+  | { t: 'fateLives'; n: number }
   | { t: 'chara'; n: number }
   | { t: 'topics'; topics: Topic[]; fives?: FiveTopic[]; fates?: FateQuestion[] } // ロビーで持っていくお題を送り直す
   | { t: 'editing'; on: boolean }

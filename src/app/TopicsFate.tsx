@@ -16,6 +16,9 @@ export function FateList() {
       <p className="muted small" style={{ margin: '0 0 8px' }}>
         2択のクイズです。持っていった問題が先に出て、足りない分は同梱のサンプル（{SAMPLE_FATES.length}問）で補うので、作らなくても遊べます。自分が作った問題では、自動でセーフになります。
       </p>
+      <p className="muted small" style={{ margin: '0 0 8px' }}>
+        💡 「セレクトファイブ」のタブで作ったお題も、このモードで使われます。正解とダミーから1つずつ抜いて2択にするので、1つ作れば毎回違う問題になります。たくさん用意したいときは、そちらが手軽です。
+      </p>
       {fates.length ? fates.map(q => (
         <div className="topic" key={q.id}>
           <label>

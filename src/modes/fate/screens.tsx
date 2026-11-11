@@ -13,7 +13,7 @@ import type { Piece3D, StagePos } from './three/scene';
 const Stage3D = lazy(() => import('./three/Stage3D'));
 
 // 舞台の寸法（px）。上に左右の床、下の真ん中にスタート台。床は1列3人（スマホの幅でも名前が重ならない数）、スタート台は1列5人
-const ROW = 58, FLOOR_COLS = 3, PAD_COLS = 5, PAD_H = 124, GAP = 12;
+const ROW = 66, FLOOR_COLS = 3, PAD_COLS = 5, PAD_H = 140, GAP = 12; // 1列の高さ：キャラクター＋名前＋ライフ
 // 床の高さ。ふだんは3列分。片側に10人以上集まったときだけ伸ばす
 const floorHeight = (most: number) => 16 + Math.max(3, Math.ceil(most / FLOOR_COLS)) * ROW;
 
@@ -59,7 +59,7 @@ function useMoving(pos: StagePos) {
 
 type PieceProps = Piece3D & { index: number; padTop: number };
 
-function Piece({ name, chara, color, variant, pos, index, padTop, me, ghost, author, fate }: PieceProps) {
+function Piece({ name, chara, color, variant, lives, pos, index, padTop, me, ghost, author, fate }: PieceProps) {
   const moving = useMoving(pos);
   const { x, y } = slot(pos, index, padTop);
   const falling = fate === 'fall';
@@ -77,6 +77,7 @@ function Piece({ name, chara, color, variant, pos, index, padTop, me, ghost, aut
       </div>
       {author && <span className="tag">出題</span>}
       <span className="nm">{name}</span>
+      {!ghost && <span className="hp" aria-label={`ライフ${lives}`}>{'♥'.repeat(lives)}</span>}
     </motion.div>
   );
 }
@@ -105,7 +106,8 @@ export function FateStage({ pub }: { pub: Pub }) {
   }, []);
 
   // 発表のときの床：正解は光る。不正解は開く（全員不正解で救済のときは、開いてすぐ閉じる）
-  const floorState = (side: Pos) => !v ? '' : side === v.rightSide ? 'ok' : v.saved ? 'blink' : 'open';
+  // お立ち台にいる人の画面では、出題中から正解の側が光って見える（ほかの人には見えない）
+  const floorState = (side: Pos) => !v ? (f.answer === side ? 'ok' : '') : side === v.rightSide ? 'ok' : v.saved ? 'blink' : 'open';
   // 舞台に立つ全員（2D でも 3D でも同じものを描く）
   const pieces: Piece3D[] = pub.players.map((p, i) => {
     const author = f.authorIds.includes(p.id);
@@ -113,7 +115,7 @@ export function FateStage({ pub }: { pub: Pub }) {
     const fell = !!v?.fallen.includes(p.id);
     const ghost = p.id in f.out && !fell;
     return {
-      id: p.id, name: p.name, chara: p.chara, color: PLAYER_COLORS[i % PLAYER_COLORS.length], variant: variantOf(pub.players, i), pos,
+      id: p.id, name: p.name, chara: p.chara, color: PLAYER_COLORS[i % PLAYER_COLORS.length], variant: variantOf(pub.players, i), lives: f.lives[p.id] ?? 0, pos,
       me: p.id === pub.me, ghost, author,
       fate: !v ? null : fell ? 'fall' : author || pos === v.rightSide ? 'safe' : ghost ? null : 'shock',
     };
@@ -128,19 +130,19 @@ export function FateStage({ pub }: { pub: Pub }) {
       </motion.div>
       <motion.div className={v.fallen.length ? 'who' : ''} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}>
         {v.saved ? '全員落ちたけど、今回は救済！'
-          : v.fallen.length ? `💥 ${v.fallen.map(nameOf).join('、')} が落ちた！`
+          : v.fallen.length ? <>💥 {v.fallen.map(nameOf).join('、')} が落ちた！{v.out.length > 0 && v.out.length < v.fallen.length && <><br />☠ {v.out.map(nameOf).join('、')} は脱落</>}{v.out.length === 0 && '（ライフ −1）'}</>
           : '全員正解！'}
       </motion.div>
     </>
     : iAmGhost ? <div>👻 あなたはゴースト。動き回って、みんなを惑わせよう</div>
-    : iAmAuthor ? <div>あなたが作った問題です。お立ち台から見守りましょう（自動でセーフ）</div>
+    : iAmAuthor ? <div><b>あなたは出題者です</b>（自動でセーフ）。正解は「{f.answer === 'L' ? f.left : f.right}」<br /><span className="muted small">正解が光って見えるのは、あなただけです</span></div>
     : myPos === 'C' ? <div><b>左右どちらかへ移動！</b>　真ん中のままだと不正解</div>
     : <div>締め切りまで、何度でも動けます</div>;
 
   const answer = (side: Side, text: string) => (
-    <button className={`fans ${side === 'L' ? 'l' : 'r'} ${myPos === side ? 'sel' : ''} ${!v ? '' : side === v.rightSide ? 'ok' : 'ng'}`}
+    <button className={`fans ${side === 'L' ? 'l' : 'r'} ${myPos === side ? 'sel' : ''} ${!v ? (f.answer === side ? 'ok' : '') : side === v.rightSide ? 'ok' : 'ng'}`}
       disabled={!canMove} aria-pressed={myPos === side} onClick={() => moveFate(side)}>
-      <span className="ab">{!v ? (side === 'L' ? '←' : '→') : side === v.rightSide ? '⭕' : '✕'}</span><span className="txt">{text}</span>
+      <span className="ab">{!v ? (f.answer === side ? '⭕' : side === 'L' ? '←' : '→') : side === v.rightSide ? '⭕' : '✕'}</span><span className="txt">{text}</span>
     </button>
   );
   const floor = (side: Side) => (
@@ -153,7 +155,7 @@ export function FateStage({ pub }: { pub: Pub }) {
   return (
     <section className="card fate">
       <div className="row" style={{ justifyContent: 'space-between', minHeight: 36 }}>
-        <span><span className="status">第{f.round + 1}問</span> <span className="muted small">生き残り {alive}人</span></span>
+        <span><span className="status">第{f.round + 1}問</span> <span className="muted small">生き残り {alive}人</span>{!(pub.me in f.out) && <span className="hp big" aria-label={`あなたのライフ${f.lives[pub.me] ?? 0}`}> {'♥'.repeat(f.lives[pub.me] ?? 0)}</span>}</span>
         <span className="row">
           {isHost() && <button className="small" onClick={() => send({ t: 'pause' })}>{f.paused ? '▶ 再開' : '⏸ 一時停止'}</button>}
           {sec != null && <span className={`timer ${warn ? 'warn' : ''}`}>⏱ <b>{sec}</b>秒</span>}
@@ -162,7 +164,7 @@ export function FateStage({ pub }: { pub: Pub }) {
       {warn && <div className="hurry-edge" aria-hidden />}
       <div className="fbar"><span style={{ width: `${ms == null ? 0 : Math.min(100, ms / (pub.fateTime * 10))}%` }} /></div>
       <div className="qtitle">{f.text}</div>
-      <p className="muted small" style={{ margin: 0 }}>出題: {f.authorName}</p>
+      <p className="muted small" style={{ margin: 0 }}>出題: {f.authorName}{f.authorName === 'サンプル' && f.authorIds.length > 0 && `　／　お立ち台: ${f.authorIds.map(nameOf).join('、')}`}</p>
       <div className="fstrip" aria-live="polite">{strip}</div>
       <div className="fans-row">{answer('L', f.left)}{answer('R', f.right)}</div>
       {mode === '3d' ? <Suspense fallback={<div className="fstage3d" />}>
@@ -206,7 +208,7 @@ export function FateResult({ pub }: { pub: Pub }) {
           <span className="n">{medal[ranks[p.id] - 1] ?? ranks[p.id]}</span>
           <Chara n={p.chara} size={36} color={colorOf(p.id)} variant={variantOf(pub.players, pub.players.indexOf(p))} pose={ranks[p.id] === 1 ? 'stand' : 'ghost'} />
           <span className="nm">{p.name}{p.id === pub.me ? '（あなた）' : ''}</span>
-          <span className="small muted">{p.id in f.out ? `第${f.out[p.id] + 1}問で脱落` : '生き残り'}</span>
+          <span className="small muted">{p.id in f.out ? `第${f.out[p.id] + 1}問で脱落` : `生き残り ${'♥'.repeat(f.lives[p.id] ?? 0)}`}</span>
         </div>
       ))}
       <div style={{ marginTop: 16 }}>

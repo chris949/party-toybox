@@ -1,6 +1,6 @@
 // 部屋の進行（どのモードでも共通）：参加・退出・ロビーの設定・開始・ロビーに戻る。
 // ゲーム中の操作はモードに渡す。画面・通信・ブラウザの機能は使わない
-import { CHARA_MAX, DEFAULT_FATE_TIME, DEFAULT_TIME_LIMIT, FATE_TIMES, MAX_PLAYERS, NAME_MAX, TIME_LIMITS } from './constants';
+import { CHARA_MAX, DEFAULT_FATE_LIVES, FATE_LIVES, DEFAULT_FATE_QUOTA, DEFAULT_FATE_TIME, FATE_QUOTAS, DEFAULT_TIME_LIMIT, FATE_TIMES, MAX_PLAYERS, NAME_MAX, TIME_LIMITS } from './constants';
 import { clean, sanitizeTopics } from './topics';
 import { GAME_MODES, PICK_MODES, type Action, type ActionFrom, type Ctx, type RoomState, type Timer } from './types';
 import { MODES, modeOf } from '../modes';
@@ -10,7 +10,7 @@ import { sanitizeFates } from './fates';
 const charaOf = (n: unknown) => Number.isInteger(n) && (n as number) >= 0 && (n as number) < CHARA_MAX ? n as number : null;
 
 export function createRoom(code: string, hostId: string, minPlayers: number): RoomState {
-  return { code, hostId, minPlayers, gameNo: 1, gameMode: 'tier', pickMode: 'random', timeLimit: DEFAULT_TIME_LIMIT, fateTime: DEFAULT_FATE_TIME, players: [], topicsBy: {}, fivesBy: {}, fatesBy: {}, game: null };
+  return { code, hostId, minPlayers, gameNo: 1, gameMode: 'tier', pickMode: 'random', timeLimit: DEFAULT_TIME_LIMIT, fateTime: DEFAULT_FATE_TIME, fateQuota: DEFAULT_FATE_QUOTA, fateLives: DEFAULT_FATE_LIVES, players: [], topicsBy: {}, fivesBy: {}, fatesBy: {}, game: null };
 }
 
 // 参加を受け付けるか。断るときはその理由
@@ -76,6 +76,14 @@ export function reduce(state: RoomState, a: ActionFrom, ctx: Ctx): RoomState {
     case 'fateTime':
       if (!isHost || room.game || !(FATE_TIMES as readonly number[]).includes(a.sec)) return state;
       room.fateTime = a.sec;
+      return room;
+    case 'fateQuota':
+      if (!isHost || room.game || !(FATE_QUOTAS as readonly number[]).includes(a.n)) return state;
+      room.fateQuota = a.n;
+      return room;
+    case 'fateLives':
+      if (!isHost || room.game || !(FATE_LIVES as readonly number[]).includes(a.n)) return state;
+      room.fateLives = a.n;
       return room;
     case 'chara': {
       // キャラクターは、ロビーにいる間は誰でも自分の分を変えられる
