@@ -7,6 +7,7 @@ export type FloorState = '' | 'ok' | 'open' | 'blink'; // ふつう／正解で�
 export type StagePos = Pos | 'P'; // P = お立ち台（その問題を作った人）
 export interface Piece3D {
   id: string; name: string; chara: number; color: string; pos: StagePos;
+  lives: number;   // 残りのライフ（名前の札に ♥ で出す）
   variant: number; // 同じキャラクターを選んだ人のうち何人目か（0 = 1人目。2人目からは色合いを変える）
   me: boolean; ghost: boolean; author: boolean;
   fate: 'fall' | 'shock' | 'safe' | null; // 発表のとき：落ちる／床は開いたが助かった／正解
@@ -45,26 +46,34 @@ interface Actor {
 
 const ease = (t: number) => t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
 
-// 名前の札（自分は黄色、作った人には「出題」を付ける）
-function makeLabel(text: string, me: boolean): THREE.Sprite {
+// 名前の札（自分は黄色、作った人には「出題」を付ける）。下に、残りのライフを ♥ で出す
+function makeLabel(text: string, me: boolean, lives: number): THREE.Sprite {
   const c = document.createElement('canvas'), g = c.getContext('2d')!;
   const font = '800 44px "M PLUS Rounded 1c", "Hiragino Maru Gothic ProN", sans-serif';
   g.font = font;
   let shown = text;
   while (g.measureText(shown).width > 300 && shown.length > 2) shown = shown.slice(0, -2) + '…';
-  const w = Math.ceil(g.measureText(shown).width) + 44, h = 68;
+  const w = Math.ceil(g.measureText(shown).width) + 44, pill = 68, h = pill + (lives > 0 ? 40 : 0);
   c.width = w; c.height = h;
   g.font = font;
   g.fillStyle = me ? '#ffc83d' : 'rgba(255,255,255,.92)';
   g.strokeStyle = COLORS.ink; g.lineWidth = me ? 6 : 0;
-  g.beginPath(); g.roundRect(4, 4, w - 8, h - 8, 26); g.fill();
+  g.beginPath(); g.roundRect(4, 4, w - 8, pill - 8, 26); g.fill();
   if (me) g.stroke();
   g.fillStyle = COLORS.ink; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillText(shown, w / 2, h / 2 + 3);
+  g.fillText(shown, w / 2, pill / 2 + 3);
+  if (lives > 0) {
+    g.font = '900 34px sans-serif';
+    g.lineWidth = 7; g.strokeStyle = '#ffffff'; g.lineJoin = 'round';
+    g.strokeText('♥'.repeat(lives), w / 2, pill + 18);
+    g.fillStyle = '#ff6f6f';
+    g.fillText('♥'.repeat(lives), w / 2, pill + 18);
+  }
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
-  sp.scale.set(w / h * 0.4, 0.4, 1);
+  sp.scale.set(w / pill * 0.4, h / pill * 0.4, 1);
+  sp.center.set(0.5, 1 - pill / 2 / h); // 名前の行の真ん中を基準にする（ライフの行は、その下にぶら下がる）
   sp.renderOrder = 10;
   return sp;
 }
@@ -176,8 +185,8 @@ export class FateScene {
       seen.add(p.id);
       const [tx, tz] = slot(p.pos, index[p.pos]++, counts[p.pos]);
       let a = this.actors.get(p.id);
-      const text = p.author ? `出題 ${p.name}` : p.name;
-      const relabel = !!a && (a.data.name !== p.name || a.data.author !== p.author || a.data.me !== p.me);
+      const text = `${p.author ? '出題 ' : ''}${p.name}`, hearts = p.ghost ? 0 : p.lives;
+      const relabel = !!a && (a.data.name !== p.name || a.data.author !== p.author || a.data.me !== p.me || a.data.lives !== p.lives || a.data.ghost !== p.ghost);
       if (a && (a.data.chara !== p.chara || a.data.color !== p.color || a.data.variant !== p.variant)) { this.removeActor(a); this.actors.delete(p.id); a = undefined; }
       if (!a) {
         const animal = makeAnimal(p.chara, p.color, p.variant);
@@ -189,13 +198,13 @@ export class FateScene {
           arrow.rotation.x = Math.PI; arrow.renderOrder = 11;
           this.scene.add(arrow);
         }
-        a = { animal, label: makeLabel(text, p.me), arrow, data: p, x: tx, z: tz, fromX: tx, fromZ: tz, toX: tx, toZ: tz, moveT: 1, fateSince: 0, pop: 1, phase: Math.random() * 6, baseY: p.pos === 'P' ? PODIUM_H : 0 };
+        a = { animal, label: makeLabel(text, p.me, hearts), arrow, data: p, x: tx, z: tz, fromX: tx, fromZ: tz, toX: tx, toZ: tz, moveT: 1, fateSince: 0, pop: 1, phase: Math.random() * 6, baseY: p.pos === 'P' ? PODIUM_H : 0 };
         this.scene.add(a.label);
         this.actors.set(p.id, a);
         a.animal.setGhost(p.ghost);
       } else if (relabel) {
         this.disposeLabel(a.label);
-        a.label = makeLabel(text, p.me);
+        a.label = makeLabel(text, p.me, hearts);
         this.scene.add(a.label);
       }
       if (a.toX !== tx || a.toZ !== tz) { a.fromX = a.x; a.fromZ = a.z; a.toX = tx; a.toZ = tz; a.moveT = 0; }
@@ -317,11 +326,11 @@ export class FateScene {
       for (const e of a.animal.eyes) e.scale.setScalar(eye);
       a.animal.ring.visible = !p.ghost || visible;
       a.label.visible = visible && !(p.fate === 'fall' && t > HANG); // 落ち始めたら、名前の札は消す
-      a.label.position.set(a.x, Math.max(0, y) + 2.1, a.z - 0.25); // 顔に重ならないよう、頭の少し奥に出す
+      a.label.position.set(a.x, Math.max(0, y) + 2.25, a.z - 0.25); // 顔に重ならないよう、頭の少し奥に出す
       (a.label.material as THREE.SpriteMaterial).opacity = p.ghost ? 0.6 : 1;
       if (a.arrow) {
         a.arrow.visible = a.label.visible;
-        a.arrow.position.set(a.x, Math.max(0, y) + 2.65 + (still ? 0 : Math.sin(now * 6) * 0.07), a.z);
+        a.arrow.position.set(a.x, Math.max(0, y) + 2.8 + (still ? 0 : Math.sin(now * 6) * 0.07), a.z);
         a.arrow.rotation.y = now * 2;
       }
     }

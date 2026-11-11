@@ -151,19 +151,23 @@ test('運命の二者択一を2人で1ゲーム遊べる', async ({ browser }) =
   await guest.getByRole('button', { name: 'ねこ' }).click();
   await expect(host.locator('.pl', { hasText: 'たろう' })).toContainText('🐱');
   await host.getByRole('button', { name: '5秒', exact: true }).click();
+  await host.getByRole('button', { name: 'ライフ1', exact: true }).click(); // 1回のミスで脱落
+  await expect(guest.getByText('1回のミスで脱落')).toBeVisible();
   await expect(guest.getByText('5秒', { exact: true })).toBeVisible();
   await host.getByRole('button', { name: 'ゲーム開始' }).click();
 
-  // ホストは左、参加者は右へ動く。どちらかが必ず不正解なので、1問で決着がつく
-  await expect(guest.getByText('第1問')).toBeVisible({ timeout: 20_000 });
   // 舞台は 3D が初期値。ホストは 3D のまま、参加者は 2D に切り替えて遊ぶ（混ざっていてよい）
+  await expect(guest.getByText('第1問')).toBeVisible({ timeout: 20_000 });
   await expect(host.locator('canvas.fstage3d')).toBeVisible();
   await guest.getByRole('button', { name: '2D', exact: true }).click();
+  await expect(guest.locator('.piece')).toHaveCount(2); // 相手のキャラクターも見える
+
+  // ホストは左、参加者は右へ動く。2人のゲームでは誰もお立ち台に立たず、ライフは1にしてあるので、1問で決着がつく
+  await expect(host.getByText('あなたは出題者です')).toHaveCount(0);
   await host.locator('button.fans.l').click();
   await guest.locator('button.fans.r').click();
   await expect(host.locator('button.fans.l.sel')).toBeVisible();
   await expect(guest.locator('button.fans.r.sel')).toBeVisible();
-  await expect(guest.locator('.piece')).toHaveCount(2); // 相手のキャラクターも見える
   await expect(guest.getByText('が落ちた！')).toBeVisible({ timeout: 20_000 });
   await expect(guest.locator('.floor.open')).toHaveCount(1);
   await expect(host.locator('canvas.fstage3d')).toBeVisible(); // 3D が使えない端末では 2D に戻るが、ここでは 3D のまま

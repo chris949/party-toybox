@@ -1,6 +1,6 @@
 // ホストと参加者がやり取りするメッセージ。形は v0.8 と同じにして、古い版の人ともつながるようにする
 // （版が違うと、ロビーで警告が出る）
-import { DEFAULT_FATE_TIME, DEFAULT_TIME_LIMIT, FATE_TIMES, TIME_LIMITS } from '../core/constants';
+import { DEFAULT_FATE_LIVES, FATE_LIVES, DEFAULT_FATE_QUOTA, DEFAULT_FATE_TIME, DEFAULT_TIME_LIMIT, FATE_QUOTAS, FATE_TIMES, TIME_LIMITS } from '../core/constants';
 import { GAME_MODES, type GameMode } from '../core/types';
 import type { FateView } from '../modes/fate/view';
 import type { Action } from '../core/types';
@@ -42,6 +42,8 @@ export function parseAction(m: any): Action | null {
     case 'editing': return { t: 'editing', on: !!m.on };
     case 'retract': return Number.isInteger(m.round) ? { t: 'retract', round: m.round } : null;
     case 'fateTime': return Number.isInteger(m.sec) ? { t: 'fateTime', sec: m.sec } : null;
+    case 'fateQuota': return Number.isInteger(m.n) ? { t: 'fateQuota', n: m.n } : null;
+    case 'fateLives': return Number.isInteger(m.n) ? { t: 'fateLives', n: m.n } : null;
     case 'time': return Number.isInteger(m.sec) ? { t: 'time', sec: m.sec } : null;
     case 'kick': return { t: 'kick', id: cleanId(m.id) };
     case 'rank': return Array.isArray(m.order) ? { t: 'rank', order: m.order.slice(0, 64), partial: !!m.partial } : null;
@@ -64,6 +66,8 @@ export function normalizeView(s: any): PlayerView {
     game: s.game in GAME_MODES ? s.game as GameMode : null,
     timeLimit: (TIME_LIMITS as readonly number[]).includes(int(s.timeLimit)) ? int(s.timeLimit) : DEFAULT_TIME_LIMIT,
     fateTime: (FATE_TIMES as readonly number[]).includes(int(s.fateTime)) ? int(s.fateTime) : DEFAULT_FATE_TIME,
+    fateQuota: (FATE_QUOTAS as readonly number[]).includes(int(s.fateQuota)) ? int(s.fateQuota) : DEFAULT_FATE_QUOTA,
+    fateLives: (FATE_LIVES as readonly number[]).includes(int(s.fateLives)) ? int(s.fateLives) : DEFAULT_FATE_LIVES,
     code: str(s.code),
     hostId: str(s.hostId),
     me: str(s.me),
@@ -101,9 +105,11 @@ function normalizeFate(f: any): FateView {
   return {
     round: int(f.round), text: str(f.text), left: str(f.left), right: str(f.right),
     authorIds: strs(f.authorIds), authorName: str(f.authorName),
+    answer: f.answer === 'L' || f.answer === 'R' ? f.answer : null,
     pos: map(f.pos, p => p === 'L' || p === 'R' ? p : 'C'),
     out: map(f.out, int),
-    verdict: v ? { rightSide: side(v.rightSide), fallen: strs(v.fallen), saved: !!v.saved } : null,
+    lives: map(f.lives, int),
+    verdict: v ? { rightSide: side(v.rightSide), fallen: strs(v.fallen), out: strs(v.out), saved: !!v.saved } : null,
     paused: !!f.paused,
   };
 }

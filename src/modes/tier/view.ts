@@ -31,6 +31,8 @@ export interface PlayerView {
   game: RoomState['gameMode'] | null; // 進行中のゲームのモード
   timeLimit: number;
   fateTime: number; // 運命の二者択一の1問の制限時間（秒）
+  fateQuota: number; // 運命の二者択一で、1人がお立ち台に立つ回数
+  fateLives: number; // 運命の二者択一のライフ（残機）
   code: string;
   hostId: string;
   me: string;
@@ -63,6 +65,8 @@ export function viewFor(room: RoomState, id: string, now: number): PlayerView {
     game: room.game?.kind ?? null,
     timeLimit: room.timeLimit,
     fateTime: room.fateTime,
+    fateQuota: room.fateQuota,
+    fateLives: room.fateLives,
     code: room.code,
     hostId: room.hostId,
     me: id,
@@ -83,6 +87,6 @@ export function viewFor(room: RoomState, id: string, now: number): PlayerView {
     myGuess: g?.guesses[id] ?? null,
     reveal: g?.phase === 'reveal' ? g.reveal : null,
     five: f ? fiveView(f, id) : null,
-    fate: d ? fateView(d) : null,
+    fate: d ? fateView(d, id) : null,
   };
 }
