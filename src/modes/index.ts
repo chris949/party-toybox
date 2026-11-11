@@ -2,6 +2,7 @@
 import type { Ctx, ActionFrom, GameMode, RoomState, Timer } from '../core/types';
 import * as tier from './tier/rules';
 import * as five from './five/rules';
+import * as fate from './fate/rules';
 
 type Game = NonNullable<RoomState['game']>;
 interface Mode<G extends Game> {
@@ -15,10 +16,11 @@ interface Mode<G extends Game> {
 
 const tierMode: Mode<tier.TierState> = { name: 'ティアリスト', ...pick(tier) };
 const fiveMode: Mode<five.FiveState> = { name: 'セレクトファイブ', ...pick(five) };
+const fateMode: Mode<fate.FateState> = { name: '運命の二者択一', ...pick(fate) };
 function pick<M extends { start: any; startError: any; reduce: any; checkAdvance: any; nextTimer: any }>(m: M) {
   return { start: m.start, startError: m.startError, reduce: m.reduce, checkAdvance: m.checkAdvance, nextTimer: m.nextTimer };
 }
 
-export const MODES: { [K in GameMode]: Mode<any> } = { tier: tierMode, five: fiveMode };
+export const MODES: { [K in GameMode]: Mode<any> } = { tier: tierMode, five: fiveMode, fate: fateMode };
 // 進行中のゲームのモード
 export const modeOf = (g: Game) => MODES[g.kind];

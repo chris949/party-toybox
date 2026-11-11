@@ -2,12 +2,13 @@ import { useState } from 'react';
 import { MAX_OPT, MAX_PLAYERS, MIN_OPT, NAME_MAX, PERFECT_BONUS } from '../core/constants';
 import { ROOM_CODE_LEN } from '../net/protocol';
 import { Logo, Notice, SoundButton, Version } from '../ui/common';
-import { DEV, hostRoom, joinRoom, setName, setScreen, useStore } from './store';
+import { CharaPicker } from '../modes/fate/charas';
+import { DEV, hostRoom, joinRoom, setChara, setName, setScreen, useStore } from './store';
 
 export function Home() {
-  const { name, topics, fives, notice, connecting, lastRoom } = useStore();
+  const { name, topics, fives, fates, chara, notice, connecting, lastRoom } = useStore();
   const [code, setCode] = useState(() => new URLSearchParams(location.search).get('room') || lastRoom);
-  const count = topics.filter(t => t.bring).length + fives.filter(t => t.bring).length;
+  const count = topics.filter(t => t.bring).length + fives.filter(t => t.bring).length + fates.filter(t => t.bring).length;
   const prefilled = !!(new URLSearchParams(location.search).get('room') || lastRoom);
   const codeInput = (
     <input type="text" className="code-input" maxLength={ROOM_CODE_LEN} placeholder="部屋コード" value={code}
@@ -22,10 +23,12 @@ export function Home() {
         <label className="field">あなたの名前
           <input type="text" maxLength={NAME_MAX} value={name} placeholder="例）たろう" onChange={e => setName(e.target.value)} />
         </label>
+        <div className="field muted small" style={{ margin: '4px 0 6px', fontWeight: 700 }}>キャラクター（「運命の二者択一」で使います）</div>
+        <CharaPicker value={chara} onPick={setChara} />
       </section>
       <section className="card">
         <h2>お題 <span className="count">持っていく {count}</span></h2>
-        <p className="muted small" style={{ margin: '0 0 10px' }}>ストック ティアリスト {topics.length}件・セレクトファイブ {fives.length}件</p>
+        <p className="muted small" style={{ margin: '0 0 10px' }}>ストック ティアリスト {topics.length}件・セレクトファイブ {fives.length}件・運命の二者択一 {fates.length}件</p>
         <button className="wide" onClick={() => setScreen('topics')}>お題の設定</button>
       </section>
       <section className="card">
@@ -62,6 +65,7 @@ export function Home() {
           <li>答え合わせ。順位が1つ合うごとに1点、全部ピッタリならボーナス+{PERFECT_BONUS}点。</li>
           <li>全員分まわったら終了。最高得点の人の勝ち！</li>
           <li>ロビーでモードを「セレクトファイブ」にすると、正解とダミーが混ざった選択肢から正解を5つ選ぶクイズで遊べます。</li>
+          <li>モードを「運命の二者択一」にすると、2択クイズのサバイバルで遊べます。左右に動いて答え、不正解の側は床が抜けて脱落。最後の1人になるまで続きます。</li>
         </ol>
       </details>
     </>

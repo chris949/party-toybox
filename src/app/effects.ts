@@ -25,6 +25,11 @@ export function playStateEffects(prev: PlayerView | null, next: PlayerView) {
     if (r.done && !pr?.done && r.rows.some(row => row.hits === r.answer.length)) setTimeout(sides, 800);
   }
   // 最終結果：1位（同点を含む）の人の画面に
+  // 運命の二者択一：最後まで生き残った人の画面に
+  if (next.fate) {
+    if (next.phase === 'result' && prev?.phase !== 'result' && !(next.me in next.fate.out)) { center(); setTimeout(sides, 500); }
+    return;
+  }
   if (next.phase === 'result' && prev?.phase !== 'result') {
     const top = Math.max(...next.players.map(p => p.score));
     if (next.players.find(p => p.id === next.me)?.score === top) { center(); setTimeout(sides, 500); }

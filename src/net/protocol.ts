@@ -1,6 +1,8 @@
 // ホストと参加者がやり取りするメッセージ。形は v0.8 と同じにして、古い版の人ともつながるようにする
 // （版が違うと、ロビーで警告が出る）
-import { DEFAULT_TIME_LIMIT, TIME_LIMITS } from '../core/constants';
+import { DEFAULT_FATE_TIME, DEFAULT_TIME_LIMIT, FATE_TIMES, TIME_LIMITS } from '../core/constants';
+import { GAME_MODES, type GameMode } from '../core/types';
+import type { FateView } from '../modes/fate/view';
 import type { Action } from '../core/types';
 import type { PlayerView } from '../modes/tier/view';
 import type { FiveView } from '../modes/five/view';
@@ -14,7 +16,7 @@ export type HostMsg =
   | { t: 'ping' }
   | { t: 'error'; msg: string };
 
-export type JoinMsg = { t: 'join'; id: string; key: string; name: string; topics: unknown; fives?: unknown; version: string };
+export type JoinMsg = { t: 'join'; id: string; key: string; name: string; topics: unknown; fives?: unknown; fates?: unknown; chara?: unknown; version: string };
 export type GuestMsg = JoinMsg | { t: 'pong' } | Action;
 
 export const genCode = () => {
@@ -29,11 +31,14 @@ export const cleanId = (id: unknown) => String(id ?? '').replace(/[^A-Za-z0-9]/g
 export function parseAction(m: any): Action | null {
   if (!m || typeof m !== 'object') return null;
   switch (m.t) {
-    case 'start': case 'force': case 'next': case 'lobby': case 'reveal-all':
+    case 'start': case 'force': case 'next': case 'lobby': case 'reveal-all': case 'pause':
       return { t: m.t };
     case 'mode': return typeof m.mode === 'string' ? { t: 'mode', mode: m.mode } : null;
     case 'game': return typeof m.mode === 'string' ? { t: 'game', mode: m.mode } : null;
     case 'five': return Array.isArray(m.picks) && Number.isInteger(m.round) ? { t: 'five', round: m.round, picks: m.picks.slice(0, 8), partial: !!m.partial } : null;
+    case 'move': return m.side === 'L' || m.side === 'R' ? { t: 'move', side: m.side } : null;
+    case 'chara': return Number.isInteger(m.n) ? { t: 'chara', n: m.n } : null;
+    case 'fateTime': return Number.isInteger(m.sec) ? { t: 'fateTime', sec: m.sec } : null;
     case 'time': return Number.isInteger(m.sec) ? { t: 'time', sec: m.sec } : null;
     case 'kick': return { t: 'kick', id: cleanId(m.id) };
     case 'rank': return Array.isArray(m.order) ? { t: 'rank', order: m.order.slice(0, 64), partial: !!m.partial } : null;
@@ -52,15 +57,16 @@ export function normalizeView(s: any): PlayerView {
     phase: s.phase,
     gameNo: int(s.gameNo),
     mode: s.mode === 'each' ? 'each' : 'random',
-    gameMode: s.gameMode === 'five' ? 'five' : 'tier',
-    game: s.game === 'five' ? 'five' : s.game === 'tier' ? 'tier' : null,
+    gameMode: s.gameMode in GAME_MODES ? s.gameMode as GameMode : 'tier',
+    game: s.game in GAME_MODES ? s.game as GameMode : null,
     timeLimit: (TIME_LIMITS as readonly number[]).includes(int(s.timeLimit)) ? int(s.timeLimit) : DEFAULT_TIME_LIMIT,
+    fateTime: (FATE_TIMES as readonly number[]).includes(int(s.fateTime)) ? int(s.fateTime) : DEFAULT_FATE_TIME,
     code: str(s.code),
     hostId: str(s.hostId),
     me: str(s.me),
     players: (Array.isArray(s.players) ? s.players : []).map((p: any) => ({
       id: str(p.id), name: str(p.name), score: int(p.score), online: p.online !== false, version: str(p.version),
-      topics: int(p.topics), fives: int(p.fives), done: p.done === true ? true : p.done === false ? false : null,
+      topics: int(p.topics), fives: int(p.fives), fates: int(p.fates), chara: Math.max(0, int(p.chara)), done: p.done === true ? true : p.done === false ? false : null,
     })),
     startError: s.startError == null ? null : str(s.startError),
     timeLeft: s.timeLeft == null ? null : int(s.timeLeft),
@@ -77,6 +83,25 @@ export function normalizeView(s: any): PlayerView {
       shown: int(s.reveal.shown), suspense: !!s.reveal.suspense, done: !!s.reveal.done, nextAt: 0,
     } : null,
     five: s.five ? normalizeFive(s.five) : null,
+    fate: s.fate ? normalizeFate(s.fate) : null,
+  };
+}
+
+function normalizeFate(f: any): FateView {
+  const int = (v: unknown) => Number.isFinite(Number(v)) ? Math.trunc(Number(v)) : 0;
+  const str = (v: unknown) => String(v ?? '');
+  const strs = (a: unknown) => Array.isArray(a) ? a.map(str) : [];
+  const side = (v: unknown) => v === 'L' ? 'L' : 'R';
+  const map = <T>(o: unknown, f: (v: unknown) => T): Record<string, T> =>
+    Object.fromEntries(Object.entries(o && typeof o === 'object' ? o : {}).map(([k, v]) => [k, f(v)]));
+  const v = f.verdict;
+  return {
+    round: int(f.round), text: str(f.text), left: str(f.left), right: str(f.right),
+    authorIds: strs(f.authorIds), authorName: str(f.authorName),
+    pos: map(f.pos, p => p === 'L' || p === 'R' ? p : 'C'),
+    out: map(f.out, int),
+    verdict: v ? { rightSide: side(v.rightSide), fallen: strs(v.fallen), saved: !!v.saved } : null,
+    paused: !!f.paused,
   };
 }
 

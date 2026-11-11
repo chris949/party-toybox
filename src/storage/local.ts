@@ -1,6 +1,7 @@
 // 端末に保存するもの。キー名は v0.8 と同じにして、今までのお題・名前・音の設定をそのまま読めるようにする
 import { pickCount, SAMPLE_TOPICS, type Topic } from '../core/topics';
 import { sanitizeFives, type FiveTopic } from '../core/fives';
+import { sanitizeFates, type FateQuestion } from '../core/fates';
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -43,6 +44,28 @@ export function loadFives(): StoredFive[] {
 export const saveFives = (fives: StoredFive[]) => local.set('tlw-fives', fives);
 export const broughtFives = (fives: StoredFive[]): FiveTopic[] =>
   fives.filter(t => t.bring).map(({ title, answers, dummies, size, dummy }) => ({ title, answers, dummies, size, dummy }));
+
+// 運命の二者択一の問題（最初は空。同梱のサンプルはホストが補うので、端末には入れない）
+export interface StoredFate extends FateQuestion { id: string; bring: boolean }
+export function loadFates(): StoredFate[] {
+  const saved = local.get<Partial<StoredFate>[]>('tlw-fates', []);
+  return (Array.isArray(saved) ? saved : []).flatMap(q => {
+    const [ok] = sanitizeFates([q]);
+    return ok ? [{ ...ok, id: q.id ?? uid(), bring: q.bring !== false }] : [];
+  });
+}
+export const saveFates = (fates: StoredFate[]) => local.set('tlw-fates', fates);
+export const broughtFates = (fates: StoredFate[]): FateQuestion[] =>
+  fates.filter(q => q.bring).map(({ text, right, wrong }) => ({ text, right, wrong }));
+
+// 運命の二者択一で使うキャラクターの番号
+export const loadChara = () => Math.max(0, Math.trunc(Number(local.get('tlw-chara', 0))) || 0);
+export const saveChara = (n: number) => local.set('tlw-chara', n);
+
+// 運命の二者択一の舞台の見せ方（2D／3D）
+export type FateViewMode = '2d' | '3d';
+export const loadFateView = (): FateViewMode => local.get<string>('tlw-fate-view', '3d') === '2d' ? '2d' : '3d';
+export const saveFateView = (m: FateViewMode) => local.set('tlw-fate-view', m);
 
 export const loadName = () => local.get('tlw-name', '');
 export const saveName = (name: string) => local.set('tlw-name', name);

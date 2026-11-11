@@ -5,6 +5,7 @@ import { newTopicId } from '../storage/local';
 import { Notice, TitleBar } from '../ui/common';
 import { askConfirm, setScreen, updateTopics, useStore, type Editing } from './store';
 import { FiveList } from './TopicsFive';
+import { FateList } from './TopicsFate';
 import { GAME_MODES, type GameMode } from '../core/types';
 
 export function Topics() {
@@ -17,7 +18,7 @@ export function Topics() {
       <div className="seg" style={{ marginBottom: 12 }}>{(Object.entries(GAME_MODES) as [GameMode, string][]).map(([k, label]) => (
         <button key={k} className={tab === k ? 'on' : ''} onClick={() => useStore.setState({ topicsTab: k })}>{label}</button>
       ))}</div>
-      {tab === 'five' ? <FiveList /> : <TierList />}
+      {tab === 'five' ? <FiveList /> : tab === 'fate' ? <FateList /> : <TierList />}
     </>
   );
 }

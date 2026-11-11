@@ -1,11 +1,13 @@
 // ルーム：ロビーと、ゲーム中の画面の切り替え
 import { useState } from 'react';
-import { MAX_PLAYERS, TIME_LIMITS } from '../core/constants';
+import { FATE_TIMES, MAX_PLAYERS, TIME_LIMITS } from '../core/constants';
 import { GAME_MODES, PICK_MODES, type GameMode, type PickMode } from '../core/types';
 import { Guess, Ranking, Result, Reveal } from '../modes/tier/screens/Phases';
 import { Answer, FiveReveal } from '../modes/five/screens';
+import { charaOf, CharaPicker } from '../modes/fate/charas';
+import { FateResult, FateStage } from '../modes/fate/screens';
 import { Notice, TitleBar } from '../ui/common';
-import { isHost, leaveByUser, send, useStore, type Pub } from './store';
+import { isHost, leaveByUser, send, setChara, useStore, type Pub } from './store';
 
 export function Room() {
   const pub = useStore(s => s.pub)!;
@@ -13,11 +15,14 @@ export function Room() {
   return <>
     {reconnecting && <div className="banner">ホストとの接続を確認しています… 再接続中</div>}
     <TitleBar right={<button className="small" onClick={leaveByUser}>退出</button>} />
-    {pub.phase !== 'lobby' && <section className="card"><Players pub={pub} /></section>}
+    {/* 運命の二者択一は、舞台の上に全員が出ているので、参加者の一覧は出さない */}
+    {pub.phase !== 'lobby' && pub.game !== 'fate' && <section className="card"><Players pub={pub} /></section>}
     {pub.phase === 'lobby' ? <Lobby pub={pub} />
       : pub.phase === 'ranking' ? <Ranking pub={pub} />
       : pub.phase === 'guess' ? <Guess pub={pub} />
       : pub.phase === 'answer' ? <Answer pub={pub} />
+      : pub.phase === 'question' || pub.phase === 'verdict' ? <FateStage pub={pub} />
+      : pub.fate ? <FateResult pub={pub} />
       : pub.phase === 'reveal' ? (pub.five ? <FiveReveal pub={pub} /> : <Reveal pub={pub} />)
       : <Result pub={pub} />}
   </>;
@@ -27,8 +32,9 @@ function Players({ pub }: { pub: Pub }) {
   return (
     <div className="players">{pub.players.map(p => (
       <span key={p.id} className={`pl ${p.online ? '' : 'off'} ${p.id === pub.me ? 'me' : ''}`}>
-        {p.id === pub.hostId && '👑'}{p.name}
-        {pub.phase !== 'lobby' ? <span className="sc">{p.score}</span> : <span className="muted small">お題{pub.gameMode === 'five' ? p.fives : p.topics}</span>}
+        {p.id === pub.hostId && '👑'}{pub.phase === 'lobby' && pub.gameMode === 'fate' && charaOf(p.chara).face}{p.name}
+        {pub.phase !== 'lobby' ? <span className="sc">{p.score}</span>
+          : <span className="muted small">{pub.gameMode === 'fate' ? `問題${p.fates}` : `お題${pub.gameMode === 'five' ? p.fives : p.topics}`}</span>}
         {p.done === true ? '✅' : p.done === false ? '⏳' : ''}
         {pub.phase === 'lobby' && isHost() && p.id !== pub.me && <button className="mini" style={{ padding: '0 6px' }} onClick={() => send({ t: 'kick', id: p.id })}>✕</button>}
       </span>
@@ -42,6 +48,7 @@ function Lobby({ pub }: { pub: Pub }) {
   const hostVer = pub.players.find(p => p.id === pub.hostId)?.version;
   const old = pub.players.filter(p => p.version !== hostVer);
   const host = isHost();
+  const fate = pub.gameMode === 'fate';
   return <>
     <section className="card" style={{ textAlign: 'center' }}>
       <div className="muted small">部屋コード</div>
@@ -66,7 +73,19 @@ function Lobby({ pub }: { pub: Pub }) {
         : <p style={{ margin: 0, fontWeight: 800 }}>{GAME_MODES[pub.gameMode]}</p>}
       <p className="muted small" style={{ margin: '6px 0 0' }}>{pub.gameMode === 'five'
         ? '正解とダミーを混ぜた選択肢から、正解だと思うものを5つ選びます。お題が足りない分はサンプルで補います'
+        : fate ? '2択クイズのサバイバル。左右に動いて答え、不正解の側は床が抜けて脱落。最後の1人になるまで続きます。問題が足りない分はサンプルで補います'
         : 'お題を自分の好みで並べ、ほかの人の順位を当てます'}</p>
+      {fate ? <>
+        <h2 style={{ marginTop: 16 }}>あなたのキャラクター</h2>
+        <CharaPicker value={pub.players.find(p => p.id === pub.me)?.chara ?? 0} onPick={setChara} />
+        <h2 style={{ marginTop: 16 }}>制限時間</h2>
+        {host
+          ? <div className="seg">{FATE_TIMES.map(sec => (
+              <button key={sec} className={pub.fateTime === sec ? 'on' : ''} onClick={() => send({ t: 'fateTime', sec })}>{sec}秒</button>
+            ))}</div>
+          : <p style={{ margin: 0, fontWeight: 800 }}>{pub.fateTime}秒</p>}
+        <p className="muted small" style={{ margin: '6px 0 0' }}>1問ごとの持ち時間です。締め切りの瞬間にいた側が、あなたの答えになります</p>
+      </> : <>
       <h2 style={{ marginTop: 16 }}>出題方式</h2>
       {host
         ? <div className="seg">{(Object.entries(PICK_MODES) as [PickMode, string][]).map(([k, label]) => (
@@ -81,6 +100,7 @@ function Lobby({ pub }: { pub: Pub }) {
           ))}</div>
         : <p style={{ margin: 0, fontWeight: 800 }}>{pub.timeLimit}秒</p>}
       <p className="muted small" style={{ margin: '6px 0 0' }}>{pub.gameMode === 'five' ? '選択肢を選ぶときの持ち時間です' : '自分の順位を決めるときと、予想するときの持ち時間です'}</p>
+      </>}
       <div style={{ marginTop: 16 }}>
         {host ? <>
           <button className="primary wide" disabled={!!pub.startError} onClick={() => send({ t: 'start' })}>ゲーム開始</button>

@@ -4,6 +4,15 @@ import type { PlayerView } from '../modes/tier/view';
 
 export function playStateSounds(prev: PlayerView | null, next: PlayerView) {
   const turn = (x: PlayerView | null) => x && `${x.phase}-${x.gameNo}-${x.round}`;
+  // 運命の二者択一：出題でポロン、発表で「落ちる／助かった／全員正解」、結果でファンファーレ
+  if (next.fate) {
+    if (turn(prev) === turn(next)) return;
+    const v = next.fate.verdict;
+    if (next.phase === 'question') Sound.play('start');
+    else if (next.phase === 'verdict' && v) Sound.play(v.fallen.length ? 'fall' : v.saved ? 'saved' : 'perfect');
+    else if (next.phase === 'result') Sound.play('fanfare');
+    return;
+  }
   if ((next.phase === 'ranking' || next.phase === 'guess' || next.phase === 'answer') && turn(prev) !== turn(next)) Sound.play('start');
   // セレクトファイブ：正解をめくるたびにポン、最後の正解（ダミーも同時に明かす）でファンファーレ
   const fr = next.five?.reveal;
