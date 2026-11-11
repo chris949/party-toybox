@@ -8,7 +8,7 @@ import { loadSoundMode, loadVolumes, saveSoundMode, saveVolumes, type SoundMode,
 
 export type Scene = 'lobby' | 'pick' | 'reveal' | 'result';
 export const SCENES: Record<Scene, string> = { lobby: 'ロビー・ホーム', pick: '並び替え（準備・予想）', reveal: '答え合わせ', result: '最終結果' };
-export type SfxName = 'click' | 'start' | 'pop' | 'tick' | 'drumroll' | 'fanfare' | 'perfect';
+export type SfxName = 'click' | 'start' | 'pop' | 'tick' | 'drumroll' | 'fanfare' | 'perfect' | 'fall' | 'saved';
 
 interface Track { url: string; format: string; label: string }
 
@@ -146,6 +146,17 @@ const SYNTH_SFX: Record<SfxName, (t: number) => void> = {
   drumroll: t => { for (let i = 0; i < 26; i++) noise(t + i * 0.07, 0.06, 0.25 + i * 0.02, seGain, 1200); },
   fanfare: t => [72, 76, 79, 84].forEach((m, i) => tone(midi(m), t + i * 0.11, i === 3 ? 0.7 : 0.16, 'triangle', 0.7)),
   perfect: t => [84, 88, 91, 96, 91, 96].forEach((m, i) => tone(midi(m), t + i * 0.07, 0.14, 'sine', 0.45)),
+  // 床が開く「ガコン」→ 落ちていく「ヒュ〜」→ 底に着く「ドスン」
+  fall: t => {
+    noise(t, 0.12, 0.7, seGain, 400); tone(110, t, 0.15, 'square', 0.4);
+    tone(1400, t + 0.5, 0.85, 'sine', 0.5).frequency.exponentialRampToValueAtTime(140, t + 1.3);
+    tone(60, t + 1.35, 0.3, 'sine', 0.9); noise(t + 1.35, 0.18, 0.5, seGain, 150);
+  },
+  // 床が開いたのに助かった「ガコン…ほっ」
+  saved: t => {
+    noise(t, 0.12, 0.7, seGain, 400); tone(110, t, 0.15, 'square', 0.4);
+    [64, 67, 72].forEach((m, i) => tone(midi(m), t + 0.9 + i * 0.09, 0.2, 'triangle', 0.6));
+  },
 };
 
 // 効果音のファイル（同梱されていれば使う）

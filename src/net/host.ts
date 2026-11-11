@@ -1,9 +1,11 @@
 // ホスト側：部屋を作り、参加者とつながり、ルールのエンジンで状態を進めて、各参加者に見せてよい情報を送る
 import Peer, { type DataConnection } from 'peerjs';
+import { CHARA_COUNT } from '../core/constants';
 import { createRoom, joinError, nextTimer, reduce } from '../core/room';
 import type { Action, RoomState } from '../core/types';
 import type { Topic } from '../core/topics';
 import type { FiveTopic } from '../core/fives';
+import type { FateQuestion } from '../core/fates';
 import { viewFor, type PlayerView } from '../modes/tier/view';
 import { peerOptions } from './peerOptions';
 import { cleanId, DEAD_MS, genCode, HEARTBEAT_MS, parseAction, PREFIX, type HostMsg } from './protocol';
@@ -13,7 +15,8 @@ type Conn = DataConnection & { pid?: string; lastSeen: number };
 export interface HostSession { isHost: true; code: string; send(a: Action): void; close(): void }
 
 export interface HostOptions {
-  id: string; key: string; name: string; topics: Topic[]; fives: FiveTopic[]; version: string; minPlayers: number;
+  id: string; key: string; name: string; topics: Topic[]; fives: FiveTopic[]; fates: FateQuestion[]; chara: number; version: string; minPlayers: number;
+  bots?: number; // 動作確認用：CPU の参加者の数（運命の二者択一でだけ動く）
   onOpen(session: HostSession): void;
   onView(view: PlayerView): void;
   onFail(msg: string): void;
@@ -30,6 +33,30 @@ export function startHost(o: HostOptions): void {
 
   const sendTo = (c: Conn | undefined, m: HostMsg) => { if (c?.open) c.send(m); };
 
+  // ===== 動作確認用の CPU（?dev&bots=9）。運命の二者択一で、出題のたびに左右へ動く =====
+  const BOT_NAMES = ['じろう', 'さくら', 'ゆうき', 'みさき', 'けんた', 'あおい', 'りく', 'ひなた', 'そうた'];
+  const bots = BOT_NAMES.slice(0, Math.max(0, Math.min(BOT_NAMES.length, o.bots ?? 0))).map((name, i) => ({ id: `bot${i + 1}`, name }));
+  let botTimers: ReturnType<typeof setTimeout>[] = [];
+  let botTurn = '';
+  function runBots() {
+    const g = room.game;
+    if (!bots.length || g?.kind !== 'fate' || g.phase !== 'question') return;
+    const turn = `${room.gameNo}-${g.round}`;
+    if (turn === botTurn) return;
+    botTurn = turn;
+    botTimers.forEach(clearTimeout);
+    botTimers = [];
+    const right = g.deck[g.round].rightSide, wrong = right === 'L' ? 'R' : 'L';
+    const span = room.fateTime * 1000 - 600;
+    for (const b of bots) {
+      // 生き残りは6割5分で正解へ。ゴーストはでたらめに動いて惑わせる。ときどき途中で迷って逆へ行く
+      const last = b.id in g.out ? (Math.random() < 0.5 ? 'L' : 'R') : Math.random() < 0.65 ? right : wrong;
+      const steps = Math.random() < 0.35 ? [last === 'L' ? 'R' : 'L', last] as const : [last] as const;
+      const times = steps.map(() => 400 + Math.random() * span).sort((x, y) => x - y);
+      steps.forEach((side, i) => botTimers.push(setTimeout(() => dispatch(b.id, { t: 'move', side }), times[i])));
+    }
+  }
+
   function broadcast() {
     const now = Date.now();
     for (const p of room.players) {
@@ -45,6 +72,7 @@ export function startHost(o: HostOptions): void {
     if (next === room) return;
     room = next;
     broadcast();
+    runBots();
     if (timer) clearTimeout(timer);
     const t = nextTimer(room);
     timer = t ? setTimeout(() => dispatch(o.id, t.action), Math.max(0, t.at - Date.now())) : null;
@@ -68,7 +96,8 @@ export function startHost(o: HostOptions): void {
         else sendTo(c, { t: 'ping' });
       }
     }, HEARTBEAT_MS);
-    dispatch(o.id, { t: 'join', name: o.name, key: o.key, topics: o.topics, fives: o.fives, version: o.version });
+    dispatch(o.id, { t: 'join', name: o.name, key: o.key, topics: o.topics, fives: o.fives, fates: o.fates, chara: o.chara, version: o.version });
+    bots.forEach((b, i) => dispatch(b.id, { t: 'join', name: b.name, key: 'bot', topics: o.topics, chara: (o.chara + 1 + i * 2) % CHARA_COUNT, version: o.version }));
     const session: HostSession = {
       isHost: true, code,
       send(a) {
@@ -80,6 +109,7 @@ export function startHost(o: HostOptions): void {
       },
       close() {
         if (timer) clearTimeout(timer);
+        botTimers.forEach(clearTimeout);
         if (hb) clearInterval(hb);
         try { peer.destroy(); } catch { /* 既に閉じている */ }
       },
@@ -102,7 +132,7 @@ export function startHost(o: HostOptions): void {
         const old = conns[pid];
         if (old && old !== c) { delete conns[pid]; old.close(); }
         conns[pid] = c;
-        dispatch(pid, { t: 'join', name: m.name, key: m.key, topics: m.topics, fives: m.fives, version: m.version });
+        dispatch(pid, { t: 'join', name: m.name, key: m.key, topics: m.topics, fives: m.fives, fates: m.fates, chara: m.chara, version: m.version });
         return;
       }
       if (!c.pid || conns[c.pid] !== c || m?.t === 'pong') return;

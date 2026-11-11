@@ -4,13 +4,15 @@ import { Sound } from '../audio/sound';
 import { MIN_PLAYERS_DEFAULT, MIN_PLAYERS_DEV } from '../core/constants';
 import { FIVE_PICK } from '../core/fives';
 import type { Action } from '../core/types';
+import type { Side } from '../modes/fate/rules';
 import type { PlayerView } from '../modes/tier/view';
 import { startGuest, type GuestSession } from '../net/guest';
 import { startHost, type HostSession } from '../net/host';
 import { ROOM_CODE_LEN } from '../net/protocol';
 import {
-  broughtFives, broughtTopics, loadFives, loadLastRoom, loadName, loadTopics, myId, myKey, saveFives, saveLastRoom, saveName, saveTopics,
-  type StoredFive, type StoredTopic,
+  broughtFates, broughtFives, broughtTopics, loadChara, loadFates, loadFives, loadLastRoom, loadName, loadTopics, myId, myKey,
+  saveChara, saveFates, saveFives, saveLastRoom, saveName, saveTopics,
+  type StoredFate, type StoredFive, type StoredTopic,
 } from '../storage/local';
 import { playStateEffects } from './effects';
 import { playStateSounds } from './sounds';
@@ -19,11 +21,12 @@ export const APP_VERSION = __APP_VERSION__;
 export const COMMIT = __COMMIT__;
 export const DEV = new URLSearchParams(location.search).has('dev'); // ?dev で最少2人から遊べる（動作確認用）
 
-export type Screen = 'home' | 'topics' | 'edit' | 'editFive' | 'sound' | 'room';
+export type Screen = 'home' | 'topics' | 'edit' | 'editFive' | 'editFate' | 'sound' | 'room';
 // 受け取った状態。締め切りは自分の時計に直して持つ
 export type Pub = PlayerView & { localDeadline: number };
 export interface Editing { id: string | null; title: string; options: string[]; count: number }
 export interface EditingFive { id: string | null; title: string; answers: string[]; dummies: string[]; size: number; dummy: number | null }
+export interface EditingFate { id: string | null; text: string; right: string; wrong: string }
 export interface Dialog { msg: string; okLabel: string; onOk(): void }
 interface Pending { msg: Action; key: string; tries: number }
 
@@ -37,11 +40,14 @@ interface State {
   dialog: Dialog | null;
   editing: Editing | null;
   editingFive: EditingFive | null;
-  topicsTab: 'tier' | 'five';
+  editingFate: EditingFate | null;
+  topicsTab: 'tier' | 'five' | 'fate';
   error: string | null;
   name: string;
   topics: StoredTopic[];
   fives: StoredFive[];
+  fates: StoredFate[];
+  chara: number; // 運命の二者択一で使うキャラクターの番号
   lastRoom: string;
   picker: { key: string; slots: (number | null)[] }; // slots[順位] = 選択肢の番号（空きは null）
   fivePick: { key: string; sel: number[] };          // セレクトファイブで選んでいる選択肢の番号
@@ -52,8 +58,8 @@ let pendingTimer: ReturnType<typeof setTimeout> | null = null;
 
 export const useStore = create<State>(() => ({
   screen: 'home', notice: '', connecting: false, reconnecting: false, pub: null, pending: null,
-  dialog: null, editing: null, editingFive: null, topicsTab: 'tier', error: null,
-  name: loadName(), topics: loadTopics(), fives: loadFives(), lastRoom: loadLastRoom(),
+  dialog: null, editing: null, editingFive: null, editingFate: null, topicsTab: 'tier', error: null,
+  name: loadName(), topics: loadTopics(), fives: loadFives(), fates: loadFates(), chara: loadChara(), lastRoom: loadLastRoom(),
   picker: { key: '', slots: [] }, fivePick: { key: '', sel: [] },
 }));
 const set = useStore.setState;
@@ -83,7 +89,7 @@ function setPub(view: PlayerView, rejoined = false) {
 // ===== 部屋 =====
 function canEnter(): boolean {
   if (!get().name.trim()) { set({ notice: '名前を入力してください' }); return false; }
-  if (!broughtTopics(get().topics).length && !broughtFives(get().fives).length) { set({ notice: 'お題を1つ以上「持っていく」にチェックしてください' }); return false; }
+  if (!broughtTopics(get().topics).length && !broughtFives(get().fives).length && !broughtFates(get().fates).length) { set({ notice: 'お題を1つ以上「持っていく」にチェックしてください' }); return false; }
   return true;
 }
 
@@ -91,8 +97,9 @@ export function hostRoom() {
   if (!canEnter()) return;
   set({ connecting: true, notice: '' });
   startHost({
-    id: myId, key: myKey, name: get().name, topics: broughtTopics(get().topics), fives: broughtFives(get().fives), version: APP_VERSION,
+    id: myId, key: myKey, name: get().name, topics: broughtTopics(get().topics), fives: broughtFives(get().fives), fates: broughtFates(get().fates), chara: get().chara, version: APP_VERSION,
     minPlayers: DEV ? MIN_PLAYERS_DEV : MIN_PLAYERS_DEFAULT,
+    bots: DEV ? Math.trunc(Number(new URLSearchParams(location.search).get('bots'))) || 0 : 0, // ?dev&bots=9 で CPU を足す（動作確認用）
     onOpen: s => { session = s; },
     onView: v => setPub(v),
     onFail: msg => set({ connecting: false, notice: msg }),
@@ -105,7 +112,7 @@ export function joinRoom(raw: string) {
   if (code.length !== ROOM_CODE_LEN) { set({ notice: `部屋コード（${ROOM_CODE_LEN}文字）を入力してください` }); return; }
   set({ connecting: true, notice: '' });
   session = startGuest({
-    code, id: myId, key: myKey, name: get().name, topics: broughtTopics(get().topics), fives: broughtFives(get().fives), version: APP_VERSION,
+    code, id: myId, key: myKey, name: get().name, topics: broughtTopics(get().topics), fives: broughtFives(get().fives), fates: broughtFates(get().fates), chara: get().chara, version: APP_VERSION,
     onView: (v, rejoined) => {
       if (get().lastRoom !== code) { saveLastRoom(code); set({ lastRoom: code }); }
       setPub(v, rejoined);
@@ -203,6 +210,22 @@ export function submitFive(partial = false) {
   sendPending();
 }
 
+// ===== 運命の二者択一 =====
+// 左右へ移動する。位置はホストから戻ってきた状態で表示する（届いていないのに動いたように見せない）
+export function moveFate(side: Side) {
+  const { pub } = get();
+  if (!pub?.fate || pub.phase !== 'question' || pub.fate.paused || pub.fate.pos[pub.me] === side) return;
+  if (pub.localDeadline && Date.now() > pub.localDeadline) return;
+  Sound.play('click');
+  send({ t: 'move', side });
+}
+// キャラクターを選ぶ（端末に保存。ロビーにいるときは、ほかの人にも伝える）
+export function setChara(n: number) {
+  saveChara(n);
+  set({ chara: n });
+  if (get().pub?.phase === 'lobby') send({ t: 'chara', n });
+}
+
 // 時間切れ：並べ終えていれば提出。準備フェーズは途中までを送り、ホストに残りをランダムで埋めてもらう。予想フェーズは未提出
 export function onTimeUp() {
   const { pub, pending } = get();
@@ -230,6 +253,12 @@ export const updateFives = (f: (t: StoredFive[]) => StoredFive[]) => {
   const fives = f(get().fives);
   saveFives(fives);
   set({ fives });
+};
+
+export const updateFates = (f: (t: StoredFate[]) => StoredFate[]) => {
+  const fates = f(get().fates);
+  saveFates(fates);
+  set({ fates });
 };
 
 // ===== 確認ダイアログ（ブラウザ標準の confirm はアプリ内ブラウザで出ないことがあるため使わない） =====

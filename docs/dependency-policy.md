@@ -31,7 +31,7 @@ Dependabot が更新のPRを作る（脆弱性の修正はすぐ、ふつうの�
 | 区分 | 対象 | 扱い |
 |---|---|---|
 | **小** | 開発用の道具（vite, vitest, typescript, @types/* など）の patch・minor／ゲームで使うライブラリの patch／GitHub Actions の部品の patch・minor／上の範囲に収まる脆弱性の修正 | 自動チェックが全部通れば、**自動でマージ**して公開する |
-| **中** | ゲームで使うライブラリ（react, react-dom, peerjs, howler, motion, @dnd-kit/*, zustand, canvas-confetti, @fontsource/*）の minor | **一次解析 → 報告 → 持ち主がマージ** |
+| **中** | ゲームで使うライブラリ（react, react-dom, peerjs, howler, motion, @dnd-kit/*, zustand, canvas-confetti, three, @fontsource/*）の minor | **一次解析 → 報告 → 持ち主がマージ** |
 | **大** | major（互換性がなくなる可能性がある）すべて | **一次解析 → 報告 → 持ち主がマージ**。移行の作業が要るなら issue を起票し、仕様書と同じく手順を書いてから進める |
 | **チェック失敗** | 区分にかかわらず、自動チェックが1つでも落ちたもの | **一次解析**（なぜ落ちたか、直し方）→ 報告 |
 

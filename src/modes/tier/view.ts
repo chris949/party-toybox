@@ -4,8 +4,10 @@ import { startErrorOf } from '../../core/room';
 import { currentTarget, type Assigned, type Reveal, type TierPhase, type TierState } from './rules';
 import { answers, type FivePhase, type FiveState } from '../five/rules';
 import { fiveView, type FiveView } from '../five/view';
+import type { FatePhase, FateState } from '../fate/rules';
+import { fateView, type FateView } from '../fate/view';
 
-export type ViewPhase = 'lobby' | TierPhase | FivePhase;
+export type ViewPhase = 'lobby' | TierPhase | FivePhase | FatePhase;
 
 export interface PlayerSummary {
   id: string;
@@ -15,6 +17,8 @@ export interface PlayerSummary {
   version: string;
   topics: number;
   fives: number;    // セレクトファイブのお題の数
+  fates: number;    // 運命の二者択一の問題の数
+  chara: number;    // キャラクターの番号
   done: boolean | null; // 提出済みか（対象外なら null）
 }
 
@@ -25,6 +29,7 @@ export interface PlayerView {
   gameMode: RoomState['gameMode']; // ロビーで選んでいる、次に遊ぶモード
   game: RoomState['gameMode'] | null; // 進行中のゲームのモード
   timeLimit: number;
+  fateTime: number; // 運命の二者択一の1問の制限時間（秒）
   code: string;
   hostId: string;
   me: string;
@@ -39,12 +44,14 @@ export interface PlayerView {
   myGuess: number[] | null;
   reveal: Reveal | null;
   five: FiveView | null; // セレクトファイブのとき
+  fate: FateView | null; // 運命の二者択一のとき
 }
 
 export function viewFor(room: RoomState, id: string, now: number): PlayerView {
   const g: TierState | null = room.game?.kind === 'tier' ? room.game : null;
   const f: FiveState | null = room.game?.kind === 'five' ? room.game : null;
-  const deadline = room.game && (room.game.phase === 'ranking' || room.game.phase === 'guess' || room.game.phase === 'answer') ? room.game.deadline : 0;
+  const d: FateState | null = room.game?.kind === 'fate' ? room.game : null;
+  const deadline = room.game && (room.game.phase === 'ranking' || room.game.phase === 'guess' || room.game.phase === 'answer' || room.game.phase === 'question') ? room.game.deadline : 0;
   const tgt = g ? currentTarget(g) : undefined;
   const nameOf = (pid: string) => room.players.find(p => p.id === pid)?.name ?? '???';
   return {
@@ -54,12 +61,14 @@ export function viewFor(room: RoomState, id: string, now: number): PlayerView {
     gameMode: room.gameMode,
     game: room.game?.kind ?? null,
     timeLimit: room.timeLimit,
+    fateTime: room.fateTime,
     code: room.code,
     hostId: room.hostId,
     me: id,
     players: room.players.map(p => ({
       id: p.id, name: p.name, score: p.score, online: p.online, version: p.version,
       topics: room.topicsBy[p.id]?.length ?? 0, fives: room.fivesBy[p.id]?.length ?? 0,
+      fates: room.fatesBy[p.id]?.length ?? 0, chara: p.chara,
       done: f ? (f.phase === 'answer' && answers(f, p.id) ? !!f.picks[p.id] : null)
         : !g ? null : g.phase === 'ranking' ? !!g.ranks[p.id] : g.phase === 'guess' && p.id !== tgt ? !!g.guesses[p.id] : null,
     })),
@@ -67,11 +76,12 @@ export function viewFor(room: RoomState, id: string, now: number): PlayerView {
     timeLeft: deadline ? Math.max(0, deadline - now) : null,
     myTopic: g?.assign[id] ?? null,
     myRank: g?.ranks[id] ?? null,
-    round: g?.round ?? f?.round ?? 0,
-    rounds: g?.order.length ?? f?.rounds.length ?? 0,
+    round: g?.round ?? f?.round ?? d?.round ?? 0,
+    rounds: g?.order.length ?? f?.rounds.length ?? d?.deck.length ?? 0,
     target: g && tgt ? { id: tgt, name: nameOf(tgt), topic: g.assign[tgt] } : null,
     myGuess: g?.guesses[id] ?? null,
     reveal: g?.phase === 'reveal' ? g.reveal : null,
     five: f ? fiveView(f, id) : null,
+    fate: d ? fateView(d) : null,
   };
 }

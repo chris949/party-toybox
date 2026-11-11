@@ -34,6 +34,7 @@
 | 各自の曲の保存 | IndexedDB（ブラウザの中のデータベース） | 曲ファイルは大きく、localStorage（数MBまで）には入らない |
 | 紙吹雪 | canvas-confetti（v0.10 から） | 軽く、数行で使える |
 | 文字 | M PLUS Rounded 1c（`@fontsource/m-plus-rounded-1c`、v0.10 から） | 使う文字の分だけ読み込む仕組みなので、日本語でも重くなりにくい |
+| 3D（v0.15 から） | three.js（運命の二者択一の3D表示だけ。その画面を開いた人だけが読み込む） | リアルタイムに動く立体の舞台が要るため。React 用の包み（react-three-fiber）は使わず、舞台1つを素の three.js で描く（依存を増やさない） |
 | テスト | Vitest | ルールの自動テストと、CPU同士のシミュレーション |
 | 公開 | GitHub Actions → GitHub Pages | push するとテスト・ビルドをして自動で公開する |
 
