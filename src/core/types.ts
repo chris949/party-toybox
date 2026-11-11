@@ -5,6 +5,8 @@ import type { TierState } from '../modes/tier/rules';
 import type { FiveState } from '../modes/five/rules';
 import type { FateQuestion } from './fates';
 import type { FateState, Side } from '../modes/fate/rules';
+import type { HaikuStyle } from './haikus';
+import type { HaikuState } from '../modes/haiku/rules';
 
 export interface Player {
   id: string;
@@ -20,7 +22,7 @@ export interface Player {
 export const PICK_MODES = { random: '全部からランダム', each: '作成者ごとに1つずつ' } as const;
 export type PickMode = keyof typeof PICK_MODES;
 
-export const GAME_MODES = { tier: 'ティアリスト', five: 'セレクトファイブ', fate: '運命の二者択一' } as const;
+export const GAME_MODES = { tier: 'ティアリスト', five: 'セレクトファイブ', fate: '運命の二者択一', haiku: 'ハイカー575' } as const;
 export type GameMode = keyof typeof GAME_MODES;
 
 // ホストだけが持つ部屋の状態
@@ -35,16 +37,19 @@ export interface RoomState {
   fateTime: number;  // 運命の二者択一の1問の制限時間（秒）
   fateQuota: number; // 運命の二者択一で、1人がお立ち台に立つ回数
   fateLives: number; // 運命の二者択一のライフ（残機）
+  haikuStyle: HaikuStyle; // ハイカー575 の遊び方（お題持ち寄り／17文字ぜんぶ）
+  haikuTime: number;      // ハイカー575 の1文字の制限時間（秒）
+  haikusBy: Record<string, string[]>; // ハイカー575 のお題（上の五文字）
   players: Player[];
   topicsBy: Record<string, Topic[]>;
   fivesBy: Record<string, FiveTopic[]>; // セレクトファイブのお題
   fatesBy: Record<string, FateQuestion[]>; // 運命の二者択一の問題
-  game: TierState | FiveState | FateState | null; // null = ロビー
+  game: TierState | FiveState | FateState | HaikuState | null; // null = ロビー
 }
 
 // 状態を進める操作。from は操作した人（タイマーはホスト）
 export type Action =
-  | { t: 'join'; name: string; key: string; topics: Topic[]; fives?: FiveTopic[]; fates?: FateQuestion[]; chara?: number; version: string }
+  | { t: 'join'; name: string; key: string; topics: Topic[]; fives?: FiveTopic[]; fates?: FateQuestion[]; haikus?: string[]; chara?: number; version: string }
   | { t: 'leave' }
   | { t: 'mode'; mode: PickMode }
   | { t: 'time'; sec: number }
@@ -52,8 +57,12 @@ export type Action =
   | { t: 'fateTime'; sec: number }
   | { t: 'fateQuota'; n: number }
   | { t: 'fateLives'; n: number }
+  | { t: 'haikuStyle'; style: HaikuStyle }
+  | { t: 'haikuTime'; sec: number }
+  | { t: 'kana'; step: number; ch: string }   // ハイカー575：1文字書く
+  | { t: 'rate'; round: number; n: number }   // ハイカー575：作品に★を付ける
   | { t: 'chara'; n: number }
-  | { t: 'topics'; topics: Topic[]; fives?: FiveTopic[]; fates?: FateQuestion[] } // ロビーで持っていくお題を送り直す
+  | { t: 'topics'; topics: Topic[]; fives?: FiveTopic[]; fates?: FateQuestion[]; haikus?: string[] } // ロビーで持っていくお題を送り直す
   | { t: 'editing'; on: boolean }
   | { t: 'retract'; round: number } // 決定した予想・回答を取り消す
   | { t: 'move'; side: Side }

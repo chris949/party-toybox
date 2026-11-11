@@ -10,7 +10,7 @@ import { startGuest, type GuestOptions, type GuestSession } from '../net/guest';
 import { startHost, type HostSession } from '../net/host';
 import { ROOM_CODE_LEN } from '../net/protocol';
 import {
-  broughtFates, broughtFives, broughtTopics, loadChara, loadFates, loadFives, loadLastRoom, loadName, loadTopics, myId, myKey,
+  broughtFates, broughtFives, broughtHaikus, broughtTopics, loadChara, loadFates, loadHaikus, saveHaikus, type StoredHaiku, loadFives, loadLastRoom, loadName, loadTopics, myId, myKey,
   saveChara, saveFates, saveFives, saveLastRoom, saveName, saveTopics,
   type StoredFate, type StoredFive, type StoredTopic,
 } from '../storage/local';
@@ -42,12 +42,13 @@ interface State {
   editing: Editing | null;
   editingFive: EditingFive | null;
   editingFate: EditingFate | null;
-  topicsTab: 'tier' | 'five' | 'fate';
+  topicsTab: 'tier' | 'five' | 'fate' | 'haiku';
   error: string | null;
   name: string;
   topics: StoredTopic[];
   fives: StoredFive[];
   fates: StoredFate[];
+  haikus: StoredHaiku[];
   chara: number; // 運命の二者択一で使うキャラクターの番号
   lastRoom: string;
   picker: { key: string; slots: (number | null)[] }; // slots[順位] = 選択肢の番号（空きは null）
@@ -61,7 +62,7 @@ let pendingTimer: ReturnType<typeof setTimeout> | null = null;
 export const useStore = create<State>(() => ({
   screen: 'home', roomEdit: false, notice: '', connecting: false, reconnecting: false, pub: null, pending: null,
   dialog: null, editing: null, editingFive: null, editingFate: null, topicsTab: 'tier', error: null,
-  name: loadName(), topics: loadTopics(), fives: loadFives(), fates: loadFates(), chara: loadChara(), lastRoom: loadLastRoom(),
+  name: loadName(), topics: loadTopics(), fives: loadFives(), fates: loadFates(), haikus: loadHaikus(), chara: loadChara(), lastRoom: loadLastRoom(),
   picker: { key: '', slots: [] }, fivePick: { key: '', sel: [] },
 }));
 const set = useStore.setState;
@@ -77,7 +78,7 @@ function setPub(view: PlayerView, rejoined = false) {
   let pending = get().pending;
   if (pending) {
     const moved = pending.key !== turnKey(next);
-    if (moved || (pending.msg.t === 'rank' && next.myRank) || (pending.msg.t === 'guess' && next.myGuess) || (pending.msg.t === 'five' && next.five?.myPicks)) {
+    if (moved || (pending.msg.t === 'rank' && next.myRank) || (pending.msg.t === 'guess' && next.myGuess) || (pending.msg.t === 'five' && next.five?.myPicks) || (pending.msg.t === 'kana' && next.haiku?.myDraft)) {
       pending = null;
       if (pendingTimer) clearTimeout(pendingTimer);
     }
@@ -94,7 +95,7 @@ function setPub(view: PlayerView, rejoined = false) {
 // ===== 部屋 =====
 function canEnter(): boolean {
   if (!get().name.trim()) { set({ notice: '名前を入力してください' }); return false; }
-  if (!broughtTopics(get().topics).length && !broughtFives(get().fives).length && !broughtFates(get().fates).length) { set({ notice: 'お題を1つ以上「持っていく」にチェックしてください' }); return false; }
+  if (!broughtTopics(get().topics).length && !broughtFives(get().fives).length && !broughtFates(get().fates).length && !broughtHaikus(get().haikus).length) { set({ notice: 'お題を1つ以上「持っていく」にチェックしてください' }); return false; }
   return true;
 }
 
@@ -102,7 +103,7 @@ export function hostRoom() {
   if (!canEnter()) return;
   set({ connecting: true, notice: '' });
   startHost({
-    id: myId, key: myKey, name: get().name, topics: broughtTopics(get().topics), fives: broughtFives(get().fives), fates: broughtFates(get().fates), chara: get().chara, version: APP_VERSION,
+    id: myId, key: myKey, name: get().name, topics: broughtTopics(get().topics), fives: broughtFives(get().fives), fates: broughtFates(get().fates), haikus: broughtHaikus(get().haikus), chara: get().chara, version: APP_VERSION,
     minPlayers: DEV ? MIN_PLAYERS_DEV : MIN_PLAYERS_DEFAULT,
     bots: DEV ? Math.trunc(Number(new URLSearchParams(location.search).get('bots'))) || 0 : 0, // ?dev&bots=9 で CPU を足す（動作確認用）
     onOpen: s => { session = s; },
@@ -117,7 +118,7 @@ export function joinRoom(raw: string) {
   if (code.length !== ROOM_CODE_LEN) { set({ notice: `部屋コード（${ROOM_CODE_LEN}文字）を入力してください` }); return; }
   set({ connecting: true, notice: '' });
   session = startGuest(guestOpts = {
-    code, id: myId, key: myKey, name: get().name, topics: broughtTopics(get().topics), fives: broughtFives(get().fives), fates: broughtFates(get().fates), chara: get().chara, version: APP_VERSION,
+    code, id: myId, key: myKey, name: get().name, topics: broughtTopics(get().topics), fives: broughtFives(get().fives), fates: broughtFates(get().fates), haikus: broughtHaikus(get().haikus), chara: get().chara, version: APP_VERSION,
     onView: (v, rejoined) => {
       if (get().lastRoom !== code) { saveLastRoom(code); set({ lastRoom: code }); }
       setPub(v, rejoined);
@@ -154,11 +155,11 @@ export function openRoomTopics() {
 }
 // 部屋に戻る。持っていくお題をホストに送り直す
 export function backToRoom() {
-  const topics = broughtTopics(get().topics), fives = broughtFives(get().fives), fates = broughtFates(get().fates);
-  if (guestOpts) Object.assign(guestOpts, { topics, fives, fates });
+  const topics = broughtTopics(get().topics), fives = broughtFives(get().fives), fates = broughtFates(get().fates), haikus = broughtHaikus(get().haikus);
+  if (guestOpts) Object.assign(guestOpts, { topics, fives, fates, haikus });
   set({ roomEdit: false, screen: 'room', notice: '' });
   if (get().pub?.phase !== 'lobby') return;
-  send({ t: 'topics', topics, fives, fates });
+  send({ t: 'topics', topics, fives, fates, haikus });
   send({ t: 'editing', on: false });
 }
 
@@ -262,6 +263,7 @@ export function setChara(n: number) {
 export function onTimeUp() {
   const { pub, pending } = get();
   if (!pub || pending || !needsToPick(pub)) return;
+  if (pub.phase === 'write') return; // ハイカー575：書かなかった分は、ホストがランダムな文字で埋める
   if (pub.phase === 'answer') return submitFive(true);
   if (pickerFull() || pub.phase === 'ranking') submitPick();
 }
@@ -270,6 +272,7 @@ export function needsToPick(pub: Pub) {
   if (pub.phase === 'ranking') return !!pub.myTopic && !pub.myRank;
   if (pub.phase === 'guess') return pub.target?.id !== pub.me && !pub.myGuess;
   if (pub.phase === 'answer') return !!pub.five?.answering && !pub.five.myPicks;
+  if (pub.phase === 'write') return !!pub.haiku?.writing && pub.haiku.myDraft == null;
   return false;
 }
 
@@ -285,6 +288,21 @@ export const updateFives = (f: (t: StoredFive[]) => StoredFive[]) => {
   const fives = f(get().fives);
   saveFives(fives);
   set({ fives });
+};
+
+// ===== ハイカー575 =====
+// 1文字書いて送る（ホストの受け取りが来なければ、ほかの提出と同じく送り直す）
+export function submitKana(ch: string) {
+  const { pub, pending } = get();
+  if (!pub?.haiku || pending || pub.phase !== 'write' || pub.haiku.myDraft != null) return;
+  set({ pending: { msg: { t: 'kana', step: pub.haiku.step, ch }, key: turnKey(pub), tries: 0 } });
+  Sound.play('click');
+  sendPending();
+}
+export const updateHaikus = (f: (t: StoredHaiku[]) => StoredHaiku[]) => {
+  const haikus = f(get().haikus);
+  saveHaikus(haikus);
+  set({ haikus });
 };
 
 export const updateFates = (f: (t: StoredFate[]) => StoredFate[]) => {

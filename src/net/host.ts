@@ -15,7 +15,7 @@ type Conn = DataConnection & { pid?: string; lastSeen: number };
 export interface HostSession { isHost: true; code: string; send(a: Action): void; close(): void }
 
 export interface HostOptions {
-  id: string; key: string; name: string; topics: Topic[]; fives: FiveTopic[]; fates: FateQuestion[]; chara: number; version: string; minPlayers: number;
+  id: string; key: string; name: string; topics: Topic[]; fives: FiveTopic[]; fates: FateQuestion[]; haikus: string[]; chara: number; version: string; minPlayers: number;
   bots?: number; // 動作確認用：CPU の参加者の数（運命の二者択一でだけ動く）
   onOpen(session: HostSession): void;
   onView(view: PlayerView): void;
@@ -38,7 +38,23 @@ export function startHost(o: HostOptions): void {
   const bots = BOT_NAMES.slice(0, Math.max(0, Math.min(BOT_NAMES.length, o.bots ?? 0))).map((name, i) => ({ id: `bot${i + 1}`, name }));
   let botTimers: ReturnType<typeof setTimeout>[] = [];
   let botTurn = '';
+  // ハイカー575：ランダムなひらがなを書き、作品にはランダムに★を付ける
+  function runHaikuBots() {
+    const g = room.game;
+    if (!bots.length || g?.kind !== 'haiku' || g.phase === 'result') return;
+    const rating = g.phase === 'recite' && !!g.show?.rating;
+    if (g.phase === 'recite' && !rating) return;
+    const turn = `${room.gameNo}-${g.phase}-${g.phase === 'write' ? g.step : g.show!.idx}`;
+    if (turn === botTurn) return;
+    botTurn = turn;
+    botTimers.forEach(clearTimeout);
+    const kana = 'あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわん';
+    botTimers = bots.map(b => setTimeout(() => dispatch(b.id, rating
+      ? { t: 'rate', round: g.show!.idx, n: 1 + Math.floor(Math.random() * 5) }
+      : { t: 'kana', step: g.step, ch: kana[Math.floor(Math.random() * kana.length)] }), 600 + Math.random() * 2500));
+  }
   function runBots() {
+    runHaikuBots();
     const g = room.game;
     if (!bots.length || g?.kind !== 'fate' || g.phase !== 'question') return;
     const turn = `${room.gameNo}-${g.round}`;
@@ -96,7 +112,7 @@ export function startHost(o: HostOptions): void {
         else sendTo(c, { t: 'ping' });
       }
     }, HEARTBEAT_MS);
-    dispatch(o.id, { t: 'join', name: o.name, key: o.key, topics: o.topics, fives: o.fives, fates: o.fates, chara: o.chara, version: o.version });
+    dispatch(o.id, { t: 'join', name: o.name, key: o.key, topics: o.topics, fives: o.fives, fates: o.fates, haikus: o.haikus, chara: o.chara, version: o.version });
     bots.forEach((b, i) => dispatch(b.id, { t: 'join', name: b.name, key: 'bot', topics: o.topics, chara: (o.chara + 1 + i * 2) % CHARA_COUNT, version: o.version }));
     const session: HostSession = {
       isHost: true, code,
@@ -132,7 +148,7 @@ export function startHost(o: HostOptions): void {
         const old = conns[pid];
         if (old && old !== c) { delete conns[pid]; old.close(); }
         conns[pid] = c;
-        dispatch(pid, { t: 'join', name: m.name, key: m.key, topics: m.topics, fives: m.fives, fates: m.fates, chara: m.chara, version: m.version });
+        dispatch(pid, { t: 'join', name: m.name, key: m.key, topics: m.topics, fives: m.fives, fates: m.fates, haikus: m.haikus, chara: m.chara, version: m.version });
         return;
       }
       if (!c.pid || conns[c.pid] !== c || m?.t === 'pong') return;

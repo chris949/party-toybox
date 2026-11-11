@@ -6,6 +6,7 @@ import { Notice, TitleBar } from '../ui/common';
 import { askConfirm, backToRoom, setScreen, updateTopics, useStore, type Editing } from './store';
 import { FiveList } from './TopicsFive';
 import { FateList } from './TopicsFate';
+import { HaikuList } from './TopicsHaiku';
 import { GAME_MODES, type GameMode } from '../core/types';
 
 export function Topics() {
@@ -19,10 +20,10 @@ export function Topics() {
       <h2 style={{ fontSize: 20, margin: '0 0 12px' }}>お題の設定</h2>
       {roomEdit && <p className="muted small" style={{ margin: '0 0 10px' }}>部屋に入ったまま編集しています。「部屋に戻る」を押すと、チェックを入れたお題が部屋に反映されます。</p>}
       {/* お題の形がモードごとに違うので、ストックを分ける */}
-      <div className="seg" style={{ marginBottom: 12 }}>{(Object.entries(GAME_MODES) as [GameMode, string][]).map(([k, label]) => (
+      <div className="seg wrap" style={{ marginBottom: 12 }}>{(Object.entries(GAME_MODES) as [GameMode, string][]).map(([k, label]) => (
         <button key={k} className={tab === k ? 'on' : ''} onClick={() => useStore.setState({ topicsTab: k })}>{label}</button>
       ))}</div>
-      {tab === 'five' ? <FiveList /> : tab === 'fate' ? <FateList /> : <TierList />}
+      {tab === 'five' ? <FiveList /> : tab === 'fate' ? <FateList /> : tab === 'haiku' ? <HaikuList /> : <TierList />}
     </>
   );
 }

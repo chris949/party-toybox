@@ -2,6 +2,7 @@
 import { pickCount, SAMPLE_TOPICS, type Topic } from '../core/topics';
 import { sanitizeFives, type FiveTopic } from '../core/fives';
 import { sanitizeFates, type FateQuestion } from '../core/fates';
+import { toTheme } from '../core/haikus';
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -57,6 +58,18 @@ export function loadFates(): StoredFate[] {
 export const saveFates = (fates: StoredFate[]) => local.set('tlw-fates', fates);
 export const broughtFates = (fates: StoredFate[]): FateQuestion[] =>
   fates.filter(q => q.bring).map(({ text, right, wrong }) => ({ text, right, wrong }));
+
+// ハイカー575 のお題（上の五文字。最初は空。同梱のサンプルはホストが補う）
+export interface StoredHaiku { id: string; text: string; bring: boolean }
+export function loadHaikus(): StoredHaiku[] {
+  const saved = local.get<Partial<StoredHaiku>[]>('tlw-haikus', []);
+  return (Array.isArray(saved) ? saved : []).flatMap(h => {
+    const text = toTheme(h?.text);
+    return text ? [{ id: h.id ?? uid(), text, bring: h.bring !== false }] : [];
+  });
+}
+export const saveHaikus = (haikus: StoredHaiku[]) => local.set('tlw-haikus', haikus);
+export const broughtHaikus = (haikus: StoredHaiku[]): string[] => haikus.filter(h => h.bring).map(h => h.text);
 
 // 運命の二者択一で使うキャラクターの番号
 export const loadChara = () => Math.max(0, Math.trunc(Number(local.get('tlw-chara', 0))) || 0);

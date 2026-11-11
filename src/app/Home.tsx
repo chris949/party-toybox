@@ -6,9 +6,9 @@ import { CharaPicker } from '../modes/fate/charas';
 import { DEV, hostRoom, joinRoom, setChara, setName, setScreen, useStore } from './store';
 
 export function Home() {
-  const { name, topics, fives, fates, chara, notice, connecting, lastRoom } = useStore();
+  const { name, topics, fives, fates, haikus, chara, notice, connecting, lastRoom } = useStore();
   const [code, setCode] = useState(() => new URLSearchParams(location.search).get('room') || lastRoom);
-  const count = topics.filter(t => t.bring).length + fives.filter(t => t.bring).length + fates.filter(t => t.bring).length;
+  const count = topics.filter(t => t.bring).length + fives.filter(t => t.bring).length + fates.filter(t => t.bring).length + haikus.filter(t => t.bring).length;
   const prefilled = !!(new URLSearchParams(location.search).get('room') || lastRoom);
   const codeInput = (
     <input type="text" className="code-input" maxLength={ROOM_CODE_LEN} placeholder="部屋コード" value={code}
@@ -28,7 +28,7 @@ export function Home() {
       </section>
       <section className="card">
         <h2>お題 <span className="count">持っていく {count}</span></h2>
-        <p className="muted small" style={{ margin: '0 0 10px' }}>ストック ティアリスト {topics.length}件・セレクトファイブ {fives.length}件・運命の二者択一 {fates.length}件</p>
+        <p className="muted small" style={{ margin: '0 0 10px' }}>ストック ティアリスト {topics.length}件・セレクトファイブ {fives.length}件・運命の二者択一 {fates.length}件・ハイカー575 {haikus.length}件</p>
         <button className="wide" onClick={() => setScreen('topics')}>お題の設定</button>
       </section>
       <section className="card">
@@ -66,6 +66,7 @@ export function Home() {
           <li>全員分まわったら終了。最高得点の人の勝ち！</li>
           <li>ロビーでモードを「セレクトファイブ」にすると、正解とダミーが混ざった選択肢から正解を5つ選ぶクイズで遊べます。</li>
           <li>モードを「運命の二者択一」にすると、2択クイズのサバイバルで遊べます。左右に動いて答え、不正解の側は床が抜けて脱落。最後の1人になるまで続きます。</li>
+          <li>モードを「ハイカー575」にすると、みんなで1文字ずつ書いて回し、五・七・五の句を作って遊べます。できた句は担当者が読み上げて、全員で★を付けます。</li>
         </ol>
       </details>
     </>
