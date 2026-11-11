@@ -2,13 +2,15 @@
 import { create } from 'zustand';
 import { Sound } from '../audio/sound';
 import { MIN_PLAYERS_DEFAULT, MIN_PLAYERS_DEV } from '../core/constants';
+import { FIVE_PICK } from '../core/fives';
 import type { Action } from '../core/types';
 import type { PlayerView } from '../modes/tier/view';
 import { startGuest, type GuestSession } from '../net/guest';
 import { startHost, type HostSession } from '../net/host';
 import { ROOM_CODE_LEN } from '../net/protocol';
 import {
-  broughtTopics, loadLastRoom, loadName, loadTopics, myId, myKey, saveLastRoom, saveName, saveTopics, type StoredTopic,
+  broughtFives, broughtTopics, loadFives, loadLastRoom, loadName, loadTopics, myId, myKey, saveFives, saveLastRoom, saveName, saveTopics,
+  type StoredFive, type StoredTopic,
 } from '../storage/local';
 import { playStateEffects } from './effects';
 import { playStateSounds } from './sounds';
@@ -17,10 +19,11 @@ export const APP_VERSION = __APP_VERSION__;
 export const COMMIT = __COMMIT__;
 export const DEV = new URLSearchParams(location.search).has('dev'); // ?dev で最少2人から遊べる（動作確認用）
 
-export type Screen = 'home' | 'topics' | 'edit' | 'sound' | 'room';
+export type Screen = 'home' | 'topics' | 'edit' | 'editFive' | 'sound' | 'room';
 // 受け取った状態。締め切りは自分の時計に直して持つ
 export type Pub = PlayerView & { localDeadline: number };
 export interface Editing { id: string | null; title: string; options: string[]; count: number }
+export interface EditingFive { id: string | null; title: string; answers: string[]; dummies: string[]; size: number; dummy: number | null }
 export interface Dialog { msg: string; okLabel: string; onOk(): void }
 interface Pending { msg: Action; key: string; tries: number }
 
@@ -33,11 +36,15 @@ interface State {
   pending: Pending | null;
   dialog: Dialog | null;
   editing: Editing | null;
+  editingFive: EditingFive | null;
+  topicsTab: 'tier' | 'five';
   error: string | null;
   name: string;
   topics: StoredTopic[];
+  fives: StoredFive[];
   lastRoom: string;
   picker: { key: string; slots: (number | null)[] }; // slots[順位] = 選択肢の番号（空きは null）
+  fivePick: { key: string; sel: number[] };          // セレクトファイブで選んでいる選択肢の番号
 }
 
 let session: HostSession | GuestSession | null = null;
@@ -45,9 +52,9 @@ let pendingTimer: ReturnType<typeof setTimeout> | null = null;
 
 export const useStore = create<State>(() => ({
   screen: 'home', notice: '', connecting: false, reconnecting: false, pub: null, pending: null,
-  dialog: null, editing: null, error: null,
-  name: loadName(), topics: loadTopics(), lastRoom: loadLastRoom(),
-  picker: { key: '', slots: [] },
+  dialog: null, editing: null, editingFive: null, topicsTab: 'tier', error: null,
+  name: loadName(), topics: loadTopics(), fives: loadFives(), lastRoom: loadLastRoom(),
+  picker: { key: '', slots: [] }, fivePick: { key: '', sel: [] },
 }));
 const set = useStore.setState;
 const get = useStore.getState;
@@ -62,7 +69,7 @@ function setPub(view: PlayerView, rejoined = false) {
   let pending = get().pending;
   if (pending) {
     const moved = pending.key !== turnKey(next);
-    if (moved || (pending.msg.t === 'rank' && next.myRank) || (pending.msg.t === 'guess' && next.myGuess)) {
+    if (moved || (pending.msg.t === 'rank' && next.myRank) || (pending.msg.t === 'guess' && next.myGuess) || (pending.msg.t === 'five' && next.five?.myPicks)) {
       pending = null;
       if (pendingTimer) clearTimeout(pendingTimer);
     }
@@ -76,7 +83,7 @@ function setPub(view: PlayerView, rejoined = false) {
 // ===== 部屋 =====
 function canEnter(): boolean {
   if (!get().name.trim()) { set({ notice: '名前を入力してください' }); return false; }
-  if (!broughtTopics(get().topics).length) { set({ notice: 'お題を1つ以上「持っていく」にチェックしてください' }); return false; }
+  if (!broughtTopics(get().topics).length && !broughtFives(get().fives).length) { set({ notice: 'お題を1つ以上「持っていく」にチェックしてください' }); return false; }
   return true;
 }
 
@@ -84,7 +91,7 @@ export function hostRoom() {
   if (!canEnter()) return;
   set({ connecting: true, notice: '' });
   startHost({
-    id: myId, key: myKey, name: get().name, topics: broughtTopics(get().topics), version: APP_VERSION,
+    id: myId, key: myKey, name: get().name, topics: broughtTopics(get().topics), fives: broughtFives(get().fives), version: APP_VERSION,
     minPlayers: DEV ? MIN_PLAYERS_DEV : MIN_PLAYERS_DEFAULT,
     onOpen: s => { session = s; },
     onView: v => setPub(v),
@@ -98,7 +105,7 @@ export function joinRoom(raw: string) {
   if (code.length !== ROOM_CODE_LEN) { set({ notice: `部屋コード（${ROOM_CODE_LEN}文字）を入力してください` }); return; }
   set({ connecting: true, notice: '' });
   session = startGuest({
-    code, id: myId, key: myKey, name: get().name, topics: broughtTopics(get().topics), version: APP_VERSION,
+    code, id: myId, key: myKey, name: get().name, topics: broughtTopics(get().topics), fives: broughtFives(get().fives), version: APP_VERSION,
     onView: (v, rejoined) => {
       if (get().lastRoom !== code) { saveLastRoom(code); set({ lastRoom: code }); }
       setPub(v, rejoined);
@@ -177,16 +184,37 @@ function sendPending() {
   session?.send(p.msg);
 }
 
+// ===== セレクトファイブ =====
+export function ensureFivePick(key: string) { if (get().fivePick.key !== key) set({ fivePick: { key, sel: [] } }); }
+// タップで選ぶ・外す。5つ選んでいたら、それ以上は選べない
+export function toggleFive(i: number) {
+  const { key, sel } = get().fivePick;
+  if (sel.includes(i)) set({ fivePick: { key, sel: sel.filter(x => x !== i) } });
+  else if (sel.length < FIVE_PICK) set({ fivePick: { key, sel: [...sel, i] } });
+}
+// 5つそろったら送る。時間切れのときは、選んだ分だけ送る（0個なら送らない＝未提出）
+export function submitFive(partial = false) {
+  const { pub, pending, fivePick } = get();
+  if (!pub?.five || pending || pub.phase !== 'answer') return;
+  const picks = [...fivePick.sel];
+  if (partial ? picks.length === 0 : picks.length !== FIVE_PICK) return;
+  set({ pending: { msg: { t: 'five', round: pub.five.round, picks, partial }, key: turnKey(pub), tries: 0 } });
+  Sound.play('click');
+  sendPending();
+}
+
 // 時間切れ：並べ終えていれば提出。準備フェーズは途中までを送り、ホストに残りをランダムで埋めてもらう。予想フェーズは未提出
 export function onTimeUp() {
   const { pub, pending } = get();
   if (!pub || pending || !needsToPick(pub)) return;
+  if (pub.phase === 'answer') return submitFive(true);
   if (pickerFull() || pub.phase === 'ranking') submitPick();
 }
 
 export function needsToPick(pub: Pub) {
   if (pub.phase === 'ranking') return !!pub.myTopic && !pub.myRank;
   if (pub.phase === 'guess') return pub.target?.id !== pub.me && !pub.myGuess;
+  if (pub.phase === 'answer') return !!pub.five?.answering && !pub.five.myPicks;
   return false;
 }
 
@@ -197,6 +225,11 @@ export const updateTopics = (f: (t: StoredTopic[]) => StoredTopic[]) => {
   const topics = f(get().topics);
   saveTopics(topics);
   set({ topics });
+};
+export const updateFives = (f: (t: StoredFive[]) => StoredFive[]) => {
+  const fives = f(get().fives);
+  saveFives(fives);
+  set({ fives });
 };
 
 // ===== 確認ダイアログ（ブラウザ標準の confirm はアプリ内ブラウザで出ないことがあるため使わない） =====

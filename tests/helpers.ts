@@ -1,6 +1,8 @@
 import { createRoom, reduce } from '../src/core/room';
 import { seeded } from '../src/core/random';
 import type { Action, Ctx, RoomState } from '../src/core/types';
+import type { TierState } from '../src/modes/tier/rules';
+import type { FiveState } from '../src/modes/five/rules';
 import type { Topic } from '../src/core/topics';
 import { SAMPLE_TOPICS } from '../src/core/topics';
 
@@ -19,6 +21,8 @@ export function testRoom(topicsByPlayer: Topic[][], opts: { seed?: number; minPl
   return {
     ids, ctx,
     get room() { return room; },
+    get tier() { return room.game as TierState; },
+    get five() { return room.game as FiveState; },
     set room(r: RoomState) { room = r; },
     act,
     host: (a: Action) => act(ids[0], a),

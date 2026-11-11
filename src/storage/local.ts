@@ -1,5 +1,6 @@
 // 端末に保存するもの。キー名は v0.8 と同じにして、今までのお題・名前・音の設定をそのまま読めるようにする
 import { pickCount, SAMPLE_TOPICS, type Topic } from '../core/topics';
+import { sanitizeFives, type FiveTopic } from '../core/fives';
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -29,6 +30,19 @@ export const saveTopics = (topics: StoredTopic[]) => local.set('tlw-topics', top
 export const broughtTopics = (topics: StoredTopic[]): Topic[] =>
   topics.filter(t => t.bring).map(t => ({ title: t.title, options: t.options, count: pickCount(t) }));
 export const newTopicId = uid;
+
+// セレクトファイブのお題（最初は空。同梱のサンプルはホストが補うので、端末には入れない）
+export interface StoredFive extends FiveTopic { id: string; bring: boolean }
+export function loadFives(): StoredFive[] {
+  const saved = local.get<Partial<StoredFive>[]>('tlw-fives', []);
+  return (Array.isArray(saved) ? saved : []).flatMap(t => {
+    const [ok] = sanitizeFives([t]);
+    return ok ? [{ ...ok, id: t.id ?? uid(), bring: t.bring !== false }] : [];
+  });
+}
+export const saveFives = (fives: StoredFive[]) => local.set('tlw-fives', fives);
+export const broughtFives = (fives: StoredFive[]): FiveTopic[] =>
+  fives.filter(t => t.bring).map(({ title, answers, dummies, size, dummy }) => ({ title, answers, dummies, size, dummy }));
 
 export const loadName = () => local.get('tlw-name', '');
 export const saveName = (name: string) => local.set('tlw-name', name);

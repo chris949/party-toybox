@@ -35,15 +35,15 @@ describe('お題の配り方', () => {
   it('同じお題は1つにまとめる。全員サンプルなら作成者は「サンプル」', () => {
     const t = testRoom([samples(), samples(), samples(), samples()], { minPlayers: 4 });
     t.host({ t: 'start' });
-    const titles = Object.values(t.room.game!.assign).map(a => a.title);
+    const titles = Object.values(t.tier.assign).map(a => a.title);
     expect(new Set(titles).size).toBe(4);
-    expect(Object.values(t.room.game!.assign).every(a => a.authorName === 'サンプル')).toBe(true);
+    expect(Object.values(t.tier.assign).every(a => a.authorName === 'サンプル')).toBe(true);
   });
   it('自作のお題を優先する', () => {
     for (let seed = 1; seed <= 30; seed++) {
       const t = testRoom([samples(), [...samples(), custom('B')], samples(), [...samples(), custom('D')]], { seed, minPlayers: 4 });
       t.host({ t: 'start' });
-      const titles = Object.values(t.room.game!.assign).map(a => a.title);
+      const titles = Object.values(t.tier.assign).map(a => a.title);
       expect(titles).toContain('B');
       expect(titles).toContain('D');
     }
@@ -53,17 +53,17 @@ describe('お題の配り方', () => {
       const t = testRoom([['A1', 'A2', 'A3', 'A4', 'A5'].map(n => custom(n)), [custom('B1')], samples(), [custom('D1')]], { seed, minPlayers: 4 });
       t.host({ t: 'mode', mode: 'each' });
       t.host({ t: 'start' });
-      const authors = Object.values(t.room.game!.assign).map(a => a.authorId);
+      const authors = Object.values(t.tier.assign).map(a => a.authorId);
       expect(authors).toContain('p1');
       expect(authors).toContain('p3');
       // 自分のお題が自分に当たらない
-      expect(Object.entries(t.room.game!.assign).every(([id, a]) => a.authorId !== id)).toBe(true);
+      expect(Object.entries(t.tier.assign).every(([id, a]) => a.authorId !== id)).toBe(true);
     }
   });
   it('出題数だけ選択肢を出す', () => {
     const t = testRoom([[custom('20択', 20, 6)], samples()]);
     t.host({ t: 'start' });
-    const a = Object.values(t.room.game!.assign).find(x => x.title === '20択')!;
+    const a = Object.values(t.tier.assign).find(x => x.title === '20択')!;
     expect(a.options).toHaveLength(6);
     expect(new Set(a.options).size).toBe(6);
   });
@@ -78,7 +78,7 @@ describe('並び替えと時間切れ', () => {
   it('準備フェーズの時間切れは、並べた分を残して残りをランダムで埋め、問題数＝参加人数になる', () => {
     const t = testRoom([samples(), samples(), samples()]);
     t.host({ t: 'start' });
-    const g = () => t.room.game!;
+    const g = () => t.tier;
     t.host({ t: 'rank', order: identity(g().assign.p0.options.length) });
     const n1 = g().assign.p1.options.length;
     t.act('p1', { t: 'rank', order: [3, 1, ...Array(n1 - 2).fill(null)], partial: true });
@@ -98,21 +98,21 @@ describe('並び替えと時間切れ', () => {
     expect(t.room.timeLimit).toBe(DEFAULT_TIME_LIMIT);
     t.host({ t: 'time', sec: 30 });
     t.host({ t: 'start' });
-    expect(t.room.game!.deadline).toBe(t.ctx.now + 30_000);
+    expect(t.tier.deadline).toBe(t.ctx.now + 30_000);
     t.host({ t: 'time', sec: 90 });                  // ゲーム中は変えられない
     expect(t.room.timeLimit).toBe(30);
     t.advance(30_000 + PICK_GRACE_MS);
     t.host({ t: 'timeUp' });
-    expect(t.room.game!.phase).toBe('guess');
-    expect(t.room.game!.deadline).toBe(t.ctx.now + 30_000);
+    expect(t.tier.phase).toBe('guess');
+    expect(t.tier.deadline).toBe(t.ctx.now + 30_000);
   });
   it('制限時間はロビーに戻っても引き継ぐ', () => {
     const t = testRoom([samples(), samples()]);
     t.host({ t: 'time', sec: 90 });
     t.host({ t: 'start' });
-    while (t.room.game!.phase !== 'result') {
-      if (t.room.game!.phase === 'ranking' || t.room.game!.phase === 'guess') t.host({ t: 'force' });
-      else if (t.room.game!.phase === 'reveal') { t.host({ t: 'reveal-all' }); t.host({ t: 'next' }); }
+    while (t.tier.phase !== 'result') {
+      if (t.tier.phase === 'ranking' || t.tier.phase === 'guess') t.host({ t: 'force' });
+      else if (t.tier.phase === 'reveal') { t.host({ t: 'reveal-all' }); t.host({ t: 'next' }); }
     }
     t.host({ t: 'lobby' });
     expect(t.room.timeLimit).toBe(90);
@@ -122,32 +122,32 @@ describe('並び替えと時間切れ', () => {
     t.host({ t: 'start' });
     t.advance(1000);
     t.host({ t: 'timeUp' });
-    expect(t.room.game!.phase).toBe('ranking');
+    expect(t.tier.phase).toBe('ranking');
   });
   it('予想フェーズの時間切れは0点で、名前が出る', () => {
     const t = testRoom([samples(), samples(), samples()]);
     t.host({ t: 'start' });
-    for (const id of t.ids) t.act(id, { t: 'rank', order: identity(t.room.game!.assign[id].options.length) });
-    const g = t.room.game!;
+    for (const id of t.ids) t.act(id, { t: 'rank', order: identity(t.tier.assign[id].options.length) });
+    const g = t.tier;
     const tgt = g.order[0];
     const [guesser, idle] = t.ids.filter(id => id !== tgt);
     t.act(guesser, { t: 'guess', round: 0, order: identity(g.assign[tgt].options.length) });
     t.advance(DEFAULT_TIME_LIMIT * 1000 + PICK_GRACE_MS);
     t.host({ t: 'timeUp' });
-    const r = t.room.game!.reveal!;
+    const r = t.tier.reveal!;
     expect(r.rows.map(x => x.id)).toEqual([guesser]);
     expect(r.timeouts).toEqual([t.room.players.find(p => p.id === idle)!.name]);
   });
   it('当てられる本人は予想できず、古いラウンドの予想は受け付けない', () => {
     const t = testRoom([samples(), samples(), samples()]);
     t.host({ t: 'start' });
-    for (const id of t.ids) t.act(id, { t: 'rank', order: identity(t.room.game!.assign[id].options.length) });
-    const tgt = t.room.game!.order[0];
-    const n = t.room.game!.assign[tgt].options.length;
+    for (const id of t.ids) t.act(id, { t: 'rank', order: identity(t.tier.assign[id].options.length) });
+    const tgt = t.tier.order[0];
+    const n = t.tier.assign[tgt].options.length;
     t.act(tgt, { t: 'guess', round: 0, order: identity(n) });
     const other = t.ids.find(id => id !== tgt)!;
     t.act(other, { t: 'guess', round: 5, order: identity(n) });
-    expect(t.room.game!.guesses).toEqual({});
+    expect(t.tier.guesses).toEqual({});
   });
 });
 
@@ -155,18 +155,18 @@ describe('答え合わせと得点', () => {
   it('最下位からめくり、1位の前に溜め、めくり終わってから得点する', () => {
     const t = testRoom([samples(), samples()]);
     t.host({ t: 'start' });
-    for (const id of t.ids) t.act(id, { t: 'rank', order: identity(t.room.game!.assign[id].options.length) });
-    const tgt = t.room.game!.order[0];
+    for (const id of t.ids) t.act(id, { t: 'rank', order: identity(t.tier.assign[id].options.length) });
+    const tgt = t.tier.order[0];
     const other = t.ids.find(id => id !== tgt)!;
-    const n = t.room.game!.assign[tgt].options.length;
+    const n = t.tier.assign[tgt].options.length;
     t.act(other, { t: 'guess', round: 0, order: identity(n) });
-    expect(t.room.game!.phase).toBe('reveal');
+    expect(t.tier.phase).toBe('reveal');
     const seen: string[] = [];
-    while (!t.room.game!.reveal!.done) {
+    while (!t.tier.reveal!.done) {
       const timer = nextTimer(t.room)!;
       t.ctx.now = timer.at;
       t.host(timer.action);
-      const r = t.room.game!.reveal!;
+      const r = t.tier.reveal!;
       seen.push(r.suspense ? 'suspense' : String(r.shown));
       if (!r.done) expect(t.room.players.find(p => p.id === other)!.score).toBe(0);
     }
@@ -177,16 +177,16 @@ describe('答え合わせと得点', () => {
   it('「残りを一気に」はホストと本人だけ', () => {
     const t = testRoom([samples(), samples(), samples()]);
     t.host({ t: 'start' });
-    for (const id of t.ids) t.act(id, { t: 'rank', order: identity(t.room.game!.assign[id].options.length) });
+    for (const id of t.ids) t.act(id, { t: 'rank', order: identity(t.tier.assign[id].options.length) });
     t.host({ t: 'force' });
-    const tgt = t.room.game!.order[0];
+    const tgt = t.tier.order[0];
     const other = t.ids.find(id => id !== tgt && id !== 'p0');
     if (other) {
       t.act(other, { t: 'reveal-all' });
-      expect(t.room.game!.reveal!.done).toBe(false);
+      expect(t.tier.reveal!.done).toBe(false);
     }
     t.act(tgt, { t: 'reveal-all' });
-    expect(t.room.game!.reveal!.done).toBe(true);
+    expect(t.tier.reveal!.done).toBe(true);
   });
 });
 
@@ -194,12 +194,12 @@ describe('見せる情報', () => {
   it('他人の順位は答え合わせまで送らない', () => {
     const t = testRoom([samples(), samples(), samples()]);
     t.host({ t: 'start' });
-    for (const id of t.ids) t.act(id, { t: 'rank', order: identity(t.room.game!.assign[id].options.length) });
-    const tgt = t.room.game!.order[0];
+    for (const id of t.ids) t.act(id, { t: 'rank', order: identity(t.tier.assign[id].options.length) });
+    const tgt = t.tier.order[0];
     const other = t.ids.find(id => id !== tgt)!;
     const v = viewFor(t.room, other, t.ctx.now);
     expect(JSON.stringify(v)).not.toContain('"ranks"');
-    expect(v.myRank).toEqual(t.room.game!.ranks[other]);
+    expect(v.myRank).toEqual(t.tier.ranks[other]);
     expect(v.reveal).toBeNull();
   });
   it('鍵は誰にも送らない', () => {
@@ -224,9 +224,9 @@ describe('ロビーに戻る', () => {
     t.host({ t: 'start' });
     t.act('p2', { t: 'leave' });
     t.host({ t: 'force' });
-    while (t.room.game!.phase !== 'result') {
-      if (t.room.game!.phase === 'guess') t.host({ t: 'force' });
-      else if (t.room.game!.phase === 'reveal') { t.host({ t: 'reveal-all' }); t.host({ t: 'next' }); }
+    while (t.tier.phase !== 'result') {
+      if (t.tier.phase === 'guess') t.host({ t: 'force' });
+      else if (t.tier.phase === 'reveal') { t.host({ t: 'reveal-all' }); t.host({ t: 'next' }); }
     }
     const before = t.room;
     t.host({ t: 'lobby' });

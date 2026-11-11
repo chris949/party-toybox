@@ -28,6 +28,7 @@ export interface Reveal {
 }
 
 export interface TierState {
+  kind: 'tier';
   phase: TierPhase;
   assign: Record<string, Assigned>;
   ranks: Record<string, number[]>;
@@ -100,7 +101,7 @@ export function start(room: RoomState, ctx: Ctx): TierState {
     assign[p.id] = { title: t.title, options: shuffle(t.options, ctx.random).slice(0, t.count), authorId: t.authorId, authorName: t.authorName };
   });
   room.players.forEach(p => { p.score = 0; });
-  return { phase: 'ranking', assign, ranks: {}, order: [], round: 0, guesses: {}, reveal: null, deadline: ctx.now + limitMs(room) };
+  return { kind: 'tier', phase: 'ranking', assign, ranks: {}, order: [], round: 0, guesses: {}, reveal: null, deadline: ctx.now + limitMs(room) };
 }
 
 const limitMs = (room: RoomState) => room.timeLimit * 1000;

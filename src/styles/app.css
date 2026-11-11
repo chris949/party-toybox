@@ -137,6 +137,21 @@ button.mini { min-height: 32px; width: 32px; padding: 0; border: 2px solid var(-
 .timer b { font-size: 18px; min-width: 1.4em; text-align: center; }
 .timer.warn { background: var(--coral); color: #fff; animation: pulse 1s infinite; }
 @keyframes pulse { 50% { transform: scale(1.08); } }
+/* セレクトファイブの選択肢カード */
+.fgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.fcard { position: relative; min-height: 52px; padding: 10px 12px; border-radius: 14px; border: 2.5px solid var(--line); background: var(--field);
+  font: inherit; font-weight: 800; font-size: 15px; color: var(--ink); text-align: left; box-shadow: none; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+button.fcard { cursor: pointer; }
+button.fcard:disabled:not(.on) { opacity: .45; }
+.fcard.on { background: #fff4cc; border-color: var(--ink); box-shadow: 0 3px 0 var(--ink); }
+.fcard.ok { background: var(--hit); border-color: var(--mint); }
+.fcard.dummy { background: var(--miss); border-color: var(--coral); }
+.fcard.mine { box-shadow: 0 0 0 2.5px var(--ink); }
+.fcard .tag { font-size: 11px; padding: 1px 6px; border-radius: 6px; color: #fff; background: var(--mint); }
+.fcard.dummy .tag { background: var(--coral); }
+.fcard .cnt { margin-left: auto; font-size: 12px; color: var(--muted); }
+.focus-rank.dummy-hit { color: var(--coral); font-size: 20px; }
+.dummy-box { margin-top: 14px; padding-top: 12px; border-top: 2px dashed var(--line); }
 /* 制限時間の残りわずか：画面のふちを赤く点滅させる（操作のじゃまにならないよう、クリックは下に通す） */
 .hurry-edge { position: fixed; inset: 0; pointer-events: none; z-index: 50;
   box-shadow: inset 0 0 0 4px var(--coral), inset 0 0 60px 12px color-mix(in srgb, var(--coral) 55%, transparent);

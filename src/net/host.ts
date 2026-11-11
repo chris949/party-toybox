@@ -3,6 +3,7 @@ import Peer, { type DataConnection } from 'peerjs';
 import { createRoom, joinError, nextTimer, reduce } from '../core/room';
 import type { Action, RoomState } from '../core/types';
 import type { Topic } from '../core/topics';
+import type { FiveTopic } from '../core/fives';
 import { viewFor, type PlayerView } from '../modes/tier/view';
 import { peerOptions } from './peerOptions';
 import { cleanId, DEAD_MS, genCode, HEARTBEAT_MS, parseAction, PREFIX, type HostMsg } from './protocol';
@@ -12,7 +13,7 @@ type Conn = DataConnection & { pid?: string; lastSeen: number };
 export interface HostSession { isHost: true; code: string; send(a: Action): void; close(): void }
 
 export interface HostOptions {
-  id: string; key: string; name: string; topics: Topic[]; version: string; minPlayers: number;
+  id: string; key: string; name: string; topics: Topic[]; fives: FiveTopic[]; version: string; minPlayers: number;
   onOpen(session: HostSession): void;
   onView(view: PlayerView): void;
   onFail(msg: string): void;
@@ -67,7 +68,7 @@ export function startHost(o: HostOptions): void {
         else sendTo(c, { t: 'ping' });
       }
     }, HEARTBEAT_MS);
-    dispatch(o.id, { t: 'join', name: o.name, key: o.key, topics: o.topics, version: o.version });
+    dispatch(o.id, { t: 'join', name: o.name, key: o.key, topics: o.topics, fives: o.fives, version: o.version });
     const session: HostSession = {
       isHost: true, code,
       send(a) {
@@ -101,7 +102,7 @@ export function startHost(o: HostOptions): void {
         const old = conns[pid];
         if (old && old !== c) { delete conns[pid]; old.close(); }
         conns[pid] = c;
-        dispatch(pid, { t: 'join', name: m.name, key: m.key, topics: m.topics, version: m.version });
+        dispatch(pid, { t: 'join', name: m.name, key: m.key, topics: m.topics, fives: m.fives, version: m.version });
         return;
       }
       if (!c.pid || conns[c.pid] !== c || m?.t === 'pong') return;

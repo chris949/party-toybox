@@ -15,6 +15,9 @@ export function playStateEffects(prev: PlayerView | null, next: PlayerView) {
   if (reduced()) return;
   const r = next.reveal;
   const pr = prev?.phase === 'reveal' && prev.round === next.round ? prev.reveal : null;
+  // セレクトファイブ：パーフェクトの人がいたら、めくり終わったあとに両端から
+  const fr = next.five?.reveal, pf = prev?.phase === 'reveal' && prev.round === next.round ? prev.five?.reveal : null;
+  if (fr?.done && !pf?.done && fr.rows.some(row => row.hits === 5)) setTimeout(sides, 800);
   if (r) {
     // 1位をめくった瞬間
     if (r.shown >= r.answer.length && (pr?.shown ?? 0) < r.answer.length) center();

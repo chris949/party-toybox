@@ -1,8 +1,9 @@
 // ルーム：ロビーと、ゲーム中の画面の切り替え
 import { useState } from 'react';
 import { MAX_PLAYERS, TIME_LIMITS } from '../core/constants';
-import { PICK_MODES, type PickMode } from '../core/types';
+import { GAME_MODES, PICK_MODES, type GameMode, type PickMode } from '../core/types';
 import { Guess, Ranking, Result, Reveal } from '../modes/tier/screens/Phases';
+import { Answer, FiveReveal } from '../modes/five/screens';
 import { Notice, TitleBar } from '../ui/common';
 import { isHost, leaveByUser, send, useStore, type Pub } from './store';
 
@@ -16,7 +17,8 @@ export function Room() {
     {pub.phase === 'lobby' ? <Lobby pub={pub} />
       : pub.phase === 'ranking' ? <Ranking pub={pub} />
       : pub.phase === 'guess' ? <Guess pub={pub} />
-      : pub.phase === 'reveal' ? <Reveal pub={pub} />
+      : pub.phase === 'answer' ? <Answer pub={pub} />
+      : pub.phase === 'reveal' ? (pub.five ? <FiveReveal pub={pub} /> : <Reveal pub={pub} />)
       : <Result pub={pub} />}
   </>;
 }
@@ -26,7 +28,7 @@ function Players({ pub }: { pub: Pub }) {
     <div className="players">{pub.players.map(p => (
       <span key={p.id} className={`pl ${p.online ? '' : 'off'} ${p.id === pub.me ? 'me' : ''}`}>
         {p.id === pub.hostId && '👑'}{p.name}
-        {pub.phase !== 'lobby' ? <span className="sc">{p.score}</span> : <span className="muted small">お題{p.topics}</span>}
+        {pub.phase !== 'lobby' ? <span className="sc">{p.score}</span> : <span className="muted small">お題{pub.gameMode === 'five' ? p.fives : p.topics}</span>}
         {p.done === true ? '✅' : p.done === false ? '⏳' : ''}
         {pub.phase === 'lobby' && isHost() && p.id !== pub.me && <button className="mini" style={{ padding: '0 6px' }} onClick={() => send({ t: 'kick', id: p.id })}>✕</button>}
       </span>
@@ -56,6 +58,15 @@ function Lobby({ pub }: { pub: Pub }) {
       <h2>参加者 {pub.players.length}/{MAX_PLAYERS}</h2>
       <Players pub={pub} />
       {old.length > 0 && <Notice>⚠ ホスト（{hostVer}）と違う版の人がいます：{old.map(p => `${p.name}さん（${p.version}）`).join('、')}。ページを再読み込みしてもらってください</Notice>}
+      <h2 style={{ marginTop: 16 }}>モード</h2>
+      {host
+        ? <div className="seg">{(Object.entries(GAME_MODES) as [GameMode, string][]).map(([k, label]) => (
+            <button key={k} className={pub.gameMode === k ? 'on' : ''} onClick={() => send({ t: 'game', mode: k })}>{label}</button>
+          ))}</div>
+        : <p style={{ margin: 0, fontWeight: 800 }}>{GAME_MODES[pub.gameMode]}</p>}
+      <p className="muted small" style={{ margin: '6px 0 0' }}>{pub.gameMode === 'five'
+        ? '正解とダミーを混ぜた選択肢から、正解だと思うものを5つ選びます。お題が足りない分はサンプルで補います'
+        : 'お題を自分の好みで並べ、ほかの人の順位を当てます'}</p>
       <h2 style={{ marginTop: 16 }}>出題方式</h2>
       {host
         ? <div className="seg">{(Object.entries(PICK_MODES) as [PickMode, string][]).map(([k, label]) => (
@@ -69,7 +80,7 @@ function Lobby({ pub }: { pub: Pub }) {
             <button key={sec} className={pub.timeLimit === sec ? 'on' : ''} onClick={() => send({ t: 'time', sec })}>{sec}秒</button>
           ))}</div>
         : <p style={{ margin: 0, fontWeight: 800 }}>{pub.timeLimit}秒</p>}
-      <p className="muted small" style={{ margin: '6px 0 0' }}>自分の順位を決めるときと、予想するときの持ち時間です</p>
+      <p className="muted small" style={{ margin: '6px 0 0' }}>{pub.gameMode === 'five' ? '選択肢を選ぶときの持ち時間です' : '自分の順位を決めるときと、予想するときの持ち時間です'}</p>
       <div style={{ marginTop: 16 }}>
         {host ? <>
           <button className="primary wide" disabled={!!pub.startError} onClick={() => send({ t: 'start' })}>ゲーム開始</button>

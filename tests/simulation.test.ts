@@ -15,7 +15,7 @@ function playOne(seed: number) {
   t.host({ t: 'start' });
   if (!t.room.game) return { started: false, n };
   let steps = 0;
-  const g = () => t.room.game!;
+  const g = () => t.tier;
   while (g().phase !== 'result') {
     if (++steps > 5000) throw new Error(`止まった: seed=${seed} phase=${g().phase}`);
     const phase = g().phase;
@@ -32,7 +32,7 @@ function playOne(seed: number) {
           const len = g().assign[g().order[g().round]].options.length;
           if (r < 0.8) t.act(p.id, { t: 'guess', round: g().round, order: [...Array(len).keys()].sort(() => rnd() - 0.5) });
         }
-        if (t.room.game!.phase !== phase) break;
+        if (t.tier.phase !== phase) break;
       }
       if (g().phase === phase) { const timer = nextTimer(t.room)!; t.ctx.now = timer.at; t.host(timer.action); }
     } else if (phase === 'reveal') {
