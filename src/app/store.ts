@@ -215,6 +215,7 @@ export function submitFive(partial = false) {
 export function moveFate(side: Side) {
   const { pub } = get();
   if (!pub?.fate || pub.phase !== 'question' || pub.fate.paused || pub.fate.pos[pub.me] === side) return;
+  if (pub.fate.authorIds.includes(pub.me)) return; // 自分が作った問題のあいだは、お立ち台から動けない
   if (pub.localDeadline && Date.now() > pub.localDeadline) return;
   Sound.play('click');
   send({ t: 'move', side });

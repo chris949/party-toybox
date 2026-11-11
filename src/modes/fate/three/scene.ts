@@ -4,15 +4,18 @@ import type { Pos, Side } from '../rules';
 import { makeAnimal, type Animal } from './animals';
 
 export type FloorState = '' | 'ok' | 'open' | 'blink'; // ふつう／正解で光る／開く／開いてすぐ閉じる（救済）
+export type StagePos = Pos | 'P'; // P = お立ち台（その問題を作った人）
 export interface Piece3D {
-  id: string; name: string; chara: number; color: string; pos: Pos;
+  id: string; name: string; chara: number; color: string; pos: StagePos;
+  variant: number; // 同じキャラクターを選んだ人のうち何人目か（0 = 1人目。2人目からは色合いを変える）
   me: boolean; ghost: boolean; author: boolean;
   fate: 'fall' | 'shock' | 'safe' | null; // 発表のとき：落ちる／床は開いたが助かった／正解
 }
 export interface StageState { pieces: Piece3D[]; floors: Record<Pos, FloorState>; mySide: Pos }
 
 // 舞台の寸法（メートルのつもり）。左右の床と、手前のスタート台
-const FLOOR_W = 4.6, FLOOR_D = 4.2, FLOOR_X = 2.55, FLOOR_Z = -0.9;
+const FLOOR_W = 4.6, FLOOR_D = 4.2, FLOOR_X = 3.3, FLOOR_Z = -0.9; // 左右の床のあいだに、お立ち台を置く
+const PODIUM_W = 1.5, PODIUM_D = 3.6, PODIUM_H = 0.75;
 const PAD_W = 7.6, PAD_D = 2.7, PAD_Z = 3.75;
 const BLOCK_H = 2.6;  // 台の厚み（開いた扉が下に突き抜けない深さ）
 const OPEN = 1.4;     // 扉が開く角度
@@ -25,7 +28,8 @@ const SIDE: Record<Pos, { x: number; z: number; w: number; d: number }> = {
 };
 
 // 立ち位置。床は1列3人（10人以上集まったら4人）、スタート台は1列5人
-function slot(pos: Pos, i: number, count: number): [number, number] {
+function slot(pos: StagePos, i: number, count: number): [number, number] {
+  if (pos === 'P') return [0, FLOOR_Z + (i - (count - 1) / 2) * Math.min(1.15, (PODIUM_D - 0.9) / Math.max(1, count - 1))];
   const s = SIDE[pos];
   if (pos === 'C') return [s.x + (i % 5 - 2) * 1.4, s.z - 0.55 + Math.floor(i / 5) * 1.15];
   const cols = count > 9 ? 4 : 3, gap = cols === 4 ? 1.08 : 1.4;
@@ -36,7 +40,7 @@ interface Floor { state: FloorState; since: number; angle: number; doors: [THREE
 interface Actor {
   animal: Animal; label: THREE.Sprite; arrow: THREE.Mesh | null; data: Piece3D;
   x: number; z: number; fromX: number; fromZ: number; toX: number; toZ: number; moveT: number; // 移動（0→1）
-  fateSince: number; pop: number; phase: number;
+  fateSince: number; pop: number; phase: number; baseY: number;
 }
 
 const ease = (t: number) => t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
@@ -71,7 +75,7 @@ export class FateScene {
   private camera = new THREE.PerspectiveCamera(32, 1.25, 0.1, 100);
   private floors = {} as Record<Pos, Floor>;
   private actors = new Map<string, Actor>();
-  private clock = new THREE.Clock();
+  private last = performance.now();
   private raf = 0;
   private now = 0;
   private shakeAt = -10;
@@ -83,7 +87,7 @@ export class FateScene {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
 
     this.scene.add(new THREE.HemisphereLight('#ffffff', '#bcd9ee', 1.5));
     const sun = new THREE.DirectionalLight('#fff6e6', 2.1);
@@ -95,11 +99,27 @@ export class FateScene {
     this.scene.add(sun);
 
     (['L', 'R', 'C'] as Pos[]).forEach(p => { this.floors[p] = this.buildFloor(p); });
+    this.buildPodium();
     canvas.addEventListener('pointerdown', this.onPointer);
     this.ro = new ResizeObserver(() => this.resize());
     this.ro.observe(canvas);
     this.resize();
     this.loop();
+  }
+
+  // お立ち台：その問題を作った人が立つ（左右の床のあいだ。少し高い）
+  private buildPodium() {
+    const g = new THREE.Group();
+    g.position.set(0, 0, FLOOR_Z);
+    const gold = new THREE.MeshStandardMaterial({ color: '#ffc83d', roughness: 0.5 });
+    const body = new THREE.Mesh(new THREE.BoxGeometry(PODIUM_W, BLOCK_H + PODIUM_H, PODIUM_D), gold);
+    body.position.y = (PODIUM_H - BLOCK_H) / 2 - 0.02;
+    body.castShadow = true; body.receiveShadow = true;
+    const top = new THREE.Mesh(new THREE.BoxGeometry(PODIUM_W - 0.3, 0.04, PODIUM_D - 0.3), new THREE.MeshStandardMaterial({ color: '#e8483f', roughness: 0.8 }));
+    top.position.y = PODIUM_H;
+    top.receiveShadow = true;
+    g.add(body, top);
+    this.scene.add(g);
   }
 
   // 厚みのある台。上は2枚の扉、中は暗い穴
@@ -149,18 +169,18 @@ export class FateScene {
   // 新しい状態を受け取る（位置・発表・ゴーストなどの変わり目を覚えて、動きを始める）
   update(st: StageState) {
     const seen = new Set<string>();
-    const counts: Record<Pos, number> = { L: 0, R: 0, C: 0 };
+    const counts: Record<StagePos, number> = { L: 0, R: 0, C: 0, P: 0 };
     for (const p of st.pieces) counts[p.pos]++;
-    const index: Record<Pos, number> = { L: 0, R: 0, C: 0 };
+    const index: Record<StagePos, number> = { L: 0, R: 0, C: 0, P: 0 };
     for (const p of st.pieces) {
       seen.add(p.id);
       const [tx, tz] = slot(p.pos, index[p.pos]++, counts[p.pos]);
       let a = this.actors.get(p.id);
       const text = p.author ? `出題 ${p.name}` : p.name;
       const relabel = !!a && (a.data.name !== p.name || a.data.author !== p.author || a.data.me !== p.me);
-      if (a && (a.data.chara !== p.chara || a.data.color !== p.color)) { this.removeActor(a); this.actors.delete(p.id); a = undefined; }
+      if (a && (a.data.chara !== p.chara || a.data.color !== p.color || a.data.variant !== p.variant)) { this.removeActor(a); this.actors.delete(p.id); a = undefined; }
       if (!a) {
-        const animal = makeAnimal(p.chara, p.color);
+        const animal = makeAnimal(p.chara, p.color, p.variant);
         animal.root.scale.setScalar(0.92);
         this.scene.add(animal.root);
         let arrow: THREE.Mesh | null = null;
@@ -169,7 +189,7 @@ export class FateScene {
           arrow.rotation.x = Math.PI; arrow.renderOrder = 11;
           this.scene.add(arrow);
         }
-        a = { animal, label: makeLabel(text, p.me), arrow, data: p, x: tx, z: tz, fromX: tx, fromZ: tz, toX: tx, toZ: tz, moveT: 1, fateSince: 0, pop: 1, phase: Math.random() * 6 };
+        a = { animal, label: makeLabel(text, p.me), arrow, data: p, x: tx, z: tz, fromX: tx, fromZ: tz, toX: tx, toZ: tz, moveT: 1, fateSince: 0, pop: 1, phase: Math.random() * 6, baseY: p.pos === 'P' ? PODIUM_H : 0 };
         this.scene.add(a.label);
         this.actors.set(p.id, a);
         a.animal.setGhost(p.ghost);
@@ -202,7 +222,7 @@ export class FateScene {
     const ray = new THREE.Raycaster();
     ray.setFromCamera(new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), this.camera);
     const hit = ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), new THREE.Vector3());
-    if (!hit || hit.z > FLOOR_Z + FLOOR_D / 2 + 0.3 || Math.abs(hit.x) < 0.15) return; // 床の上をタップしたときだけ
+    if (!hit || hit.z > FLOOR_Z + FLOOR_D / 2 + 0.3 || Math.abs(hit.x) < FLOOR_X - FLOOR_W / 2) return; // 床の上をタップしたときだけ
     this.onMove(hit.x < 0 ? 'L' : 'R');
   };
 
@@ -224,7 +244,9 @@ export class FateScene {
 
   private loop = () => {
     this.raf = requestAnimationFrame(this.loop);
-    const dt = Math.min(0.05, this.clock.getDelta());
+    const t = performance.now();
+    const dt = Math.min(0.05, (t - this.last) / 1000); // タブが裏に回っていたあとでも、動きが飛ばないようにする
+    this.last = t;
     this.now += dt;
     this.step(dt);
     this.renderer.render(this.scene, this.camera);
@@ -264,7 +286,9 @@ export class FateScene {
       a.pop = Math.min(1, a.pop + dt / 0.3);
       let y = hop, scale = 0.92 * (0.3 + 0.7 * ease(a.pop)), rz = 0, rx = 0, eye = 1, visible = true;
       const squash = still ? 0 : Math.sin(now * 3 + a.phase) * 0.025; // 立っている間は、ゆっくり弾む
-      const floorOpen = this.isOpen(this.floors[p.pos]);
+      const floor = p.pos === 'P' ? null : this.floors[p.pos];
+      const floorOpen = !!floor && this.isOpen(floor);
+      a.baseY += ((p.pos === 'P' ? PODIUM_H : 0) - a.baseY) * (1 - Math.exp(-dt * 9)); // お立ち台の上は少し高い
 
       if (p.fate === 'fall') {
         eye = 1.7;
@@ -279,12 +303,13 @@ export class FateScene {
         // 床は開いたが助かった（救済・作った人）：じたばたしたあと、床が閉じるまで浮いている
         eye = t < 1.6 ? 1.7 : 1;
         if (!still && t < HANG) rz = Math.sin(t * 40) * 0.3;
-        if (floorOpen || this.floors[p.pos].angle > 0.15) y = 0.4 + (still ? 0 : Math.sin(now * 5) * 0.06);
+        if (floorOpen || (floor?.angle ?? 0) > 0.15) y = 0.4 + (still ? 0 : Math.sin(now * 5) * 0.06);
       } else if (p.fate === 'safe' && !p.ghost) {
         if (!still && t > 0.3 && t < 1.3) y = Math.abs(Math.sin((t - 0.3) * Math.PI * 2)) * 0.55;       // ぴょんぴょん
       }
       if (p.ghost) y = 0.45 + (still ? 0 : Math.sin(now * 2.2 + a.phase) * 0.12);
 
+      y += a.baseY;
       root.visible = visible;
       root.position.set(a.x, y, a.z);
       root.rotation.set(rx, turn, rz);

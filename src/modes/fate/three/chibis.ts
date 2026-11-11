@@ -1,6 +1,7 @@
 // アニメ風の人のキャラクター（2頭身。大きな目と髪型・衣装で描き分ける）。どれもオリジナルで、実在の作品のキャラクターは使わない
 import * as THREE from 'three';
 import type { Animal } from './animals';
+import { tinted } from './tint';
 
 const BALL = new THREE.SphereGeometry(1, 24, 16);
 const CONE = new THREE.ConeGeometry(1, 1, 16);
@@ -17,13 +18,13 @@ export const CHIBIS: { kind: Kind; hair: string; eye: string; outfit: string; ac
 const SKIN = '#ffe0c4', DARK = '#2b2b33';
 type V3 = [number, number, number];
 
-export function makeChibi(n: number, ringColor: string): Animal {
+export function makeChibi(n: number, ringColor: string, variant = 0): Animal {
   const c = CHIBIS[n % CHIBIS.length], k = c.kind;
   const root = new THREE.Group();
   const mats = new Map<string, THREE.MeshStandardMaterial>();
   const mat = (col: string) => {
     let m = mats.get(col);
-    if (!m) { m = new THREE.MeshStandardMaterial({ color: col, roughness: 0.55 }); m.userData.base = new THREE.Color(col); mats.set(col, m); }
+    if (!m) { const c3 = col === SKIN ? new THREE.Color(col) : tinted(col, variant, ringColor); m = new THREE.MeshStandardMaterial({ color: c3, roughness: 0.55 }); m.userData.base = c3.clone(); mats.set(col, m); } // 肌の色は変えない
     return m;
   };
   const add = (geo: THREE.BufferGeometry, col: string, p: V3, s: V3, r?: V3, parent: THREE.Object3D = root) => {
