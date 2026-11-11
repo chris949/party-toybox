@@ -144,7 +144,7 @@ npm run build && npm run e2e
 
 ### 公開
 
-`main` ブランチに push すると、GitHub Actions がテスト → ビルド → GitHub Pages への公開を行います（1〜2分）。テストが通らないと公開されません。
+`main` ブランチに push すると、GitHub Actions がビルド → GitHub Pages への公開を行います（1分ほど）。テスト（型チェック・ルールのテスト・画面の通しテスト・`npm audit`）は PR のときに走り、通らないとマージできません。公開のときはテストを走らせないので、PR を通さずに直接 push したものはテストなしで公開されます。
 
 ### 曲と効果音を同梱する
 
