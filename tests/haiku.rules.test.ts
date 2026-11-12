@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_HAIKU_TIME, HAIKU_RATE_SEC, MAX_PLAYERS, PICK_GRACE_MS } from '../src/core/constants';
-import { SAMPLE_HAIKUS, sanitizeHaikus, toKana, toLines, toTheme } from '../src/core/haikus';
+import { SAMPLE_HAIKUS, sanitizeHaikus, toKana, toLines, toTheme } from '../src/modes/haiku/themes';
 import { nextTimer } from '../src/core/room';
 import { seeded } from '../src/core/random';
 import { currentSheet, sheetOf, textOf, writerOf, type HaikuState } from '../src/modes/haiku/rules';
-import { viewFor } from '../src/modes/tier/view';
+import { viewFor } from '../src/core/view';
 import { samples, testRoom } from './helpers';
 
 // ゲーム開始の手前まで。haikus[i] は i 番目の人が持ってくるお題

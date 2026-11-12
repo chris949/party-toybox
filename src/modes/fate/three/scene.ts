@@ -1,4 +1,4 @@
-// 運命の二者択一の3Dの舞台（docs/spec.md の11.12）。ルールは知らず、渡された状態を描くだけ
+// 運命の二者択一の3Dの舞台（src/modes/fate/README.md の11.12）。ルールは知らず、渡された状態を描くだけ
 import * as THREE from 'three';
 import type { Pos, Side } from '../rules';
 import { makeAnimal, type Animal } from './animals';

@@ -1,8 +1,9 @@
-// ハイカー575 の画面：書く・発表と採点・最終結果（docs/spec.md の12章）
+// ハイカー575 の画面：書く・発表と採点・最終結果（src/modes/haiku/README.md の12章）
+import './styles.css';
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { isHost, send, submitKana, useStore, type Pub } from '../../app/store';
-import { HAIKU_LEN, HAIKU_LINES, toKana, toLines } from '../../core/haikus';
+import { HAIKU_LEN, HAIKU_LINES, toKana, toLines } from './themes';
 import { Standings } from '../../ui/common';
 import { PLAYER_COLORS } from '../fate/charas';
 import { Timer, useDeadline, Waiting } from '../tier/screens/parts';

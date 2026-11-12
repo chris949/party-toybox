@@ -6,7 +6,7 @@ import type { FateView } from '../modes/fate/view';
 import type { HaikuView, HaikuWork } from '../modes/haiku/view';
 import { DEFAULT_HAIKU_TIME, HAIKU_TIMES } from '../core/constants';
 import type { Action } from '../core/types';
-import type { PlayerView } from '../modes/tier/view';
+import type { PlayerView } from '../core/view';
 import type { FiveView } from '../modes/five/view';
 
 export const PREFIX = 'tierlistwars-v1-';

@@ -3,8 +3,8 @@ import { seeded } from '../src/core/random';
 import type { Action, Ctx, RoomState } from '../src/core/types';
 import type { TierState } from '../src/modes/tier/rules';
 import type { FiveState } from '../src/modes/five/rules';
-import type { Topic } from '../src/core/topics';
-import { SAMPLE_TOPICS } from '../src/core/topics';
+import type { Topic } from '../src/modes/tier/topics';
+import { SAMPLE_TOPICS } from '../src/modes/tier/topics';
 
 export const samples = (): Topic[] => SAMPLE_TOPICS.map(([title, options]) => ({ title, options, count: options.length }));
 export const custom = (title: string, n = 5, count = 5): Topic => ({ title, options: Array.from({ length: n }, (_, i) => `${title}-${i + 1}`), count });

@@ -1,6 +1,6 @@
-// セレクトファイブのお題（正解とダミーを登録し、出題のたびに決めた数だけ抜き出す）。数字の根拠は docs/spec.md の10章
-import { MAX_OPT, MAX_TOPICS_PER_PLAYER, OPTION_MAX, TITLE_MAX } from './constants';
-import { clean } from './topics';
+// セレクトファイブのお題（正解とダミーを登録し、出題のたびに決めた数だけ抜き出す）。数字の根拠は src/modes/five/README.md の10章
+import { MAX_OPT, MAX_TOPICS_PER_PLAYER, OPTION_MAX, TITLE_MAX } from '../../core/constants';
+import { clean } from '../../core/text';
 
 export const FIVE_PICK = 5;                         // 選ぶ数
 export const FIVE_MIN_ANSWERS = 5, FIVE_MIN_DUMMIES = 1;

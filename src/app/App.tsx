@@ -4,9 +4,10 @@ import { ConfirmDialog, ErrorBanner } from '../ui/common';
 import { Home } from './Home';
 import { Room } from './Room';
 import { useStore } from './store';
-import { Edit, Topics } from './Topics';
-import { EditFive } from './TopicsFive';
-import { EditFate } from './TopicsFate';
+import { Topics } from './Topics';
+import { Edit } from '../modes/tier/TopicsEditor';
+import { EditFive } from '../modes/five/TopicsEditor';
+import { EditFate } from '../modes/fate/TopicsEditor';
 import { SoundSettings } from './SoundSettings';
 import { Sound, type Scene } from '../audio/sound';
 

@@ -1,10 +1,10 @@
-// 運命の二者択一の問題の一覧と作成・編集（docs/spec.md の11.3）
+// 運命の二者択一の問題の一覧と作成・編集（src/modes/fate/README.md の11.3）
 import { useState } from 'react';
-import { OPTION_MAX, TITLE_MAX } from '../core/constants';
-import { fateError, SAMPLE_FATES } from '../core/fates';
-import { newTopicId } from '../storage/local';
-import { Notice, TitleBar } from '../ui/common';
-import { askConfirm, updateFates, useStore, type EditingFate } from './store';
+import { OPTION_MAX, TITLE_MAX } from '../../core/constants';
+import { fateError, SAMPLE_FATES } from './questions';
+import { newTopicId } from '../../storage/local';
+import { Notice, TitleBar } from '../../ui/common';
+import { askConfirm, updateFates, useStore, type EditingFate } from '../../app/store';
 
 export function FateList() {
   const fates = useStore(s => s.fates);

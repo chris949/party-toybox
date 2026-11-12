@@ -1,9 +1,9 @@
-// ハイカー575 のお題（上の五文字）の一覧と追加（docs/spec.md の12.3）
+// ハイカー575 のお題（上の五文字）の一覧と追加（src/modes/haiku/README.md の12.3）
 import { useState } from 'react';
-import { SAMPLE_HAIKUS, THEME_LEN, toTheme } from '../core/haikus';
-import { newTopicId } from '../storage/local';
-import { Notice } from '../ui/common';
-import { askConfirm, updateHaikus, useStore } from './store';
+import { SAMPLE_HAIKUS, THEME_LEN, toTheme } from './themes';
+import { newTopicId } from '../../storage/local';
+import { Notice } from '../../ui/common';
+import { askConfirm, updateHaikus, useStore } from '../../app/store';
 
 export function HaikuList() {
   const haikus = useStore(s => s.haikus);

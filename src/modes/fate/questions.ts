@@ -1,6 +1,6 @@
-// 運命の二者択一の問題（問題文・正解・不正解）。数字の根拠は docs/spec.md の11章
-import { MAX_TOPICS_PER_PLAYER, OPTION_MAX, TITLE_MAX } from './constants';
-import { clean } from './topics';
+// 運命の二者択一の問題（問題文・正解・不正解）。数字の根拠は src/modes/fate/README.md の11章
+import { MAX_TOPICS_PER_PLAYER, OPTION_MAX, TITLE_MAX } from '../../core/constants';
+import { clean } from '../../core/text';
 
 export interface FateQuestion {
   text: string;   // 問題文

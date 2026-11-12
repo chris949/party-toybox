@@ -1,5 +1,7 @@
-// 運命の二者択一のキャラクター（docs/spec.md の11.8）。
+// 運命の二者択一のキャラクター（src/modes/fate/README.md の11.8）。
 // いまは仮の絵（絵文字）。画像生成で作った絵に差し替えるときは、この Chara の中身を画像に変えるだけで済むようにしてある
+import './styles.css'; // キャラクターの選択は、ホームやロビーでも使う
+
 export const CHARAS = [
   { name: 'いぬ', face: '🐶' }, { name: 'ねこ', face: '🐱' }, { name: 'うさぎ', face: '🐰' }, { name: 'くま', face: '🐻' },
   { name: 'パンダ', face: '🐼' }, { name: 'かえる', face: '🐸' }, { name: 'ペンギン', face: '🐧' }, { name: 'ひよこ', face: '🐥' },

@@ -73,7 +73,8 @@ jobs:
           EVENT: ${{ github.event_name }}
         run: |
           if [ "$EVENT" != "schedule" ]; then echo "run=true" >> "$GITHUB_OUTPUT"; exit 0; fi
-          site=https://chris949.github.io/tier-list-wars/
+          # 公開URLは、リポジトリの名前から組み立てる（名前を変えても、ここを直さなくて済むように）
+          site="https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}/"
           js=$(curl -fsSL "$site" | grep -o 'assets/index-[^"]*\.js' | head -1 || true)
           if [ -n "$js" ] && curl -fsSL "$site$js" | grep -q "${SHA:0:7}"; then echo "run=false" >> "$GITHUB_OUTPUT"; else echo "run=true" >> "$GITHUB_OUTPUT"; fi
 

@@ -1,5 +1,5 @@
 // ハイカー575 で各参加者に見せてよい情報。書いている間は、自分の手元の短冊だけを送る（ほかの短冊は発表まで見せない）
-import { HAIKU_LINES, type HaikuStyle } from '../../core/haikus';
+import { HAIKU_LINES, type HaikuStyle } from './themes';
 import { currentSheet, sheetOf, textOf, type HaikuState, type Sheet } from './rules';
 
 export interface HaikuCell { ch: string; by: string | null; byName: string; auto: boolean } // by = null はお題の文字

@@ -3,7 +3,7 @@ import { PERFECT_BONUS, PICK_GRACE_MS, DEFAULT_TIME_LIMIT } from '../src/core/co
 import { joinError, nextTimer, reduce } from '../src/core/room';
 import { seeded } from '../src/core/random';
 import { fillRandom, validOrder } from '../src/modes/tier/rules';
-import { viewFor } from '../src/modes/tier/view';
+import { viewFor } from '../src/core/view';
 import { custom, samples, testRoom } from './helpers';
 
 const identity = (n: number) => [...Array(n).keys()];

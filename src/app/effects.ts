@@ -1,6 +1,6 @@
 // 状態が変わったときの紙吹雪。端末で「動きを減らす」設定をしている人には出さない
 import confetti from 'canvas-confetti';
-import type { PlayerView } from '../modes/tier/view';
+import type { PlayerView } from '../core/view';
 
 const COLORS = ['#ff6f6f', '#ffc83d', '#36c99a', '#4aa6f0', '#ff9f43'];
 const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;

@@ -1,4 +1,4 @@
-# ティアリストウォーズ 技術構成
+# パーティトイボックス 技術構成
 
 - 状態: **合意済み・移行済み（v0.9.0）** 2026-11-04
 - 対象: v0.8.0（`index.html` 1枚）から、React ＋ Vite ＋ TypeScript への移行と、その後の開発
@@ -59,41 +59,49 @@
 
 ## 3. ディレクトリ構成
 
+v0.19.1 で、モードごとのものを各モードのフォルダに寄せた。**新しいモードを足すときは、`src/modes/<名前>/` を作り、下の「モードのフォルダに置くもの」をそろえる。**
+
 ```
-tier-list-wars/
+party-toybox/
+  CLAUDE.md               作業の決まり（Claude Code が読む）
   index.html              入口（中身はほぼ空。src/main.tsx を読み込む）
-  package.json
-  vite.config.ts
   src/
     main.tsx              起動
-    app/                  画面の切り替え（ホーム／お題／ルーム）、全体のレイアウト
+    app/                  画面の切り替え（ホーム／お題の設定の枠／ルームとロビーの枠）、画面の状態（store.ts）、効果音・紙吹雪のきっかけ
     core/                 どのモードでも共通のルール（画面も通信も知らない）
-      room.ts             部屋・参加者・参加と退出・ロビーの設定
-      engine.ts           ホストの進行：操作を受けて状態を進める、タイマーの管理
-      types.ts            状態・操作・メッセージの型
-      random.ts           乱数（テストで結果を固定できるよう、外から差し込む）
+      room.ts             部屋・参加者・参加と退出・ロビーの設定・CPU の参加者
+      view.ts             各参加者に見せてよい情報を作る（共通の部分。モードの分は、各モードの view.ts を呼ぶ）
+      types.ts            状態・操作の型
+      constants.ts        数字の決まり（人数・文字数・時間）
+      random.ts / text.ts 乱数（テストで結果を固定できるよう、外から差し込む）／入力された文字を整える
     modes/
-      tier/               今のモード「ティアリストウォーズ」
-        rules.ts          配り方・出題数・並び替えの受け付け・時間切れ・得点
-        view.ts           各参加者に見せてよい情報を作る（正解を隠す）
-        screens/          このモード専用の画面（準備・予想・答え合わせ）
-      index.ts            モードの一覧（ロビーで選べるようにする）
-    net/                  P2P 通信
-      peer.ts             PeerJS の接続、部屋コード
-      host.ts             ホスト側：受け取り、送信、見張り
-      guest.ts            参加者側：参加、自動再接続、送信の確認
-      protocol.ts         やり取りするメッセージの形と、受け取った値の検査
-    ui/                   共通の画面部品（ボタン、カード、ロビー、結果、確認ダイアログ）
-    audio/                BGM・効果音
-    storage/              お題・名前・設定の保存（形式が変わったときの移し替えも含む）
-    styles/               デザインの色・角丸・影など（CSS変数）
-  tests/
-    tier.rules.test.ts    配り方・得点・時間切れなどのテスト
-    simulation.test.ts    CPU同士で何百回も遊ばせて、偏りや止まる所がないかを見る
-  docs/                   仕様書・バックログ・テスト記録・この文書
-  .github/workflows/
-    deploy.yml            テスト → ビルド → GitHub Pages に公開
+      index.ts            モードの一覧
+      tier/  five/  fate/  haiku/     ← モードごとのフォルダ（下の表）
+    net/                  P2P 通信（host.ts：ホスト側と CPU の参加者／guest.ts：参加者側／protocol.ts：メッセージの形と検査）
+    ui/                   共通の画面部品
+    audio/                BGM・効果音（snes/ は内蔵のスーファミ風音源）
+    storage/              お題・名前・設定の保存
+    styles/app.css        共通のデザイン（色・角丸・ボタン・カードなど）
+  tests/                  ルールの自動テストとシミュレーション（<モード>.rules.test.ts、bots.test.ts など）
+  e2e/                    画面の通しテスト（<モード>.spec.ts。共通の操作は helpers.ts）
+  docs/                   共通の仕様書（spec.md）・バックログ・テスト記録・この文書
+  .github/workflows/      PR でチェック、main でビルドと公開
 ```
+
+**モードのフォルダに置くもの**
+
+| ファイル | 中身 |
+|---|---|
+| `README.md` | **そのモードの仕様の正**（ルール・お題の形・ロビーの設定・画面・得点） |
+| `rules.ts` | ルール（開始・操作の受け付け・タイマー）。画面・通信・ブラウザの機能は使わない |
+| `view.ts` | 各参加者に見せてよい情報（ティアリストだけは、共通の `core/view.ts` の中にある） |
+| `topics.ts`（運命の二者択一は `questions.ts`、ハイカー575 は `themes.ts`） | お題の形・検査・同梱のサンプル |
+| `TopicsEditor.tsx` | お題の一覧と作成・編集の画面 |
+| `Lobby.tsx` | ロビーでホストが選ぶ設定（ティアリストの `Lobby.tsx` は、セレクトファイブも使う） |
+| `screens.tsx`（ティアリストは `screens/`） | ゲーム中の画面 |
+| `styles.css` | そのモードの画面のスタイル（ティアリストの分は、共通の `styles/app.css` にある） |
+
+**まだ共通の場所に残っているもの**（モードを足すたびに手を入れる所）：`core/types.ts`（操作と部屋の状態）、`core/room.ts`（ロビーの設定の受け付け）、`core/view.ts`、`net/protocol.ts`（届いた値の検査）、`app/store.ts`（提出の操作）、`app/Room.tsx`（画面の振り分け）、`storage/local.ts`（保存）。ここをモード側から登録する形に変えるのは、次の整理の候補（バックログ）。
 
 ### 依存の向き
 
@@ -193,7 +201,7 @@ GitHub Actions では、テストが通らないと公開しない。
 
 - `main` に push すると、GitHub Actions が「テスト → ビルド → GitHub Pages に公開」を行う
 - GitHub の Pages 設定の「Source」を「Deploy from a branch」から「GitHub Actions」に変える（移行の最後に一度だけ）
-- 公開URLは今と同じ（https://chris949.github.io/tier-list-wars/）
+- 公開URLは https://chris949.github.io/party-toybox/ （v0.20 でリポジトリ名を tier-list-wars から変えた。それまでは `…/tier-list-wars/`）
 - バージョンは `package.json` の `version` を正とし、ビルド時に画面へ埋め込む。あわせてコミットの短いID（例：`v0.9.0 (a1b2c3d)`）も出し、キャッシュのずれを見分けやすくする
 - 手元での確認は `npm run dev`
 

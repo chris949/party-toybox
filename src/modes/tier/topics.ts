@@ -1,4 +1,4 @@
-import { MAX_OPT, MAX_PICK, MAX_TOPICS_PER_PLAYER, MIN_OPT, MIN_PICK, OPTION_MAX, TITLE_MAX } from './constants';
+import { MAX_OPT, MAX_PICK, MAX_TOPICS_PER_PLAYER, MIN_OPT, MIN_PICK, OPTION_MAX, TITLE_MAX } from '../../core/constants';
 
 // 部屋に持ち込むお題（端末の保存データからはID・持っていくフラグを除いたもの）
 export interface Topic {
@@ -7,7 +7,7 @@ export interface Topic {
   count: number; // 出題数
 }
 
-export const clean = (s: unknown, max: number) => String(s ?? '').trim().slice(0, max);
+import { clean } from '../../core/text';
 
 // 出題数の既定値：v0.5 以前のお題とサンプルは、選択肢の数（最大10）をそのまま出す
 export const pickCount = (t: { options: readonly unknown[]; count?: unknown }) =>

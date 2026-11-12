@@ -1,8 +1,8 @@
 // 端末に保存するもの。キー名は v0.8 と同じにして、今までのお題・名前・音の設定をそのまま読めるようにする
-import { pickCount, SAMPLE_TOPICS, type Topic } from '../core/topics';
-import { sanitizeFives, type FiveTopic } from '../core/fives';
-import { sanitizeFates, type FateQuestion } from '../core/fates';
-import { toTheme } from '../core/haikus';
+import { pickCount, SAMPLE_TOPICS, type Topic } from '../modes/tier/topics';
+import { sanitizeFives, type FiveTopic } from '../modes/five/topics';
+import { sanitizeFates, type FateQuestion } from '../modes/fate/questions';
+import { toTheme } from '../modes/haiku/themes';
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 

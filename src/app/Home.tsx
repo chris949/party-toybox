@@ -18,7 +18,7 @@ export function Home() {
     <>
       <div className="top-right"><Version /><SoundButton /></div>
       <Logo />
-      <p className="sub">あの人の「順位」、当てられる？</p>
+      <p className="sub">通話でわいわい、4つのゲーム</p>
       <section className="card">
         <label className="field">あなたの名前
           <input type="text" maxLength={NAME_MAX} value={name} placeholder="例）たろう" onChange={e => setName(e.target.value)} />

@@ -1,15 +1,17 @@
 // ルーム：ロビーと、ゲーム中の画面の切り替え
 import { useState } from 'react';
-import { FATE_LIVES, FATE_QUOTAS, FATE_TIMES, HAIKU_TIMES, MAX_PLAYERS, TIME_LIMITS } from '../core/constants';
-import { GAME_MODES, PICK_MODES, type GameMode, type PickMode } from '../core/types';
+import { MAX_PLAYERS } from '../core/constants';
+import { GAME_MODES, type GameMode } from '../core/types';
 import { Guess, Ranking, Result, Reveal } from '../modes/tier/screens/Phases';
 import { Answer, FiveReveal } from '../modes/five/screens';
-import { charaOf, CharaPicker } from '../modes/fate/charas';
+import { charaOf } from '../modes/fate/charas';
+import { FateLobby } from '../modes/fate/Lobby';
+import { HaikuLobby } from '../modes/haiku/Lobby';
+import { PickLobby } from '../modes/tier/Lobby';
 import { FateResult, FateStage } from '../modes/fate/screens';
 import { HaikuRecite, HaikuResult, HaikuWrite } from '../modes/haiku/screens';
-import { HAIKU_STYLES, type HaikuStyle } from '../core/haikus';
 import { Notice, TitleBar } from '../ui/common';
-import { addBot, isHost, leaveByUser, openRoomTopics, send, setChara, useStore, type Pub } from './store';
+import { addBot, isHost, leaveByUser, openRoomTopics, send, useStore, type Pub } from './store';
 
 export function Room() {
   const pub = useStore(s => s.pub)!;
@@ -65,7 +67,7 @@ function Lobby({ pub }: { pub: Pub }) {
       {link && <>
         <div className="small muted" style={{ wordBreak: 'break-all' }}>{link}</div>
         <div className="row" style={{ justifyContent: 'center', marginTop: 8 }}>
-          {'share' in navigator && <button className="small" onClick={() => navigator.share({ title: 'ティアリストウォーズ', text: `ティアリストウォーズで遊ぼう！ 部屋コード: ${pub.code}`, url: link }).catch(() => {})}>LINEなどで共有</button>}
+          {'share' in navigator && <button className="small" onClick={() => navigator.share({ title: 'パーティトイボックス', text: `パーティトイボックスで遊ぼう！ 部屋コード: ${pub.code}`, url: link }).catch(() => {})}>LINEなどで共有</button>}
           <button className="small" onClick={() => navigator.clipboard?.writeText(link).then(() => setCopied(true), () => {})}>{copied ? 'コピーしました' : '招待リンクをコピー'}</button>
         </div>
       </>}
@@ -90,63 +92,7 @@ function Lobby({ pub }: { pub: Pub }) {
         : haiku ? 'みんなで1文字ずつ書いて回し、五・七・五の句を作ります。できた句は担当者が読み上げて、全員で★を付けます'
         : fate ? '2択クイズのサバイバル。左右に動いて答え、不正解の側は床が抜けて脱落。最後の1人になるまで続きます。問題が足りない分はサンプルで補います'
         : 'お題を自分の好みで並べ、ほかの人の順位を当てます'}</p>
-      {haiku ? <>
-        <h2 style={{ marginTop: 16 }}>遊び方</h2>
-        {host
-          ? <div className="seg">{(Object.entries(HAIKU_STYLES) as [HaikuStyle, string][]).map(([k, label]) => (
-              <button key={k} className={pub.haikuStyle === k ? 'on' : ''} onClick={() => send({ t: 'haikuStyle', style: k })}>{label}</button>
-            ))}</div>
-          : <p style={{ margin: 0, fontWeight: 800 }}>{HAIKU_STYLES[pub.haikuStyle]}</p>}
-        <p className="muted small" style={{ margin: '6px 0 0' }}>{pub.haikuStyle === 'theme'
-          ? '上の五文字はお題（持ち寄り。足りない分はサンプル）。残りの12文字をみんなで書きます'
-          : '何もないところから、17文字すべてをみんなで書きます'}</p>
-        <h2 style={{ marginTop: 16 }}>制限時間</h2>
-        {host
-          ? <div className="seg">{HAIKU_TIMES.map(sec => (
-              <button key={sec} className={pub.haikuTime === sec ? 'on' : ''} onClick={() => send({ t: 'haikuTime', sec })}>{sec}秒</button>
-            ))}</div>
-          : <p style={{ margin: 0, fontWeight: 800 }}>{pub.haikuTime}秒</p>}
-        <p className="muted small" style={{ margin: '6px 0 0' }}>1文字を書く持ち時間です。時間切れの分は、ランダムなひらがなで埋まります</p>
-      </> : fate ? <>
-        <h2 style={{ marginTop: 16 }}>あなたのキャラクター</h2>
-        <CharaPicker value={pub.players.find(p => p.id === pub.me)?.chara ?? 0} onPick={setChara} />
-        <h2 style={{ marginTop: 16 }}>制限時間</h2>
-        {host
-          ? <div className="seg">{FATE_TIMES.map(sec => (
-              <button key={sec} className={pub.fateTime === sec ? 'on' : ''} onClick={() => send({ t: 'fateTime', sec })}>{sec}秒</button>
-            ))}</div>
-          : <p style={{ margin: 0, fontWeight: 800 }}>{pub.fateTime}秒</p>}
-        <p className="muted small" style={{ margin: '6px 0 0' }}>1問ごとの持ち時間です。締め切りの瞬間にいた側が、あなたの答えになります</p>
-        <h2 style={{ marginTop: 16 }}>ライフ</h2>
-        {host
-          ? <div className="seg">{FATE_LIVES.map(n => (
-              <button key={n} className={pub.fateLives === n ? 'on' : ''} aria-label={`ライフ${n}`} onClick={() => send({ t: 'fateLives', n })}>{'♥'.repeat(n)}</button>
-            ))}</div>
-          : <p style={{ margin: 0, fontWeight: 800 }}>{'♥'.repeat(pub.fateLives)}</p>}
-        <p className="muted small" style={{ margin: '6px 0 0' }}>不正解で落ちるたびに1つ減り、なくなったら脱落です{pub.fateLives > 1 ? `（${pub.fateLives - 1}回のミスまで大丈夫）` : '（1回のミスで脱落）'}</p>
-        <h2 style={{ marginTop: 16 }}>お立ち台の回数</h2>
-        {host
-          ? <div className="seg">{FATE_QUOTAS.map(n => (
-              <button key={n} className={pub.fateQuota === n ? 'on' : ''} onClick={() => send({ t: 'fateQuota', n })}>{n}回</button>
-            ))}</div>
-          : <p style={{ margin: 0, fontWeight: 800 }}>{pub.fateQuota}回</p>}
-        <p className="muted small" style={{ margin: '6px 0 0' }}>全員が順番に、この回数だけ出題者としてお立ち台に立ちます（その問題では自動でセーフ）。自分の問題がない人には、サンプルの問題を割り当てます</p>
-      </> : <>
-      <h2 style={{ marginTop: 16 }}>出題方式</h2>
-      {host
-        ? <div className="seg">{(Object.entries(PICK_MODES) as [PickMode, string][]).map(([k, label]) => (
-            <button key={k} className={pub.mode === k ? 'on' : ''} onClick={() => send({ t: 'mode', mode: k })}>{label}</button>
-          ))}</div>
-        : <p style={{ margin: 0, fontWeight: 800 }}>{PICK_MODES[pub.mode] ?? PICK_MODES.random}</p>}
-      <p className="muted small" style={{ margin: '6px 0 0' }}>{pub.mode === 'each' ? '自作のお題を持ってきた人から1つずつ必ず出します' : '全員のお題から、自作のお題を優先してランダムに選びます'}</p>
-      <h2 style={{ marginTop: 16 }}>制限時間</h2>
-      {host
-        ? <div className="seg">{TIME_LIMITS.map(sec => (
-            <button key={sec} className={pub.timeLimit === sec ? 'on' : ''} onClick={() => send({ t: 'time', sec })}>{sec}秒</button>
-          ))}</div>
-        : <p style={{ margin: 0, fontWeight: 800 }}>{pub.timeLimit}秒</p>}
-      <p className="muted small" style={{ margin: '6px 0 0' }}>{pub.gameMode === 'five' ? '選択肢を選ぶときの持ち時間です' : '自分の順位を決めるときと、予想するときの持ち時間です'}</p>
-      </>}
+      {haiku ? <HaikuLobby pub={pub} host={host} /> : fate ? <FateLobby pub={pub} host={host} /> : <PickLobby pub={pub} host={host} />}
       <div style={{ marginTop: 16 }}>
         {host ? <>
           <button className="primary wide" disabled={!!pub.startError} onClick={() => send({ t: 'start' })}>ゲーム開始</button>

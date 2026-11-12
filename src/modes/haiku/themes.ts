@@ -1,5 +1,5 @@
-// ハイカー575 のお題（上の五文字）と、文字の決まり。数字の根拠は docs/spec.md の12章
-import { MAX_TOPICS_PER_PLAYER } from './constants';
+// ハイカー575 のお題（上の五文字）と、文字の決まり。数字の根拠は src/modes/haiku/README.md の12章
+import { MAX_TOPICS_PER_PLAYER } from '../../core/constants';
 
 export const HAIKU_LINES = [5, 7, 5] as const; // 五・七・五
 export const HAIKU_LEN = 17;

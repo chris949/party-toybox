@@ -3,10 +3,10 @@ import Peer, { type DataConnection } from 'peerjs';
 import { CHARA_COUNT } from '../core/constants';
 import { createRoom, joinError, nextTimer, reduce } from '../core/room';
 import type { Action, RoomState } from '../core/types';
-import type { Topic } from '../core/topics';
-import type { FiveTopic } from '../core/fives';
-import type { FateQuestion } from '../core/fates';
-import { viewFor, type PlayerView } from '../modes/tier/view';
+import type { Topic } from '../modes/tier/topics';
+import type { FiveTopic } from '../modes/five/topics';
+import type { FateQuestion } from '../modes/fate/questions';
+import { viewFor, type PlayerView } from '../core/view';
 import { peerOptions } from './peerOptions';
 import { cleanId, DEAD_MS, genCode, HEARTBEAT_MS, parseAction, PREFIX, type HostMsg } from './protocol';
 

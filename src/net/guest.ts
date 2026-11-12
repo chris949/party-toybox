@@ -1,10 +1,10 @@
 // 参加者側：ホストにつなぐ。切れたらホームに戻さず、同じ人として自動で入り直す
 import Peer, { type DataConnection } from 'peerjs';
 import type { Action } from '../core/types';
-import type { Topic } from '../core/topics';
-import type { FiveTopic } from '../core/fives';
-import type { FateQuestion } from '../core/fates';
-import type { PlayerView } from '../modes/tier/view';
+import type { Topic } from '../modes/tier/topics';
+import type { FiveTopic } from '../modes/five/topics';
+import type { FateQuestion } from '../modes/fate/questions';
+import type { PlayerView } from '../core/view';
 import { peerOptions } from './peerOptions';
 import { DEAD_MS, GIVEUP_MS, HEARTBEAT_MS, normalizeView, PREFIX, type GuestMsg } from './protocol';
 

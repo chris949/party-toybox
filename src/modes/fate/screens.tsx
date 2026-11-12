@@ -1,4 +1,5 @@
-// 運命の二者択一の画面：出題〜発表（同じ舞台の上で続けて見せる）と、最終結果（docs/spec.md の11章）
+// 運命の二者択一の画面：出題〜発表（同じ舞台の上で続けて見せる）と、最終結果（src/modes/fate/README.md の11章）
+import './styles.css';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { isHost, moveFate, send, type Pub } from '../../app/store';

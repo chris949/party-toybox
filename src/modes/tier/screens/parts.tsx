@@ -1,4 +1,4 @@
-// ティアリストウォーズの画面で使う部品
+// ティアリストの画面で使う部品（残り時間・待ち表示は、ほかのモードも使う）
 import { useEffect, useRef, useState } from 'react';
 import { Sound } from '../../../audio/sound';
 import { isHost, needsToPick, onTimeUp, send, useStore, type Pub } from '../../../app/store';

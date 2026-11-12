@@ -1,7 +1,7 @@
-// 運命の二者択一のルール（docs/spec.md の11章）。画面・通信・ブラウザの機能は使わない（時刻と乱数は ctx で受け取る）
+// 運命の二者択一のルール（src/modes/fate/README.md の11章）。画面・通信・ブラウザの機能は使わない（時刻と乱数は ctx で受け取る）
 import { FATE_GRACE_MS, FATE_VERDICT_MS } from '../../core/constants';
-import { fateKey, SAMPLE_FATE_KEYS, SAMPLE_FATES, type FateQuestion } from '../../core/fates';
-import { fiveKey, SAMPLE_FIVE_KEYS, SAMPLE_FIVES, type FiveTopic } from '../../core/fives';
+import { fateKey, SAMPLE_FATE_KEYS, SAMPLE_FATES, type FateQuestion } from './questions';
+import { fiveKey, SAMPLE_FIVE_KEYS, SAMPLE_FIVES, type FiveTopic } from '../five/topics';
 import { shuffle } from '../../core/random';
 import type { ActionFrom, Ctx, RoomState, Timer } from '../../core/types';
 

@@ -1,12 +1,12 @@
-// セレクトファイブのお題の一覧と作成・編集（docs/spec.md の10.3）
+// セレクトファイブのお題の一覧と作成・編集（src/modes/five/README.md の10.3）
 import { useRef, useState } from 'react';
-import { MAX_OPT, OPTION_MAX, TITLE_MAX } from '../core/constants';
+import { MAX_OPT, OPTION_MAX, TITLE_MAX } from '../../core/constants';
 import {
   defaultDummy, dummyRange, FIVE_DEFAULT_SIZE, FIVE_MIN_ANSWERS, FIVE_MIN_DUMMIES, FIVE_PICK, fiveError, fitCounts, SAMPLE_FIVES, sizeRange,
-} from '../core/fives';
-import { newTopicId } from '../storage/local';
-import { Notice, TitleBar } from '../ui/common';
-import { askConfirm, updateFives, useStore, type EditingFive } from './store';
+} from './topics';
+import { newTopicId } from '../../storage/local';
+import { Notice, TitleBar } from '../../ui/common';
+import { askConfirm, updateFives, useStore, type EditingFive } from '../../app/store';
 
 const dummyLabel = (d: number | null) => d == null ? 'ダミーはおまかせ' : `うちダミー${d}個`;
 

@@ -4,7 +4,7 @@ import { MAX_PLAYERS, MIN_PLAYERS_DEFAULT } from '../src/core/constants';
 import { createRoom, reduce, startErrorOf } from '../src/core/room';
 import { seeded } from '../src/core/random';
 import type { Action, RoomState } from '../src/core/types';
-import { viewFor } from '../src/modes/tier/view';
+import { viewFor } from '../src/core/view';
 import { samples } from './helpers';
 
 function lobby() {
