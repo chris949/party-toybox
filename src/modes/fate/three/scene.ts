@@ -206,7 +206,7 @@ export class FateScene {
       root.position.set(a.x, y, a.z);
       root.rotation.set(rx, turn, rz);
       root.scale.set(scale * (1 - squash), scale * (1 + squash * 2), scale * (1 - squash));
-      for (const e of a.animal.eyes) e.scale.setScalar(eye);
+      a.animal.setFace(eye > 1 ? 'shock' : 'normal');
       // 丸い影：高く跳ぶほど小さく。床が開いている間・落ちたあと・ゴーストには出さない
       const lift = Math.max(0, y - a.baseY);
       a.shadow.visible = visible && !p.ghost && !floorOpen && p.fate !== 'fall';

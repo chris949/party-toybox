@@ -26,25 +26,25 @@ describe('3Dのキャラクター', () => {
   it('2D のキャラクターと同じ数だけある', () => {
     expect(CHARA_3D_COUNT).toBe(CHARA_COUNT);
   });
-  it('全17体を組み立てられる。1体は「体1つ＋目2つ」の3回で描け、三角形は6000以下', () => {
+  it('全17体を組み立てられる。1体は「体・輪郭線」の2回（画面では、顔の絵を足して3回）で描け、三角形は13000以下', () => {
     for (let n = 0; n < CHARA_3D_COUNT; n++) {
       const c = makeChara3D(n, '#ff6f6f');
       const { calls, tris } = cost(c.root);
-      expect(calls, `キャラクター${n} の描画の回数`).toBe(3);
-      expect(tris, `キャラクター${n} の三角形の数`).toBeLessThanOrEqual(6000);
-      expect(c.eyes).toHaveLength(2);
+      expect(calls, `キャラクター${n} の描画の回数`).toBe(2); // 顔の絵は、画面のない所（テスト）では作らない
+      expect(tris, `キャラクター${n} の三角形の数`).toBeLessThanOrEqual(13_000); // 輪郭線のために、同じ形を2回描く分を含む
       const box = new THREE.Box3().setFromObject(c.root);
       expect(box.min.y).toBeGreaterThan(-0.05);     // 足元が原点
       expect(box.max.y).toBeGreaterThan(1.3);       // 頭まである
       expect(box.max.y).toBeLessThan(2.6);
+      c.setFace('shock'); c.setFace('normal');      // 顔の切り替えは、画面がなくても落ちない
       c.dispose();
     }
   });
-  it('10人そろっても、キャラクターの分は30回・6万三角形以下（スマホの目安：全部で150回・30万）', () => {
+  it('10人そろっても、キャラクターの分は30回・13万三角形以下（スマホの目安：全部で150回・30万）', () => {
     let calls = 0, tris = 0;
-    for (let i = 0; i < 10; i++) { const k = cost(makeChara3D(15, '#4aa6f0', i).root); calls += k.calls; tris += k.tris; } // いちばん部品が多いアイドルで数える
+    for (let i = 0; i < 10; i++) { const k = cost(makeChara3D(15, '#4aa6f0', i).root); calls += k.calls + 1; tris += k.tris; } // いちばん部品が多いアイドルで数える（＋1は、顔の絵）
     expect(calls).toBeLessThanOrEqual(30);
-    expect(tris).toBeLessThanOrEqual(60_000);
+    expect(tris).toBeLessThanOrEqual(130_000);
   });
   it('同じキャラクターの2人目は、色合いが変わる。番号が範囲の外でも、どれかのキャラクターになる', () => {
     expect(colorsOf(makeChara3D(0, '#ff6f6f', 1).root)).not.toEqual(colorsOf(makeChara3D(0, '#ff6f6f', 0).root));
