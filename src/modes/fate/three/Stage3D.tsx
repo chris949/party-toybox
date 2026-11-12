@@ -1,7 +1,8 @@
 // 3Dの舞台を画面に置く（three.js は、この部品を開いた人だけが読み込む）
 import { useEffect, useRef } from 'react';
 import { moveFate } from '../../../app/store';
-import { FateScene, type StageState } from './scene';
+import type { StageState } from '../stage';
+import { FateScene } from './scene';
 
 export default function Stage3D({ state, onFail }: { state: StageState; onFail(): void }) {
   const canvas = useRef<HTMLCanvasElement>(null);

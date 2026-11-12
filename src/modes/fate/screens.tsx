@@ -8,7 +8,7 @@ import { FATE_WARN_SEC } from '../../core/constants';
 import { Chara, PLAYER_COLORS, variantOf, type Pose } from './charas';
 import { loadFateView, saveFateView, type FateViewMode } from '../../storage/local';
 import { fateRanks, type Pos, type Side } from './rules';
-import type { Piece3D, StagePos } from './three/scene';
+import type { StagePiece, StagePos } from './stage';
 
 // 3Dの舞台は、3D表示を選んだ人だけが読み込む
 const Stage3D = lazy(() => import('./three/Stage3D'));
@@ -58,7 +58,7 @@ function useMoving(pos: StagePos) {
   return moving;
 }
 
-type PieceProps = Piece3D & { index: number; padTop: number };
+type PieceProps = StagePiece & { index: number; padTop: number };
 
 function Piece({ name, chara, color, variant, lives, pos, index, padTop, me, ghost, author, fate }: PieceProps) {
   const moving = useMoving(pos);
@@ -110,7 +110,7 @@ export function FateStage({ pub }: { pub: Pub }) {
   // お立ち台にいる人の画面では、出題中から正解の側が光って見える（ほかの人には見えない）
   const floorState = (side: Pos) => !v ? (f.answer === side ? 'ok' : '') : side === v.rightSide ? 'ok' : v.saved ? 'blink' : 'open';
   // 舞台に立つ全員（2D でも 3D でも同じものを描く）
-  const pieces: Piece3D[] = pub.players.map((p, i) => {
+  const pieces: StagePiece[] = pub.players.map((p, i) => {
     const author = f.authorIds.includes(p.id);
     const pos: StagePos = author ? 'P' : f.pos[p.id] ?? 'C'; // 作った人は、お立ち台に立つ
     const fell = !!v?.fallen.includes(p.id);
