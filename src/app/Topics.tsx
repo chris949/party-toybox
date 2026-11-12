@@ -21,7 +21,8 @@ export function Topics() {
       <div className="seg wrap" style={{ marginBottom: 12 }}>{(Object.entries(GAME_MODES) as [GameMode, string][]).map(([k, label]) => (
         <button key={k} className={tab === k ? 'on' : ''} onClick={() => useStore.setState({ topicsTab: k })}>{label}</button>
       ))}</div>
-      {tab === 'five' ? <FiveList /> : tab === 'fate' ? <FateList /> : tab === 'haiku' ? <HaikuList /> : <TierList />}
+      {tab === 'five' ? <FiveList /> : tab === 'fate' ? <FateList /> : tab === 'haiku' ? <HaikuList /> : tab === 'tier' ? <TierList />
+        : <section className="card"><p className="muted" style={{ margin: 0 }}>「{GAME_MODES[tab]}」は、お題を使わないモードです。</p></section>}
     </>
   );
 }

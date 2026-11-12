@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import { Sound } from '../audio/sound';
 import { MIN_PLAYERS_DEFAULT, MIN_PLAYERS_DEV } from '../core/constants';
 import { FIVE_PICK } from '../modes/five/topics';
-import type { Action } from '../core/types';
+import type { Action, GameMode } from '../core/types';
 import type { Side } from '../modes/fate/rules';
 import type { PlayerView } from '../core/view';
 import { startGuest, type GuestOptions, type GuestSession } from '../net/guest';
@@ -42,7 +42,7 @@ interface State {
   editing: Editing | null;
   editingFive: EditingFive | null;
   editingFate: EditingFate | null;
-  topicsTab: 'tier' | 'five' | 'fate' | 'haiku';
+  topicsTab: GameMode;
   error: string | null;
   name: string;
   topics: StoredTopic[];
@@ -78,7 +78,7 @@ function setPub(view: PlayerView, rejoined = false) {
   let pending = get().pending;
   if (pending) {
     const moved = pending.key !== turnKey(next);
-    if (moved || (pending.msg.t === 'rank' && next.myRank) || (pending.msg.t === 'guess' && next.myGuess) || (pending.msg.t === 'five' && next.five?.myPicks) || (pending.msg.t === 'kana' && next.haiku?.myDraft)) {
+    if (moved || (pending.msg.t === 'rank' && next.myRank) || (pending.msg.t === 'guess' && next.myGuess) || (pending.msg.t === 'five' && next.five?.myPicks) || (pending.msg.t === 'kana' && next.haiku?.myDraft) || (pending.msg.t === 'bet' && next.bluff?.myBet != null)) {
       pending = null;
       if (pendingTimer) clearTimeout(pendingTimer);
     }
@@ -265,6 +265,7 @@ export function setChara(n: number) {
 export function onTimeUp() {
   const { pub, pending } = get();
   if (!pub || pending || !needsToPick(pub)) return;
+  if (pub.phase === 'talk') return;  // ブラインドブラフ：選ばなかった人は、ホストが「降りる」にする
   if (pub.phase === 'write') return; // ハイカー575：書かなかった分は、ホストがランダムな文字で埋める
   if (pub.phase === 'answer') return submitFive(true);
   if (pickerFull() || pub.phase === 'ranking') submitPick();
@@ -275,6 +276,7 @@ export function needsToPick(pub: Pub) {
   if (pub.phase === 'guess') return pub.target?.id !== pub.me && !pub.myGuess;
   if (pub.phase === 'answer') return !!pub.five?.answering && !pub.five.myPicks;
   if (pub.phase === 'write') return !!pub.haiku?.writing && pub.haiku.myDraft == null;
+  if (pub.phase === 'talk') return !!pub.bluff?.dealt && pub.bluff.myBet == null;
   return false;
 }
 
@@ -291,6 +293,16 @@ export const updateFives = (f: (t: StoredFive[]) => StoredFive[]) => {
   saveFives(fives);
   set({ fives });
 };
+
+// ===== ブラインドブラフ =====
+// 勝負するか、降りるかを送る（選んだら変えられない）
+export function submitBet(go: boolean) {
+  const { pub, pending } = get();
+  if (!pub?.bluff || pending || pub.phase !== 'talk' || !pub.bluff.dealt || pub.bluff.myBet != null) return;
+  set({ pending: { msg: { t: 'bet', round: pub.bluff.round, go }, key: turnKey(pub), tries: 0 } });
+  Sound.play('click');
+  sendPending();
+}
 
 // ===== ハイカー575 =====
 // 1文字書いて送る（ホストの受け取りが来なければ、ほかの提出と同じく送り直す）

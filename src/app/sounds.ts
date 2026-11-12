@@ -13,6 +13,14 @@ export function playStateSounds(prev: PlayerView | null, next: PlayerView) {
     else if (next.phase === 'result') Sound.play('fanfare');
     return;
   }
+  // ブラインドブラフ：カードが配られたらポロン、発表でドラムロールのあとファンファーレ
+  if (next.bluff) {
+    if (turn(prev) === turn(next)) return;
+    if (next.phase === 'talk') Sound.play('start');
+    else if (next.phase === 'show') { Sound.play('pop'); Sound.play(next.bluff.show?.strongFold ? 'saved' : 'fanfare', 0.35); }
+    else if (next.phase === 'result') Sound.play('fanfare');
+    return;
+  }
   // ハイカー575：短冊が回ってきたらポロン、1行めくるたびにポン、採点を締め切ったらファンファーレ
   if (next.haiku) {
     const w = next.haiku.work, pw = prev?.phase === 'recite' && prev.round === next.round ? prev.haiku?.work : null;

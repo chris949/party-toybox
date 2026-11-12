@@ -60,8 +60,24 @@ export function startHost(o: HostOptions): void {
       ? { t: 'rate', round: g.show!.idx, n: 1 + Math.floor(Math.random() * 5) }
       : { t: 'kana', step: g.step, ch: kana[Math.floor(Math.random() * kana.length)] }), 600 + Math.random() * 2500));
   }
+  // ブラインドブラフ：見えているカード（自分以外）から、勝負か降りるかを決める。強いカードが見えているほど降りやすい
+  function runBluffBots() {
+    const g = room.game;
+    const bots = botsNow();
+    if (!bots.length || g?.kind !== 'bluff' || g.phase !== 'talk') return;
+    const turn = `${room.gameNo}-bluff-${g.round}`;
+    if (turn === botTurn) return;
+    botTurn = turn;
+    botTimers.forEach(clearTimeout);
+    botTimers = bots.filter(b => b.id in g.cards).map(b => {
+      const best = Math.max(0, ...Object.entries(g.cards).filter(([id]) => id !== b.id).map(([, n]) => n));
+      const go = Math.random() < (best >= 12 ? 0.25 : best >= 9 ? 0.5 : 0.8);
+      return setTimeout(() => dispatch(b.id, { t: 'bet', round: g.round, go }), 2500 + Math.random() * 6000);
+    });
+  }
   function runBots() {
     runHaikuBots();
+    runBluffBots();
     const g = room.game;
     const bots = botsNow();
     if (!bots.length || g?.kind !== 'fate' || g.phase !== 'question') return;

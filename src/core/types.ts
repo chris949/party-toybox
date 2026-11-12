@@ -7,6 +7,7 @@ import type { FateQuestion } from '../modes/fate/questions';
 import type { FateState, Side } from '../modes/fate/rules';
 import type { HaikuStyle } from '../modes/haiku/themes';
 import type { HaikuState } from '../modes/haiku/rules';
+import type { BluffState } from '../modes/bluff/rules';
 
 export interface Player {
   id: string;
@@ -23,7 +24,7 @@ export interface Player {
 export const PICK_MODES = { random: '全部からランダム', each: '作成者ごとに1つずつ' } as const;
 export type PickMode = keyof typeof PICK_MODES;
 
-export const GAME_MODES = { tier: 'ティアリスト', five: 'セレクトファイブ', fate: '運命の二者択一', haiku: 'ハイカー575' } as const;
+export const GAME_MODES = { tier: 'ティアリスト', five: 'セレクトファイブ', fate: '運命の二者択一', haiku: 'ハイカー575', bluff: 'ブラインドブラフ' } as const;
 export type GameMode = keyof typeof GAME_MODES;
 
 // ホストだけが持つ部屋の状態
@@ -40,12 +41,13 @@ export interface RoomState {
   fateLives: number; // 運命の二者択一のライフ（残機）
   haikuStyle: HaikuStyle; // ハイカー575 の遊び方（お題持ち寄り／17文字ぜんぶ）
   haikuTime: number;      // ハイカー575 の1文字の制限時間（秒）
+  bluffTime: number;      // ブラインドブラフの、しゃべる時間（秒）
   haikusBy: Record<string, string[]>; // ハイカー575 のお題（上の五文字）
   players: Player[];
   topicsBy: Record<string, Topic[]>;
   fivesBy: Record<string, FiveTopic[]>; // セレクトファイブのお題
   fatesBy: Record<string, FateQuestion[]>; // 運命の二者択一の問題
-  game: TierState | FiveState | FateState | HaikuState | null; // null = ロビー
+  game: TierState | FiveState | FateState | HaikuState | BluffState | null; // null = ロビー
 }
 
 // 状態を進める操作。from は操作した人（タイマーはホスト）
@@ -60,6 +62,8 @@ export type Action =
   | { t: 'fateLives'; n: number }
   | { t: 'haikuStyle'; style: HaikuStyle }
   | { t: 'haikuTime'; sec: number }
+  | { t: 'bluffTime'; sec: number }
+  | { t: 'bet'; round: number; go: boolean }  // ブラインドブラフ：勝負（true）か、降りる（false）か
   | { t: 'kana'; step: number; ch: string }   // ハイカー575：1文字書く
   | { t: 'rate'; round: number; n: number }   // ハイカー575：作品に★を付ける
   | { t: 'chara'; n: number }
