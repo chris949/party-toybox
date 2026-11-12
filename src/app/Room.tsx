@@ -10,6 +10,8 @@ import { HaikuLobby } from '../modes/haiku/Lobby';
 import { BluffLobby } from '../modes/bluff/Lobby';
 import { BouquetLobby } from '../modes/bouquet/Lobby';
 import { BlendLobby } from '../modes/blend/Lobby';
+import { BombLobby } from '../modes/bomb/Lobby';
+import { BombResult, BombStage } from '../modes/bomb/screens';
 import { BlendResult, BlendStage } from '../modes/blend/screens';
 import { BouquetBloom, BouquetChoose, BouquetCompose, BouquetResult } from '../modes/bouquet/screens';
 import { BluffResult, BluffShow, BluffTalk } from '../modes/bluff/screens';
@@ -35,6 +37,8 @@ export function Room() {
       : pub.phase === 'answer' ? <Answer pub={pub} />
       : pub.phase === 'question' || pub.phase === 'verdict' ? <FateStage pub={pub} />
       : pub.fate ? <FateResult pub={pub} />
+      : pub.phase === 'hot' || pub.phase === 'boom' ? <BombStage pub={pub} />
+      : pub.bomb ? <BombResult pub={pub} />
       : pub.phase === 'hide' || pub.phase === 'found' ? <BlendStage pub={pub} />
       : pub.blend ? <BlendResult pub={pub} />
       : pub.phase === 'compose' ? <BouquetCompose pub={pub} />
@@ -58,7 +62,7 @@ function Players({ pub }: { pub: Pub }) {
       <span key={p.id} className={`pl ${p.online ? '' : 'off'} ${p.id === pub.me ? 'me' : ''}`}>
         {p.id === pub.hostId && '👑'}{p.bot && '🤖'}{pub.phase === 'lobby' && pub.gameMode === 'fate' && charaOf(p.chara).face}{p.name}
         {pub.phase !== 'lobby' ? <span className="sc">{p.score}</span>
-          : <span className="muted small">{pub.gameMode === 'fate' ? `問題${p.fates + p.fives}` : pub.gameMode === 'haiku' ? `お題${p.haikus}` : pub.gameMode === 'bluff' || pub.gameMode === 'blend' ? '' : pub.gameMode === 'bouquet' ? `お題${p.bouquets}` : `お題${pub.gameMode === 'five' ? p.fives : p.topics}`}</span>}
+          : <span className="muted small">{pub.gameMode === 'fate' ? `問題${p.fates + p.fives}` : pub.gameMode === 'haiku' ? `お題${p.haikus}` : pub.gameMode === 'bluff' || pub.gameMode === 'blend' || pub.gameMode === 'bomb' ? '' : pub.gameMode === 'bouquet' ? `お題${p.bouquets}` : `お題${pub.gameMode === 'five' ? p.fives : p.topics}`}</span>}
         {p.done === true ? '✅' : p.done === false ? '⏳' : ''}
         {pub.phase === 'lobby' && p.editing && <span className="small">✏️ 編集中</span>}
         {pub.phase === 'lobby' && isHost() && p.id !== pub.me && <button className="mini" style={{ padding: '0 6px' }} onClick={() => send({ t: 'kick', id: p.id })}>✕</button>}
@@ -78,6 +82,7 @@ function Lobby({ pub }: { pub: Pub }) {
   const bluff = pub.gameMode === 'bluff';
   const bouquet = pub.gameMode === 'bouquet';
   const blend = pub.gameMode === 'blend';
+  const bomb = pub.gameMode === 'bomb';
   return <>
     <section className="card" style={{ textAlign: 'center' }}>
       <div className="muted small">部屋コード</div>
@@ -96,7 +101,7 @@ function Lobby({ pub }: { pub: Pub }) {
       {/* 部屋に入ったまま、持っていくお題を選び直したり編集したりできる */}
       <button className="wide small" style={{ marginTop: 10 }} onClick={openRoomTopics}>お題を選ぶ・編集する</button>
       {/* 人数が足りないとき用：CPU が動くモードを選んでいる間だけ、ホストが足せる */}
-      {host && (fate || haiku || bluff || bouquet || blend) && <button className="wide small" style={{ marginTop: 8 }} disabled={pub.players.length >= MAX_PLAYERS} onClick={addBot}>＋ CPUを追加</button>}
+      {host && (fate || haiku || bluff || bouquet || blend || bomb) && <button className="wide small" style={{ marginTop: 8 }} disabled={pub.players.length >= MAX_PLAYERS} onClick={addBot}>＋ CPUを追加</button>}
       {host && pub.players.some(p => p.editing && p.id !== pub.me) && <p className="muted small" style={{ margin: '6px 0 0' }}>✏️ {pub.players.filter(p => p.editing && p.id !== pub.me).map(p => `${p.name}さん`).join('、')}がお題を編集中です</p>}
       {old.length > 0 && <Notice>⚠ ホスト（{hostVer}）と違う版の人がいます：{old.map(p => `${p.name}さん（${p.version}）`).join('、')}。ページを再読み込みしてもらってください</Notice>}
       <h2 style={{ marginTop: 16 }}>モード</h2>
@@ -107,13 +112,14 @@ function Lobby({ pub }: { pub: Pub }) {
         : <p style={{ margin: 0, fontWeight: 800 }}>{GAME_MODES[pub.gameMode]}</p>}
       <p className="muted small" style={{ margin: '6px 0 0' }}>{pub.gameMode === 'five'
         ? '正解とダミーを混ぜた選択肢から、正解だと思うものを5つ選びます。お題が足りない分はサンプルで補います'
+        : bomb ? 'いつ爆発するか分からない爆弾を回します。回ってきたら、お題に合う言葉を1つ入れて、誰かに渡します。爆発したときに持っていた人の負け。お題は同梱のものを使います'
         : blend ? '同じ見た目のキャラクターが、舞台を大勢うろうろします。1体だけ、人が動かしています。ほかの全員で、どれが人かを当てます。お題は使いません'
         : bouquet ? '配られた言葉のカードを並べて、お題に合うひとことを作ります。親が読み上げて、いちばん刺さったものを選びます。お題が足りない分はサンプルで補います'
         : bluff ? '自分のカードだけ見えないトランプ遊び。ほかの人のカードは見えるので、通話でだまし合い、勝負するか降りるかを決めます。お題は使いません'
         : haiku ? 'みんなで1文字ずつ書いて回し、五・七・五の句を作ります。できた句は担当者が読み上げて、全員で★を付けます'
         : fate ? '2択クイズのサバイバル。左右に動いて答え、不正解の側は床が抜けて脱落。最後の1人になるまで続きます。問題が足りない分はサンプルで補います'
         : 'お題を自分の好みで並べ、ほかの人の順位を当てます'}</p>
-      {blend ? <BlendLobby pub={pub} host={host} /> : bouquet ? <BouquetLobby pub={pub} host={host} /> : bluff ? <BluffLobby pub={pub} host={host} /> : haiku ? <HaikuLobby pub={pub} host={host} /> : fate ? <FateLobby pub={pub} host={host} /> : <PickLobby pub={pub} host={host} />}
+      {bomb ? <BombLobby pub={pub} host={host} /> : blend ? <BlendLobby pub={pub} host={host} /> : bouquet ? <BouquetLobby pub={pub} host={host} /> : bluff ? <BluffLobby pub={pub} host={host} /> : haiku ? <HaikuLobby pub={pub} host={host} /> : fate ? <FateLobby pub={pub} host={host} /> : <PickLobby pub={pub} host={host} />}
       <div style={{ marginTop: 16 }}>
         {host ? <>
           <button className="primary wide" disabled={!!pub.startError} onClick={() => send({ t: 'start' })}>ゲーム開始</button>

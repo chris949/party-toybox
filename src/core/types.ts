@@ -10,6 +10,7 @@ import type { HaikuState } from '../modes/haiku/rules';
 import type { BluffState } from '../modes/bluff/rules';
 import type { BouquetState } from '../modes/bouquet/rules';
 import type { BlendState } from '../modes/blend/rules';
+import type { BombState } from '../modes/bomb/rules';
 
 export interface Player {
   id: string;
@@ -26,7 +27,7 @@ export interface Player {
 export const PICK_MODES = { random: '全部からランダム', each: '作成者ごとに1つずつ' } as const;
 export type PickMode = keyof typeof PICK_MODES;
 
-export const GAME_MODES = { tier: 'ティアリスト', five: 'セレクトファイブ', fate: '運命の二者択一', haiku: 'ハイカー575', bluff: 'ブラインドブラフ', bouquet: 'ワードブーケ', blend: 'まぎれろ！' } as const;
+export const GAME_MODES = { tier: 'ティアリスト', five: 'セレクトファイブ', fate: '運命の二者択一', haiku: 'ハイカー575', bluff: 'ブラインドブラフ', bouquet: 'ワードブーケ', blend: 'まぎれろ！', bomb: '爆弾まわし' } as const;
 export type GameMode = keyof typeof GAME_MODES;
 
 // ホストだけが持つ部屋の状態
@@ -49,12 +50,14 @@ export interface RoomState {
   bouquetsBy: Record<string, string[]>; // ワードブーケのお題
   blendTime: number;      // まぎれろ！の、かくれる時間（秒）
   blendCrowd: number;     // まぎれろ！の、舞台にいるキャラクターの数
+  bombRounds: number;     // 爆弾まわしの、爆発の回数
+  bombFuse: number;       // 爆弾まわしの、導火線の長さ（BOMB_FUSES の番号）
   haikusBy: Record<string, string[]>; // ハイカー575 のお題（上の五文字）
   players: Player[];
   topicsBy: Record<string, Topic[]>;
   fivesBy: Record<string, FiveTopic[]>; // セレクトファイブのお題
   fatesBy: Record<string, FateQuestion[]>; // 運命の二者択一の問題
-  game: TierState | FiveState | FateState | HaikuState | BluffState | BouquetState | BlendState | null; // null = ロビー
+  game: TierState | FiveState | FateState | HaikuState | BluffState | BouquetState | BlendState | BombState | null; // null = ロビー
 }
 
 // 状態を進める操作。from は操作した人（タイマーはホスト）
@@ -74,7 +77,10 @@ export type Action =
   | { t: 'bouquetGoal'; n: number }
   | { t: 'blendTime'; sec: number }
   | { t: 'blendCrowd'; n: number }
-  | { t: 'tick' }                                  // まぎれろ！：位置を進める（ホストのタイマーが出す）
+  | { t: 'bombRounds'; n: number }
+  | { t: 'bombFuse'; n: number }
+  | { t: 'toss'; round: number; word: string; to: string } // 爆弾まわし：言葉を言って、爆弾を渡す
+  | { t: 'tick' }                                  // まぎれろ！：位置を進める／爆弾まわし：導火線を進める（ホストのタイマーが出す）
   | { t: 'go'; round: number; x: number; z: number } // まぎれろ！：かくれる人の行き先
   | { t: 'grab'; round: number }                   // まぎれろ！：ほしを取る
   | { t: 'suspect'; round: number; i: number }     // まぎれろ！：「これが人だ」と選ぶ

@@ -7,8 +7,9 @@ import type { HaikuView, HaikuWork } from '../modes/haiku/view';
 import type { BluffView } from '../modes/bluff/view';
 import type { BouquetView } from '../modes/bouquet/view';
 import type { BlendView } from '../modes/blend/view';
+import type { BombView } from '../modes/bomb/view';
 import { BOUQUET_GOALS, BOUQUET_TIMES, DEFAULT_BOUQUET_TIME } from '../core/constants';
-import { BLEND_CROWDS, BLEND_TIMES, BLUFF_TIMES, DEFAULT_BLEND_CROWD, DEFAULT_BLEND_TIME, DEFAULT_BLUFF_TIME } from '../core/constants';
+import { BOMB_FUSES, BOMB_ROUNDS, BOMB_WORD_MAX, DEFAULT_BOMB_FUSE, DEFAULT_BOMB_ROUNDS, BLEND_CROWDS, BLEND_TIMES, BLUFF_TIMES, DEFAULT_BLEND_CROWD, DEFAULT_BLEND_TIME, DEFAULT_BLUFF_TIME } from '../core/constants';
 import { DEFAULT_HAIKU_TIME, HAIKU_TIMES } from '../core/constants';
 import type { Action } from '../core/types';
 import type { PlayerView } from '../core/view';
@@ -54,6 +55,9 @@ export function parseAction(m: any): Action | null {
     case 'phrase': return Number.isInteger(m.round) && Array.isArray(m.tokens) ? { t: 'phrase', round: m.round, tokens: m.tokens.slice(0, 16) } : null;
     case 'redraw': return Number.isInteger(m.round) ? { t: 'redraw', round: m.round } : null;
     case 'choose': return Number.isInteger(m.round) ? { t: 'choose', round: m.round, id: cleanId(m.id) } : null;
+    case 'bombRounds': return Number.isInteger(m.n) ? { t: 'bombRounds', n: m.n } : null;
+    case 'bombFuse': return Number.isInteger(m.n) ? { t: 'bombFuse', n: m.n } : null;
+    case 'toss': return Number.isInteger(m.round) && typeof m.word === 'string' && typeof m.to === 'string' ? { t: 'toss', round: m.round, word: m.word.slice(0, BOMB_WORD_MAX * 2), to: cleanId(m.to) } : null;
     case 'blendTime': return Number.isInteger(m.sec) ? { t: 'blendTime', sec: m.sec } : null;
     case 'blendCrowd': return Number.isInteger(m.n) ? { t: 'blendCrowd', n: m.n } : null;
     // まぎれろ！：行き先は、ホストのルールが舞台の中に収める。tick はホストのタイマーだけが出すので、参加者からは受け取らない
@@ -94,6 +98,8 @@ export function normalizeView(s: any): PlayerView {
     fateLives: (FATE_LIVES as readonly number[]).includes(int(s.fateLives)) ? int(s.fateLives) : DEFAULT_FATE_LIVES,
     bouquetTime: (BOUQUET_TIMES as readonly number[]).includes(int(s.bouquetTime)) ? int(s.bouquetTime) : DEFAULT_BOUQUET_TIME,
     bouquetGoal: (BOUQUET_GOALS as readonly number[]).includes(int(s.bouquetGoal)) ? int(s.bouquetGoal) : 0,
+    bombRounds: (BOMB_ROUNDS as readonly number[]).includes(int(s.bombRounds)) ? int(s.bombRounds) : DEFAULT_BOMB_ROUNDS,
+    bombFuse: int(s.bombFuse) >= 0 && int(s.bombFuse) < BOMB_FUSES.length ? int(s.bombFuse) : DEFAULT_BOMB_FUSE,
     blendTime: (BLEND_TIMES as readonly number[]).includes(int(s.blendTime)) ? int(s.blendTime) : DEFAULT_BLEND_TIME,
     blendCrowd: (BLEND_CROWDS as readonly number[]).includes(int(s.blendCrowd)) ? int(s.blendCrowd) : DEFAULT_BLEND_CROWD,
     bluffTime: (BLUFF_TIMES as readonly number[]).includes(int(s.bluffTime)) ? int(s.bluffTime) : DEFAULT_BLUFF_TIME,
@@ -126,6 +132,19 @@ export function normalizeView(s: any): PlayerView {
     bluff: s.bluff ? normalizeBluff(s.bluff) : null,
     bouquet: s.bouquet ? normalizeBouquet(s.bouquet) : null,
     blend: s.blend ? normalizeBlend(s.blend) : null,
+    bomb: s.bomb ? normalizeBomb(s.bomb) : null,
+  };
+}
+
+function normalizeBomb(b: any): BombView {
+  const int = (v: unknown) => Number.isFinite(Number(v)) ? Math.trunc(Number(v)) : 0;
+  const str = (v: unknown) => String(v ?? '');
+  return {
+    round: int(b.round), rounds: int(b.rounds), theme: str(b.theme), holderId: str(b.holderId), holderName: str(b.holderName),
+    heat: Math.max(0, Math.min(3, int(b.heat))),
+    words: Array.isArray(b.words) ? b.words.map((w: any) => ({ id: str(w.id), name: str(w.name), text: str(w.text) })) : [],
+    passes: int(b.passes),
+    loserId: b.loserId == null ? null : str(b.loserId), loserName: b.loserName == null ? null : str(b.loserName),
   };
 }
 

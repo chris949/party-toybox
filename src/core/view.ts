@@ -15,8 +15,10 @@ import { totalRounds, type BouquetPhase, type BouquetState } from '../modes/bouq
 import { bouquetView, type BouquetView } from '../modes/bouquet/view';
 import type { BlendPhase, BlendState } from '../modes/blend/rules';
 import { blendView, type BlendView } from '../modes/blend/view';
+import type { BombPhase, BombState } from '../modes/bomb/rules';
+import { bombView, type BombView } from '../modes/bomb/view';
 
-export type ViewPhase = 'lobby' | TierPhase | FivePhase | FatePhase | HaikuPhase | BluffPhase | BouquetPhase | BlendPhase;
+export type ViewPhase = 'lobby' | TierPhase | FivePhase | FatePhase | HaikuPhase | BluffPhase | BouquetPhase | BlendPhase | BombPhase;
 
 export interface PlayerSummary {
   id: string;
@@ -52,6 +54,8 @@ export interface PlayerView {
   bouquetGoal: number;    // ワードブーケの終わり方
   blendTime: number;      // まぎれろ！の、かくれる時間（秒）
   blendCrowd: number;     // まぎれろ！の、舞台にいるキャラクターの数
+  bombRounds: number;     // 爆弾まわしの、爆発の回数
+  bombFuse: number;       // 爆弾まわしの、導火線の長さ（番号）
   code: string;
   hostId: string;
   me: string;
@@ -71,6 +75,7 @@ export interface PlayerView {
   bluff: BluffView | null; // ブラインドブラフのとき
   bouquet: BouquetView | null; // ワードブーケのとき
   blend: BlendView | null; // まぎれろ！のとき
+  bomb: BombView | null;   // 爆弾まわしのとき
 }
 
 export function viewFor(room: RoomState, id: string, now: number): PlayerView {
@@ -81,8 +86,9 @@ export function viewFor(room: RoomState, id: string, now: number): PlayerView {
   const bl: BluffState | null = room.game?.kind === 'bluff' ? room.game : null;
   const bq: BouquetState | null = room.game?.kind === 'bouquet' ? room.game : null;
   const bd: BlendState | null = room.game?.kind === 'blend' ? room.game : null;
+  const bm: BombState | null = room.game?.kind === 'bomb' ? room.game : null;
   const hOwner = h?.phase === 'recite' ? currentSheet(h)?.ownerId : undefined;
-  const deadline = bd ? bd.deadline : bq ? bq.deadline : bl ? bl.deadline : h ? (h.phase === 'write' ? h.deadline : h.phase === 'recite' ? h.show?.deadline ?? 0 : 0) : room.game && (room.game.phase === 'ranking' || room.game.phase === 'guess' || room.game.phase === 'answer' || room.game.phase === 'question') ? room.game.deadline : 0;
+  const deadline = bm ? 0 : bd ? bd.deadline : bq ? bq.deadline : bl ? bl.deadline : h ? (h.phase === 'write' ? h.deadline : h.phase === 'recite' ? h.show?.deadline ?? 0 : 0) : room.game && (room.game.phase === 'ranking' || room.game.phase === 'guess' || room.game.phase === 'answer' || room.game.phase === 'question') ? room.game.deadline : 0;
   const tgt = g ? currentTarget(g) : undefined;
   const nameOf = (pid: string) => room.players.find(p => p.id === pid)?.name ?? '???';
   return {
@@ -102,6 +108,8 @@ export function viewFor(room: RoomState, id: string, now: number): PlayerView {
     bouquetGoal: room.bouquetGoal,
     blendTime: room.blendTime,
     blendCrowd: room.blendCrowd,
+    bombRounds: room.bombRounds,
+    bombFuse: room.bombFuse,
     code: room.code,
     hostId: room.hostId,
     me: id,
@@ -109,7 +117,8 @@ export function viewFor(room: RoomState, id: string, now: number): PlayerView {
       id: p.id, name: p.name, score: p.score, online: p.online, version: p.version,
       topics: room.topicsBy[p.id]?.length ?? 0, fives: room.fivesBy[p.id]?.length ?? 0,
       fates: room.fatesBy[p.id]?.length ?? 0, haikus: room.haikusBy[p.id]?.length ?? 0, bouquets: room.bouquetsBy[p.id]?.length ?? 0, chara: p.chara, editing: !!p.editing, bot: !!p.bot,
-      done: bd ? (bd.phase === 'hide' && p.id !== bd.hiderId && p.online ? p.id in bd.guesses : null)
+      done: bm ? null
+        : bd ? (bd.phase === 'hide' && p.id !== bd.hiderId && p.online ? p.id in bd.guesses : null)
         : bq ? (bq.phase === 'compose' && p.id in bq.hands ? p.id in bq.phrases : null)
         : bl ? (bl.phase === 'talk' && p.id in bl.cards ? p.id in bl.bets : null)
         : h ? (h.phase === 'write' ? (h.ring.includes(p.id) ? p.id in h.drafts : null) : h.show?.rating && p.id !== hOwner ? p.id in currentSheet(h)!.ratings : null)
@@ -120,8 +129,8 @@ export function viewFor(room: RoomState, id: string, now: number): PlayerView {
     timeLeft: deadline ? Math.max(0, deadline - now) : null,
     myTopic: g?.assign[id] ?? null,
     myRank: g?.ranks[id] ?? null,
-    round: bd ? bd.round : bq ? bq.round : bl ? bl.round : h ? (h.phase === 'write' ? h.step : h.show?.idx ?? 0) : g?.round ?? f?.round ?? d?.round ?? 0,
-    rounds: bd ? bd.ring.length : bq ? totalRounds(bq) : bl ? bl.rounds : h ? (h.phase === 'write' ? h.steps : h.sheets.length) : g?.order.length ?? f?.rounds.length ?? d?.deck.length ?? 0,
+    round: bm ? bm.round : bd ? bd.round : bq ? bq.round : bl ? bl.round : h ? (h.phase === 'write' ? h.step : h.show?.idx ?? 0) : g?.round ?? f?.round ?? d?.round ?? 0,
+    rounds: bm ? bm.rounds : bd ? bd.ring.length : bq ? totalRounds(bq) : bl ? bl.rounds : h ? (h.phase === 'write' ? h.steps : h.sheets.length) : g?.order.length ?? f?.rounds.length ?? d?.deck.length ?? 0,
     target: g && tgt ? { id: tgt, name: nameOf(tgt), topic: g.assign[tgt] } : null,
     myGuess: g?.guesses[id] ?? null,
     reveal: g?.phase === 'reveal' ? g.reveal : null,
@@ -131,5 +140,6 @@ export function viewFor(room: RoomState, id: string, now: number): PlayerView {
     bluff: bl ? bluffView(bl, id) : null,
     bouquet: bq ? bouquetView(bq, id) : null,
     blend: bd ? blendView(bd, id, now) : null,
+    bomb: bm ? bombView(bm) : null,
   };
 }
