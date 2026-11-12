@@ -49,7 +49,8 @@ describe('問題の検査', () => {
   });
   it('同梱のサンプルは30問以上あり、すべて正しい形で、重複がない', () => {
     expect(SAMPLE_FATES.length).toBeGreaterThanOrEqual(30);
-    expect(sanitizeFates(SAMPLE_FATES)).toEqual(SAMPLE_FATES);
+    // 1人が持ち込める数（50）を超えても検査できるよう、1問ずつ確かめる
+    for (const q of SAMPLE_FATES) expect(sanitizeFates([q])).toEqual([q]);
     expect(new Set(SAMPLE_FATES.map(fateKey)).size).toBe(SAMPLE_FATES.length);
     expect(new Set(SAMPLE_FATES.map(x => x.text)).size).toBe(SAMPLE_FATES.length);
   });
@@ -166,12 +167,15 @@ describe('お立ち台のローテーション', () => {
     expect(t.fate.deck.filter(c => c.authorIds.length).map(c => c.authorIds[0]).sort()).toEqual([...t.ids].sort());
     expect(t.fate.deck.slice(4).every(c => c.authorIds.length === 0)).toBe(true);
   });
-  it('サンプルを使い切ったら、割り当てはそこまで', () => {
+  it('割り当ては、人数×回数か、サンプルを使い切るまで', () => {
     const t = fateRoom(none(10));
     t.host({ t: 'fateQuota', n: 5 });
     t.start(false);
+    // 全員が5回ずつお立ち台に立ち、残りのサンプルは誰も立たずに出る（サンプルが少ないときは、使い切ったところまで）
+    const slots = Math.min(SAMPLES, 10 * 5);
     expect(t.fate.deck).toHaveLength(SAMPLES);
-    expect(t.fate.deck.every(c => c.authorIds.length === 1)).toBe(true);
+    expect(t.fate.deck.slice(0, slots).every(c => c.authorIds.length === 1)).toBe(true);
+    expect(t.fate.deck.slice(slots).every(c => c.authorIds.length === 0)).toBe(true);
   });
 });
 

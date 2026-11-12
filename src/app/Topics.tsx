@@ -6,6 +6,7 @@ import { FiveList } from '../modes/five/TopicsEditor';
 import { FateList } from '../modes/fate/TopicsEditor';
 import { HaikuList } from '../modes/haiku/TopicsEditor';
 import { GAME_MODES, type GameMode } from '../core/types';
+import { TopicTools } from './TopicTools';
 
 export function Topics() {
   const tab = useStore(s => s.topicsTab);
@@ -21,6 +22,8 @@ export function Topics() {
       <div className="seg wrap" style={{ marginBottom: 12 }}>{(Object.entries(GAME_MODES) as [GameMode, string][]).map(([k, label]) => (
         <button key={k} className={tab === k ? 'on' : ''} onClick={() => useStore.setState({ topicsTab: k })}>{label}</button>
       ))}</div>
+      {/* ハイカー575 は、その場でみんなが書くので、取り込み・書き出しは置かない */}
+      {tab !== 'haiku' && <TopicTools key={tab} mode={tab} />}
       {tab === 'five' ? <FiveList /> : tab === 'fate' ? <FateList /> : tab === 'haiku' ? <HaikuList /> : <TierList />}
     </>
   );
