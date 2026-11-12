@@ -9,8 +9,9 @@ import type { PlayerView } from '../core/view';
 import { startGuest, type GuestOptions, type GuestSession } from '../net/guest';
 import { startHost, type HostSession } from '../net/host';
 import { ROOM_CODE_LEN } from '../net/protocol';
+import { PHRASE_MAX } from '../modes/bouquet/words';
 import {
-  broughtFates, broughtFives, broughtHaikus, broughtTopics, loadChara, loadFates, loadHaikus, saveHaikus, type StoredHaiku, loadFives, loadLastRoom, loadName, loadTopics, myId, myKey,
+  broughtFates, broughtFives, broughtBouquets, broughtHaikus, broughtTopics, loadBouquets, saveBouquets, type StoredBouquet, loadChara, loadFates, loadHaikus, saveHaikus, type StoredHaiku, loadFives, loadLastRoom, loadName, loadTopics, myId, myKey,
   saveChara, saveFates, saveFives, saveLastRoom, saveName, saveTopics,
   type StoredFate, type StoredFive, type StoredTopic,
 } from '../storage/local';
@@ -49,6 +50,8 @@ interface State {
   fives: StoredFive[];
   fates: StoredFate[];
   haikus: StoredHaiku[];
+  bouquets: StoredBouquet[];
+  bouquetDraft: { key: string; tokens: number[] }; // ワードブーケで並べている途中の文（0以上 = 手札の番号、負の数 = 助詞）
   chara: number; // 運命の二者択一で使うキャラクターの番号
   lastRoom: string;
   picker: { key: string; slots: (number | null)[] }; // slots[順位] = 選択肢の番号（空きは null）
@@ -62,7 +65,7 @@ let pendingTimer: ReturnType<typeof setTimeout> | null = null;
 export const useStore = create<State>(() => ({
   screen: 'home', roomEdit: false, notice: '', connecting: false, reconnecting: false, pub: null, pending: null,
   dialog: null, editing: null, editingFive: null, editingFate: null, topicsTab: 'tier', error: null,
-  name: loadName(), topics: loadTopics(), fives: loadFives(), fates: loadFates(), haikus: loadHaikus(), chara: loadChara(), lastRoom: loadLastRoom(),
+  name: loadName(), topics: loadTopics(), fives: loadFives(), fates: loadFates(), haikus: loadHaikus(), bouquets: loadBouquets(), bouquetDraft: { key: '', tokens: [] }, chara: loadChara(), lastRoom: loadLastRoom(),
   picker: { key: '', slots: [] }, fivePick: { key: '', sel: [] },
 }));
 const set = useStore.setState;
@@ -78,7 +81,7 @@ function setPub(view: PlayerView, rejoined = false) {
   let pending = get().pending;
   if (pending) {
     const moved = pending.key !== turnKey(next);
-    if (moved || (pending.msg.t === 'rank' && next.myRank) || (pending.msg.t === 'guess' && next.myGuess) || (pending.msg.t === 'five' && next.five?.myPicks) || (pending.msg.t === 'kana' && next.haiku?.myDraft) || (pending.msg.t === 'bet' && next.bluff?.myBet != null)) {
+    if (moved || (pending.msg.t === 'rank' && next.myRank) || (pending.msg.t === 'guess' && next.myGuess) || (pending.msg.t === 'five' && next.five?.myPicks) || (pending.msg.t === 'kana' && next.haiku?.myDraft) || (pending.msg.t === 'bet' && next.bluff?.myBet != null) || (pending.msg.t === 'phrase' && next.bouquet?.myPhrase != null)) {
       pending = null;
       if (pendingTimer) clearTimeout(pendingTimer);
     }
@@ -95,7 +98,7 @@ function setPub(view: PlayerView, rejoined = false) {
 // ===== 部屋 =====
 function canEnter(): boolean {
   if (!get().name.trim()) { set({ notice: '名前を入力してください' }); return false; }
-  if (!broughtTopics(get().topics).length && !broughtFives(get().fives).length && !broughtFates(get().fates).length && !broughtHaikus(get().haikus).length) { set({ notice: 'お題を1つ以上「持っていく」にチェックしてください' }); return false; }
+  if (!broughtTopics(get().topics).length && !broughtFives(get().fives).length && !broughtFates(get().fates).length && !broughtHaikus(get().haikus).length && !broughtBouquets(get().bouquets).length) { set({ notice: 'お題を1つ以上「持っていく」にチェックしてください' }); return false; }
   return true;
 }
 
@@ -103,7 +106,7 @@ export function hostRoom() {
   if (!canEnter()) return;
   set({ connecting: true, notice: '' });
   startHost({
-    id: myId, key: myKey, name: get().name, topics: broughtTopics(get().topics), fives: broughtFives(get().fives), fates: broughtFates(get().fates), haikus: broughtHaikus(get().haikus), chara: get().chara, version: APP_VERSION,
+    id: myId, key: myKey, name: get().name, topics: broughtTopics(get().topics), fives: broughtFives(get().fives), fates: broughtFates(get().fates), haikus: broughtHaikus(get().haikus), bouquets: broughtBouquets(get().bouquets), chara: get().chara, version: APP_VERSION,
     minPlayers: DEV ? MIN_PLAYERS_DEV : MIN_PLAYERS_DEFAULT,
     bots: DEV ? Math.trunc(Number(new URLSearchParams(location.search).get('bots'))) || 0 : 0, // ?dev&bots=9 で CPU を足す（動作確認用）
     onOpen: s => { session = s; },
@@ -118,7 +121,7 @@ export function joinRoom(raw: string) {
   if (code.length !== ROOM_CODE_LEN) { set({ notice: `部屋コード（${ROOM_CODE_LEN}文字）を入力してください` }); return; }
   set({ connecting: true, notice: '' });
   session = startGuest(guestOpts = {
-    code, id: myId, key: myKey, name: get().name, topics: broughtTopics(get().topics), fives: broughtFives(get().fives), fates: broughtFates(get().fates), haikus: broughtHaikus(get().haikus), chara: get().chara, version: APP_VERSION,
+    code, id: myId, key: myKey, name: get().name, topics: broughtTopics(get().topics), fives: broughtFives(get().fives), fates: broughtFates(get().fates), haikus: broughtHaikus(get().haikus), bouquets: broughtBouquets(get().bouquets), chara: get().chara, version: APP_VERSION,
     onView: (v, rejoined) => {
       if (get().lastRoom !== code) { saveLastRoom(code); set({ lastRoom: code }); }
       setPub(v, rejoined);
@@ -157,11 +160,11 @@ export function openRoomTopics() {
 }
 // 部屋に戻る。持っていくお題をホストに送り直す
 export function backToRoom() {
-  const topics = broughtTopics(get().topics), fives = broughtFives(get().fives), fates = broughtFates(get().fates), haikus = broughtHaikus(get().haikus);
-  if (guestOpts) Object.assign(guestOpts, { topics, fives, fates, haikus });
+  const topics = broughtTopics(get().topics), fives = broughtFives(get().fives), fates = broughtFates(get().fates), haikus = broughtHaikus(get().haikus), bouquets = broughtBouquets(get().bouquets);
+  if (guestOpts) Object.assign(guestOpts, { topics, fives, fates, haikus, bouquets });
   set({ roomEdit: false, screen: 'room', notice: '' });
   if (get().pub?.phase !== 'lobby') return;
-  send({ t: 'topics', topics, fives, fates, haikus });
+  send({ t: 'topics', topics, fives, fates, haikus, bouquets });
   send({ t: 'editing', on: false });
 }
 
@@ -265,6 +268,7 @@ export function setChara(n: number) {
 export function onTimeUp() {
   const { pub, pending } = get();
   if (!pub || pending || !needsToPick(pub)) return;
+  if (pub.phase === 'compose') return submitPhrase(); // ワードブーケ：並べていた分で提出する（何も並べていなければ、提出なし）
   if (pub.phase === 'talk') return;  // ブラインドブラフ：選ばなかった人は、ホストが「降りる」にする
   if (pub.phase === 'write') return; // ハイカー575：書かなかった分は、ホストがランダムな文字で埋める
   if (pub.phase === 'answer') return submitFive(true);
@@ -277,6 +281,7 @@ export function needsToPick(pub: Pub) {
   if (pub.phase === 'answer') return !!pub.five?.answering && !pub.five.myPicks;
   if (pub.phase === 'write') return !!pub.haiku?.writing && pub.haiku.myDraft == null;
   if (pub.phase === 'talk') return !!pub.bluff?.dealt && pub.bluff.myBet == null;
+  if (pub.phase === 'compose') return !!pub.bouquet?.hand && pub.bouquet.myPhrase == null;
   return false;
 }
 
@@ -292,6 +297,39 @@ export const updateFives = (f: (t: StoredFive[]) => StoredFive[]) => {
   const fives = f(get().fives);
   saveFives(fives);
   set({ fives });
+};
+
+// ===== ワードブーケ =====
+// 並べている途中の文は、ラウンドごと・手札ごとに持つ（引き直したら、並べていた分は消える）
+export const bouquetKey = (pub: Pub) => `bq-${pub.gameNo}-${pub.bouquet?.round}-${pub.bouquet?.redrawn ? 1 : 0}`;
+const draftOf = (pub: Pub) => { const d = get().bouquetDraft; return d.key === bouquetKey(pub) ? d.tokens : []; };
+// カードや助詞を、文の最後に足す（手札は1枚1回まで・合わせて12個まで）
+export function addToken(t: number) {
+  const { pub } = get();
+  if (!pub?.bouquet?.hand || pub.bouquet.myPhrase != null) return;
+  const tokens = draftOf(pub);
+  if (tokens.length >= PHRASE_MAX || (t >= 0 && tokens.includes(t))) return;
+  set({ bouquetDraft: { key: bouquetKey(pub), tokens: [...tokens, t] } });
+}
+// 並べたものを1つ外す
+export function removeToken(i: number) {
+  const { pub } = get();
+  if (!pub?.bouquet) return;
+  set({ bouquetDraft: { key: bouquetKey(pub), tokens: draftOf(pub).filter((_, k) => k !== i) } });
+}
+export function submitPhrase() {
+  const { pub, pending } = get();
+  if (!pub?.bouquet?.hand || pending || pub.phase !== 'compose' || pub.bouquet.myPhrase != null) return;
+  const tokens = draftOf(pub);
+  if (!tokens.some(t => t >= 0)) return; // 手札を1枚以上使う
+  set({ pending: { msg: { t: 'phrase', round: pub.bouquet.round, tokens }, key: turnKey(pub), tries: 0 } });
+  Sound.play('click');
+  sendPending();
+}
+export const updateBouquets = (f: (t: StoredBouquet[]) => StoredBouquet[]) => {
+  const bouquets = f(get().bouquets);
+  saveBouquets(bouquets);
+  set({ bouquets });
 };
 
 // ===== ブラインドブラフ =====

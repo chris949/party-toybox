@@ -3,6 +3,7 @@ import { pickCount, SAMPLE_TOPICS, type Topic } from '../modes/tier/topics';
 import { sanitizeFives, type FiveTopic } from '../modes/five/topics';
 import { sanitizeFates, type FateQuestion } from '../modes/fate/questions';
 import { toTheme } from '../modes/haiku/themes';
+import { sanitizeBouquets } from '../modes/bouquet/words';
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -70,6 +71,18 @@ export function loadHaikus(): StoredHaiku[] {
 }
 export const saveHaikus = (haikus: StoredHaiku[]) => local.set('tlw-haikus', haikus);
 export const broughtHaikus = (haikus: StoredHaiku[]): string[] => haikus.filter(h => h.bring).map(h => h.text);
+
+// ワードブーケのお題（最初は空。同梱のサンプルはホストが補う）
+export interface StoredBouquet { id: string; text: string; bring: boolean }
+export function loadBouquets(): StoredBouquet[] {
+  const saved = local.get<Partial<StoredBouquet>[]>('tlw-bouquets', []);
+  return (Array.isArray(saved) ? saved : []).flatMap(b => {
+    const [text] = sanitizeBouquets([b?.text]);
+    return text ? [{ id: b.id ?? uid(), text, bring: b.bring !== false }] : [];
+  });
+}
+export const saveBouquets = (list: StoredBouquet[]) => local.set('tlw-bouquets', list);
+export const broughtBouquets = (list: StoredBouquet[]): string[] => list.filter(b => b.bring).map(b => b.text);
 
 // 運命の二者択一で使うキャラクターの番号
 export const loadChara = () => Math.max(0, Math.trunc(Number(local.get('tlw-chara', 0))) || 0);

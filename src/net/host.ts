@@ -15,7 +15,7 @@ type Conn = DataConnection & { pid?: string; lastSeen: number };
 export interface HostSession { isHost: true; code: string; send(a: Action): void; addBot(): void; close(): void }
 
 export interface HostOptions {
-  id: string; key: string; name: string; topics: Topic[]; fives: FiveTopic[]; fates: FateQuestion[]; haikus: string[]; chara: number; version: string; minPlayers: number;
+  id: string; key: string; name: string; topics: Topic[]; fives: FiveTopic[]; fates: FateQuestion[]; haikus: string[]; bouquets: string[]; chara: number; version: string; minPlayers: number;
   bots?: number; // 最初から入れておく CPU の参加者の数（動作確認用。?dev&bots=9）
   onOpen(session: HostSession): void;
   onView(view: PlayerView): void;
@@ -75,7 +75,29 @@ export function startHost(o: HostOptions): void {
       return setTimeout(() => dispatch(b.id, { t: 'bet', round: g.round, go }), 2500 + Math.random() * 6000);
     });
   }
+  // ワードブーケ：手札からでたらめに文を作る。親のときは、ランダムに1つ選ぶ
+  function runBouquetBots() {
+    const g = room.game;
+    const bots = botsNow();
+    if (!bots.length || g?.kind !== 'bouquet' || (g.phase !== 'compose' && g.phase !== 'choose')) return;
+    const turn = `${room.gameNo}-bouquet-${g.phase}-${g.round}`;
+    if (turn === botTurn) return;
+    botTurn = turn;
+    botTimers.forEach(clearTimeout);
+    const rnd = (n: number) => Math.floor(Math.random() * n);
+    if (g.phase === 'choose') {
+      const ids = Object.keys(g.phrases);
+      botTimers = bots.filter(b => b.id === g.parentId).map(b => setTimeout(() => dispatch(b.id, { t: 'choose', round: g.round, id: ids[rnd(ids.length)] }), 5000));
+      return;
+    }
+    botTimers = bots.filter(b => b.id in g.hands).map(b => {
+      // 「修飾＋名詞＋助詞＋言い回し」の形に並べる（手札は、名詞6・言い回し5・修飾3 の順に入っている）
+      const tokens = [11 + rnd(3), rnd(6), -(1 + rnd(8)), 6 + rnd(5)];
+      return setTimeout(() => dispatch(b.id, { t: 'phrase', round: g.round, tokens }), 3000 + Math.random() * 7000);
+    });
+  }
   function runBots() {
+    runBouquetBots();
     runHaikuBots();
     runBluffBots();
     const g = room.game;
@@ -136,7 +158,7 @@ export function startHost(o: HostOptions): void {
         else sendTo(c, { t: 'ping' });
       }
     }, HEARTBEAT_MS);
-    dispatch(o.id, { t: 'join', name: o.name, key: o.key, topics: o.topics, fives: o.fives, fates: o.fates, haikus: o.haikus, chara: o.chara, version: o.version });
+    dispatch(o.id, { t: 'join', name: o.name, key: o.key, topics: o.topics, fives: o.fives, fates: o.fates, haikus: o.haikus, bouquets: o.bouquets, chara: o.chara, version: o.version });
     for (let i = 0; i < Math.min(BOT_NAMES.length, o.bots ?? 0); i++) addBot();
     const session: HostSession = {
       isHost: true, code, addBot,
@@ -172,7 +194,7 @@ export function startHost(o: HostOptions): void {
         const old = conns[pid];
         if (old && old !== c) { delete conns[pid]; old.close(); }
         conns[pid] = c;
-        dispatch(pid, { t: 'join', name: m.name, key: m.key, topics: m.topics, fives: m.fives, fates: m.fates, haikus: m.haikus, chara: m.chara, version: m.version });
+        dispatch(pid, { t: 'join', name: m.name, key: m.key, topics: m.topics, fives: m.fives, fates: m.fates, haikus: m.haikus, bouquets: m.bouquets, chara: m.chara, version: m.version });
         return;
       }
       if (!c.pid || conns[c.pid] !== c || m?.t === 'pong') return;

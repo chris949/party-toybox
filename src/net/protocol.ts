@@ -5,6 +5,8 @@ import { GAME_MODES, type GameMode } from '../core/types';
 import type { FateView } from '../modes/fate/view';
 import type { HaikuView, HaikuWork } from '../modes/haiku/view';
 import type { BluffView } from '../modes/bluff/view';
+import type { BouquetView } from '../modes/bouquet/view';
+import { BOUQUET_GOALS, BOUQUET_TIMES, DEFAULT_BOUQUET_TIME } from '../core/constants';
 import { BLUFF_TIMES, DEFAULT_BLUFF_TIME } from '../core/constants';
 import { DEFAULT_HAIKU_TIME, HAIKU_TIMES } from '../core/constants';
 import type { Action } from '../core/types';
@@ -20,7 +22,7 @@ export type HostMsg =
   | { t: 'ping' }
   | { t: 'error'; msg: string };
 
-export type JoinMsg = { t: 'join'; id: string; key: string; name: string; topics: unknown; fives?: unknown; fates?: unknown; haikus?: unknown; chara?: unknown; version: string };
+export type JoinMsg = { t: 'join'; id: string; key: string; name: string; topics: unknown; fives?: unknown; fates?: unknown; haikus?: unknown; bouquets?: unknown; chara?: unknown; version: string };
 export type GuestMsg = JoinMsg | { t: 'pong' } | Action;
 
 export const genCode = () => {
@@ -42,10 +44,15 @@ export function parseAction(m: any): Action | null {
     case 'five': return Array.isArray(m.picks) && Number.isInteger(m.round) ? { t: 'five', round: m.round, picks: m.picks.slice(0, 8), partial: !!m.partial } : null;
     case 'move': return m.side === 'L' || m.side === 'R' ? { t: 'move', side: m.side } : null;
     case 'chara': return Number.isInteger(m.n) ? { t: 'chara', n: m.n } : null;
-    case 'topics': return { t: 'topics', topics: m.topics, fives: m.fives, fates: m.fates, haikus: m.haikus }; // 中身はホストが検査して整える
+    case 'topics': return { t: 'topics', topics: m.topics, fives: m.fives, fates: m.fates, haikus: m.haikus, bouquets: m.bouquets }; // 中身はホストが検査して整える
     case 'editing': return { t: 'editing', on: !!m.on };
     case 'retract': return Number.isInteger(m.round) ? { t: 'retract', round: m.round } : null;
     case 'haikuStyle': return m.style === 'theme' || m.style === 'free' ? { t: 'haikuStyle', style: m.style } : null;
+    case 'bouquetTime': return Number.isInteger(m.sec) ? { t: 'bouquetTime', sec: m.sec } : null;
+    case 'bouquetGoal': return Number.isInteger(m.n) ? { t: 'bouquetGoal', n: m.n } : null;
+    case 'phrase': return Number.isInteger(m.round) && Array.isArray(m.tokens) ? { t: 'phrase', round: m.round, tokens: m.tokens.slice(0, 16) } : null;
+    case 'redraw': return Number.isInteger(m.round) ? { t: 'redraw', round: m.round } : null;
+    case 'choose': return Number.isInteger(m.round) ? { t: 'choose', round: m.round, id: cleanId(m.id) } : null;
     case 'bluffTime': return Number.isInteger(m.sec) ? { t: 'bluffTime', sec: m.sec } : null;
     case 'bet': return Number.isInteger(m.round) && typeof m.go === 'boolean' ? { t: 'bet', round: m.round, go: m.go } : null;
     case 'haikuTime': return Number.isInteger(m.sec) ? { t: 'haikuTime', sec: m.sec } : null;
@@ -78,6 +85,8 @@ export function normalizeView(s: any): PlayerView {
     fateTime: (FATE_TIMES as readonly number[]).includes(int(s.fateTime)) ? int(s.fateTime) : DEFAULT_FATE_TIME,
     fateQuota: (FATE_QUOTAS as readonly number[]).includes(int(s.fateQuota)) ? int(s.fateQuota) : DEFAULT_FATE_QUOTA,
     fateLives: (FATE_LIVES as readonly number[]).includes(int(s.fateLives)) ? int(s.fateLives) : DEFAULT_FATE_LIVES,
+    bouquetTime: (BOUQUET_TIMES as readonly number[]).includes(int(s.bouquetTime)) ? int(s.bouquetTime) : DEFAULT_BOUQUET_TIME,
+    bouquetGoal: (BOUQUET_GOALS as readonly number[]).includes(int(s.bouquetGoal)) ? int(s.bouquetGoal) : 0,
     bluffTime: (BLUFF_TIMES as readonly number[]).includes(int(s.bluffTime)) ? int(s.bluffTime) : DEFAULT_BLUFF_TIME,
     haikuStyle: s.haikuStyle === 'free' ? 'free' : 'theme',
     haikuTime: (HAIKU_TIMES as readonly number[]).includes(int(s.haikuTime)) ? int(s.haikuTime) : DEFAULT_HAIKU_TIME,
@@ -86,7 +95,7 @@ export function normalizeView(s: any): PlayerView {
     me: str(s.me),
     players: (Array.isArray(s.players) ? s.players : []).map((p: any) => ({
       id: str(p.id), name: str(p.name), score: int(p.score), online: p.online !== false, version: str(p.version),
-      topics: int(p.topics), fives: int(p.fives), fates: int(p.fates), haikus: int(p.haikus), chara: Math.max(0, int(p.chara)), editing: p.editing === true, bot: p.bot === true, done: p.done === true ? true : p.done === false ? false : null,
+      topics: int(p.topics), fives: int(p.fives), fates: int(p.fates), haikus: int(p.haikus), bouquets: int(p.bouquets), chara: Math.max(0, int(p.chara)), editing: p.editing === true, bot: p.bot === true, done: p.done === true ? true : p.done === false ? false : null,
     })),
     startError: s.startError == null ? null : str(s.startError),
     timeLeft: s.timeLeft == null ? null : int(s.timeLeft),
@@ -106,6 +115,21 @@ export function normalizeView(s: any): PlayerView {
     fate: s.fate ? normalizeFate(s.fate) : null,
     haiku: s.haiku ? normalizeHaiku(s.haiku) : null,
     bluff: s.bluff ? normalizeBluff(s.bluff) : null,
+    bouquet: s.bouquet ? normalizeBouquet(s.bouquet) : null,
+  };
+}
+
+function normalizeBouquet(b: any): BouquetView {
+  const int = (v: unknown) => Number.isFinite(Number(v)) ? Math.trunc(Number(v)) : 0;
+  const str = (v: unknown) => String(v ?? '');
+  return {
+    round: int(b.round), rounds: int(b.rounds), goal: int(b.goal),
+    parentId: str(b.parentId), parentName: str(b.parentName), theme: str(b.theme), themeBy: str(b.themeBy),
+    hand: Array.isArray(b.hand) ? b.hand.map(str) : null,
+    redrawn: !!b.redrawn,
+    myPhrase: b.myPhrase == null ? null : str(b.myPhrase),
+    phrases: Array.isArray(b.phrases) ? b.phrases.map((p: any) => ({ id: str(p.id), name: str(p.name), text: str(p.text) })) : null,
+    winner: b.winner == null ? null : str(b.winner),
   };
 }
 
