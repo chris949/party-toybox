@@ -7,6 +7,7 @@ import { FateList } from '../modes/fate/TopicsEditor';
 import { HaikuList } from '../modes/haiku/TopicsEditor';
 import { BouquetList } from '../modes/bouquet/TopicsEditor';
 import { GAME_MODES, type GameMode } from '../core/types';
+import { TopicTools } from './TopicTools';
 
 export function Topics() {
   const tab = useStore(s => s.topicsTab);
@@ -22,6 +23,8 @@ export function Topics() {
       <div className="seg wrap" style={{ marginBottom: 12 }}>{(Object.entries(GAME_MODES) as [GameMode, string][]).map(([k, label]) => (
         <button key={k} className={tab === k ? 'on' : ''} onClick={() => useStore.setState({ topicsTab: k })}>{label}</button>
       ))}</div>
+      {/* 取り込み・書き出しは、お題を作って持ち寄るモードにだけ置く（ハイカー575 は、その場でみんなが書く。ワードブーケは、お題が1行だけ。ブラインドブラフは、お題を使わない） */}
+      {(tab === 'tier' || tab === 'five' || tab === 'fate') && <TopicTools key={tab} mode={tab} />}
       {tab === 'five' ? <FiveList /> : tab === 'fate' ? <FateList /> : tab === 'haiku' ? <HaikuList /> : tab === 'bouquet' ? <BouquetList /> : tab === 'tier' ? <TierList />
         : <section className="card"><p className="muted" style={{ margin: 0 }}>「{GAME_MODES[tab]}」は、お題を使わないモードです。</p></section>}
     </>

@@ -29,9 +29,9 @@ h1 .w { color: var(--sun); }
 h2 { font-size: 17px; margin: 0 0 10px; }
 label.field { display: block; margin-bottom: 10px; color: var(--muted); font-size: 13px; font-weight: 700; }
 label.field input { margin-top: 6px; }
-input[type=text] { width: 100%; padding: 11px 14px; border-radius: 14px; border: 2px solid var(--line);
+input[type=text], textarea { width: 100%; padding: 11px 14px; border-radius: 14px; border: 2px solid var(--line);
   background: var(--field); color: var(--ink); font: inherit; font-size: 16px; }
-input[type=text]:focus { outline: none; border-color: var(--sky); background: #fff; }
+input[type=text]:focus, textarea:focus { outline: none; border-color: var(--sky); background: #fff; }
 input.code-input { text-align: center; font-weight: 800; letter-spacing: .25em; font-size: 20px; text-transform: uppercase; }
 input.code-input::placeholder { letter-spacing: normal; font-weight: 700; font-size: 15px; }
 
@@ -183,3 +183,10 @@ ol.rules li { margin-bottom: 4px; }
 /* モードの選択など、ボタンが多いときは2段に折り返す */
 .seg.wrap { flex-wrap: wrap; }
 .seg.wrap button { flex: 1 1 40%; }
+
+/* お題の取り込み・書き出し（spec.md の 3.3.1） */
+.tools { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.tools button { flex: 1 1 40%; font-size: 14px; }
+.tools button.on { background: var(--sky); color: #fff; }
+textarea.topic-text { min-height: 140px; font-size: 14px; line-height: 1.5; resize: vertical; font-family: inherit; }
+textarea.topic-text[readonly] { background: #fff; }
