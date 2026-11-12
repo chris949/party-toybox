@@ -1,19 +1,14 @@
 // おもちゃ風の動物（src/modes/fate/README.md の11.12）。球と円すいを組み合わせて作る。並びは 2D のキャラクター（charas.tsx）と同じ
 import * as THREE from 'three';
-import { CHIBIS, makeChibi } from './chibis';
-import { tinted } from './tint';
-
-const BALL = new THREE.SphereGeometry(1, 24, 16);
-const CONE = new THREE.ConeGeometry(1, 1, 16);
-const RING = new THREE.CylinderGeometry(1, 1, 1, 32);
+import { BALL, both, CONE, RING, type Builder } from './kit';
 
 type Ears = 'floppy' | 'point' | 'long' | 'round' | 'none';
-interface Look {
+export interface Look {
   body: string; belly: string; ears: Ears; ear: string; earIn?: string; snout?: string; nose: string;
   feet?: string; beak?: boolean; patches?: boolean; frog?: boolean; pigNose?: boolean; bigNose?: boolean; stripes?: boolean; bigEars?: boolean;
 }
 
-const LOOKS: Look[] = [
+export const ANIMALS: Look[] = [
   { body: '#e2a868', belly: '#fff2dc', ears: 'floppy', ear: '#8a5630', snout: '#fff2dc', nose: '#2b2b33' },                 // いぬ
   { body: '#f6b54e', belly: '#fff5e0', ears: 'point', ear: '#f6b54e', earIn: '#ffb3c1', snout: '#fff5e0', nose: '#ff8fa3' }, // ねこ
   { body: '#f6f2ee', belly: '#ffffff', ears: 'long', ear: '#f6f2ee', earIn: '#ffb3c1', nose: '#ff8fa3' },                    // うさぎ
@@ -28,35 +23,9 @@ const LOOKS: Look[] = [
   { body: '#f5a12a', belly: '#fff5e0', ears: 'round', ear: '#f5a12a', earIn: '#fff5e0', snout: '#fff5e0', nose: '#2b2b33', stripes: true }, // とら
 ];
 
-export interface Animal {
-  root: THREE.Group;      // 足元が原点。正面は +z
-  eyes: THREE.Object3D[]; // 驚いたときに大きくする
-  ring: THREE.Mesh;       // 足元の輪（参加者の色）
-  setGhost(on: boolean): void;
-  dispose(): void;
-}
-
-export function makeAnimal(n: number, ringColor: string, variant = 0): Animal {
-  // 並びは charas.tsx と同じ：動物12種 → アニメ風の人5種
-  const total = LOOKS.length + CHIBIS.length, idx = ((Math.trunc(n) || 0) % total + total) % total;
-  if (idx >= LOOKS.length) return makeChibi(idx - LOOKS.length, ringColor, variant);
-  const look = LOOKS[idx];
-  const root = new THREE.Group();
-  const mats = new Map<string, THREE.MeshStandardMaterial>();
-  const mat = (c: string) => {
-    let m = mats.get(c);
-    if (!m) { const col = tinted(c, variant, ringColor); m = new THREE.MeshStandardMaterial({ color: col, roughness: 0.55, metalness: 0 }); m.userData.base = col.clone(); mats.set(c, m); }
-    return m;
-  };
-  const add = (geo: THREE.BufferGeometry, c: string, p: [number, number, number], s: [number, number, number], r?: [number, number, number], parent: THREE.Object3D = root) => {
-    const m = new THREE.Mesh(geo, mat(c));
-    m.position.set(...p); m.scale.set(...s);
-    if (r) m.rotation.set(...r);
-    m.castShadow = true;
-    parent.add(m);
-    return m;
-  };
-  const both = (f: (side: 1 | -1) => void) => { f(1); f(-1); };
+// 動物を1体、組み立てる（部品を置くだけ。まとめて描ける形にするのは kit.ts）
+export function buildAnimal(b: Builder, look: Look) {
+  const { root, add } = b;
 
   // 体・おなか・足
   add(BALL, look.body, [0, 0.5, 0], [0.46, 0.5, 0.42]);
@@ -89,7 +58,6 @@ export function makeAnimal(n: number, ringColor: string, variant = 0): Animal {
   });
 
   // 目（かえるは頭の上に飛び出す）
-  const eyes: THREE.Object3D[] = [];
   both(s => {
     const eye = new THREE.Group();
     if (look.frog) {
@@ -104,7 +72,7 @@ export function makeAnimal(n: number, ringColor: string, variant = 0): Animal {
       add(BALL, '#ffffff', [s * -0.02, 0.03, 0.035], [0.022, 0.022, 0.02], undefined, eye); // 光
     }
     head.add(eye);
-    eyes.push(eye);
+    b.eyes.push(eye);
   });
   both(s => add(BALL, '#ff9aa8', [s * 0.33, -0.1, 0.33], [0.075, 0.05, 0.03], undefined, head)); // ほっぺ
 
@@ -120,28 +88,4 @@ export function makeAnimal(n: number, ringColor: string, variant = 0): Animal {
     add(BALL, look.nose, [0, -0.06, 0.49], [0.06, 0.045, 0.04], undefined, head);
   }
   if (look.stripes) [-0.14, 0, 0.14].forEach(x => add(BALL, '#3a2a22', [x, 0.4, 0.14 - Math.abs(x) * 0.3], [0.03, 0.06, 0.13], [-0.5, 0, 0], head));
-
-  // 足元の輪（同じ動物を選んだ人を、色で見分ける）
-  const ring = new THREE.Mesh(RING, new THREE.MeshStandardMaterial({ color: ringColor, roughness: 0.6 }));
-  ring.scale.set(0.56, 0.05, 0.56);
-  ring.position.y = 0.025;
-  ring.receiveShadow = true;
-  root.add(ring);
-
-  const grey = new THREE.Color('#e4ebf2');
-  return {
-    root, eyes, ring,
-    // ゴースト：半透明で白っぽくして、影を落とさない
-    setGhost(on) {
-      for (const m of mats.values()) {
-        m.color.copy(m.userData.base as THREE.Color);
-        if (on) m.color.lerp(grey, 0.72);
-        m.transparent = on; m.opacity = on ? 0.5 : 1; m.depthWrite = !on;
-      }
-      const rm = ring.material as THREE.MeshStandardMaterial;
-      rm.transparent = on; rm.opacity = on ? 0.35 : 1;
-      root.traverse(o => { if ((o as THREE.Mesh).isMesh && o !== ring) o.castShadow = !on; });
-    },
-    dispose() { for (const m of mats.values()) m.dispose(); (ring.material as THREE.Material).dispose(); },
-  };
 }

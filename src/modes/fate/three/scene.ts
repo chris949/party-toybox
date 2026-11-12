@@ -1,82 +1,24 @@
-// 運命の二者択一の3Dの舞台（src/modes/fate/README.md の11.12）。ルールは知らず、渡された状態を描くだけ
+// 運命の二者択一の3Dの舞台（src/modes/fate/README.md の11.12）。ルールは知らず、渡された状態を描くだけ。
+// 寸法と立ち位置は layout.ts、床とお立ち台は floors.ts、名前の札は label.ts、キャラクターは chara3d.ts
 import * as THREE from 'three';
 import type { Pos, Side } from '../rules';
-import { makeAnimal, type Animal } from './animals';
+import type { StagePiece, StagePos, StageState } from '../stage';
+import { makeChara3D, type Chara3D } from './chara3d';
+import { buildFloor, buildPodium, type Floor } from './floors';
+import { makeLabel } from './label';
+import { BLOCK_H, FLOOR_D, FLOOR_W, FLOOR_X, FLOOR_Z, HANG, OPEN, PODIUM_H, COLORS, slot } from './layout';
 
-export type FloorState = '' | 'ok' | 'open' | 'blink'; // ふつう／正解で光る／開く／開いてすぐ閉じる（救済）
-export type StagePos = Pos | 'P'; // P = お立ち台（その問題を作った人）
-export interface Piece3D {
-  id: string; name: string; chara: number; color: string; pos: StagePos;
-  lives: number;   // 残りのライフ（名前の札に ♥ で出す）
-  variant: number; // 同じキャラクターを選んだ人のうち何人目か（0 = 1人目。2人目からは色合いを変える）
-  me: boolean; ghost: boolean; author: boolean;
-  fate: 'fall' | 'shock' | 'safe' | null; // 発表のとき：落ちる／床は開いたが助かった／正解
-}
-export interface StageState { pieces: Piece3D[]; floors: Record<Pos, FloorState>; mySide: Pos }
-
-// 舞台の寸法（メートルのつもり）。左右の床と、手前のスタート台
-const FLOOR_W = 4.6, FLOOR_D = 4.2, FLOOR_X = 3.3, FLOOR_Z = -0.9; // 左右の床のあいだに、お立ち台を置く
-const PODIUM_W = 1.5, PODIUM_D = 3.6, PODIUM_H = 0.75;
-const PAD_W = 7.6, PAD_D = 2.7, PAD_Z = 3.75;
-const BLOCK_H = 2.6;  // 台の厚み（開いた扉が下に突き抜けない深さ）
-const OPEN = 1.4;     // 扉が開く角度
-const HANG = 0.55;    // 床が開いてから落ちるまで、空中でじたばたする時間（秒）
-const COLORS = { L: '#bfe3fb', R: '#ffe39a', C: '#e3ebf2', ok: '#aeeccf', ink: '#1f2d3d', rim: '#9fc3dc', pit: '#0a1018' };
-const SIDE: Record<Pos, { x: number; z: number; w: number; d: number }> = {
-  L: { x: -FLOOR_X, z: FLOOR_Z, w: FLOOR_W, d: FLOOR_D },
-  R: { x: FLOOR_X, z: FLOOR_Z, w: FLOOR_W, d: FLOOR_D },
-  C: { x: 0, z: PAD_Z, w: PAD_W, d: PAD_D },
-};
-
-// 立ち位置。床は1列3人（10人以上集まったら4人）、スタート台は1列5人
-function slot(pos: StagePos, i: number, count: number): [number, number] {
-  if (pos === 'P') return [0, FLOOR_Z + (i - (count - 1) / 2) * Math.min(1.15, (PODIUM_D - 0.9) / Math.max(1, count - 1))];
-  const s = SIDE[pos];
-  if (pos === 'C') return [s.x + (i % 5 - 2) * 1.4, s.z - 0.55 + Math.floor(i / 5) * 1.15];
-  const cols = count > 9 ? 4 : 3, gap = cols === 4 ? 1.08 : 1.4;
-  return [s.x + (i % cols - (cols - 1) / 2) * gap, s.z - 1.35 + Math.floor(i / cols) * 1.3];
-}
-
-interface Floor { state: FloorState; since: number; angle: number; doors: [THREE.Group, THREE.Group]; mat: THREE.MeshStandardMaterial; rim: THREE.MeshStandardMaterial; base: THREE.Color }
 interface Actor {
-  animal: Animal; label: THREE.Sprite; arrow: THREE.Mesh | null; data: Piece3D;
+  animal: Chara3D; label: THREE.Sprite; arrow: THREE.Mesh | null; shadow: THREE.Mesh; data: StagePiece;
   x: number; z: number; fromX: number; fromZ: number; toX: number; toZ: number; moveT: number; // 移動（0→1）
   fateSince: number; pop: number; phase: number; baseY: number;
 }
 
-const ease = (t: number) => t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+// 足元の丸い影（全員で同じ形と材質を使う）
+const BLOB = new THREE.CircleGeometry(0.5, 20);
+const BLOB_MAT = new THREE.MeshBasicMaterial({ color: '#1f2d3d', transparent: true, opacity: 0.2, depthWrite: false });
 
-// 名前の札（自分は黄色、作った人には「出題」を付ける）。下に、残りのライフを ♥ で出す
-function makeLabel(text: string, me: boolean, lives: number): THREE.Sprite {
-  const c = document.createElement('canvas'), g = c.getContext('2d')!;
-  const font = '800 44px "M PLUS Rounded 1c", "Hiragino Maru Gothic ProN", sans-serif';
-  g.font = font;
-  let shown = text;
-  while (g.measureText(shown).width > 300 && shown.length > 2) shown = shown.slice(0, -2) + '…';
-  const w = Math.ceil(g.measureText(shown).width) + 44, pill = 68, h = pill + (lives > 0 ? 40 : 0);
-  c.width = w; c.height = h;
-  g.font = font;
-  g.fillStyle = me ? '#ffc83d' : 'rgba(255,255,255,.92)';
-  g.strokeStyle = COLORS.ink; g.lineWidth = me ? 6 : 0;
-  g.beginPath(); g.roundRect(4, 4, w - 8, pill - 8, 26); g.fill();
-  if (me) g.stroke();
-  g.fillStyle = COLORS.ink; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillText(shown, w / 2, pill / 2 + 3);
-  if (lives > 0) {
-    g.font = '900 34px sans-serif';
-    g.lineWidth = 7; g.strokeStyle = '#ffffff'; g.lineJoin = 'round';
-    g.strokeText('♥'.repeat(lives), w / 2, pill + 18);
-    g.fillStyle = '#ff6f6f';
-    g.fillText('♥'.repeat(lives), w / 2, pill + 18);
-  }
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
-  sp.scale.set(w / pill * 0.4, h / pill * 0.4, 1);
-  sp.center.set(0.5, 1 - pill / 2 / h); // 名前の行の真ん中を基準にする（ライフの行は、その下にぶら下がる）
-  sp.renderOrder = 10;
-  return sp;
-}
+const ease = (t: number) => t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
 
 export class FateScene {
   private renderer: THREE.WebGLRenderer;
@@ -95,84 +37,22 @@ export class FateScene {
   constructor(private canvas: HTMLCanvasElement, private onMove: (side: Side) => void) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-    this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFShadowMap;
+    // 影は、光から計算せず、足元に丸い影を置く（影の計算は、全部の部品をもう一度描くので重い）
+    // 開発中は、描画の回数や三角形の数を開発者ツールから見られるようにする（window.__THREE_GAME_DIAGNOSTICS__.renderer.render）
+    if (new URLSearchParams(location.search).has('dev')) (window as unknown as Record<string, unknown>).__THREE_GAME_DIAGNOSTICS__ = { renderer: this.renderer.info };
 
     this.scene.add(new THREE.HemisphereLight('#ffffff', '#bcd9ee', 1.5));
     const sun = new THREE.DirectionalLight('#fff6e6', 2.1);
     sun.position.set(-5, 12, 7);
-    sun.castShadow = true;
-    sun.shadow.mapSize.set(1024, 1024);
-    Object.assign(sun.shadow.camera, { left: -8, right: 8, top: 8, bottom: -8, near: 1, far: 30 });
-    sun.shadow.bias = -0.0005; sun.shadow.normalBias = 0.03;
     this.scene.add(sun);
 
-    (['L', 'R', 'C'] as Pos[]).forEach(p => { this.floors[p] = this.buildFloor(p); });
-    this.buildPodium();
+    (['L', 'R', 'C'] as Pos[]).forEach(p => { this.floors[p] = buildFloor(this.scene, p); });
+    buildPodium(this.scene);
     canvas.addEventListener('pointerdown', this.onPointer);
     this.ro = new ResizeObserver(() => this.resize());
     this.ro.observe(canvas);
     this.resize();
     this.loop();
-  }
-
-  // お立ち台：その問題を作った人が立つ（左右の床のあいだ。少し高い）
-  private buildPodium() {
-    const g = new THREE.Group();
-    g.position.set(0, 0, FLOOR_Z);
-    const gold = new THREE.MeshStandardMaterial({ color: '#ffc83d', roughness: 0.5 });
-    const body = new THREE.Mesh(new THREE.BoxGeometry(PODIUM_W, BLOCK_H + PODIUM_H, PODIUM_D), gold);
-    body.position.y = (PODIUM_H - BLOCK_H) / 2 - 0.02;
-    body.castShadow = true; body.receiveShadow = true;
-    const top = new THREE.Mesh(new THREE.BoxGeometry(PODIUM_W - 0.3, 0.04, PODIUM_D - 0.3), new THREE.MeshStandardMaterial({ color: '#e8483f', roughness: 0.8 }));
-    top.position.y = PODIUM_H;
-    top.receiveShadow = true;
-    g.add(body, top);
-    this.scene.add(g);
-  }
-
-  // 厚みのある台。上は2枚の扉、中は暗い穴
-  private buildFloor(pos: Pos): Floor {
-    const s = SIDE[pos], g = new THREE.Group();
-    g.position.set(s.x, 0, s.z);
-    this.scene.add(g);
-    const base = new THREE.Color(COLORS[pos]);
-    const side = new THREE.MeshStandardMaterial({ color: base.clone().multiplyScalar(0.78), roughness: 0.8 });
-    const none = new THREE.MeshBasicMaterial({ visible: false });
-    // 外側（上の面は扉に任せるので描かない）と、内側（暗い穴）
-    const shell = new THREE.Mesh(new THREE.BoxGeometry(s.w, BLOCK_H, s.d), [side, side, none, side, side, side]);
-    shell.position.y = -BLOCK_H / 2 - 0.02;
-    shell.receiveShadow = true;
-    const pit = new THREE.Mesh(new THREE.BoxGeometry(s.w - 0.1, BLOCK_H - 0.1, s.d - 0.1), new THREE.MeshBasicMaterial({ color: COLORS.pit, side: THREE.BackSide }));
-    pit.position.y = -BLOCK_H / 2 - 0.02;
-    g.add(shell, pit);
-
-    // 扉：左右の床は外側の辺、スタート台は奥と手前の辺をちょうつがいにして、下へ開く
-    const mat = new THREE.MeshStandardMaterial({ color: base, roughness: 0.7, emissive: COLORS.ok, emissiveIntensity: 0 });
-    const alongX = pos !== 'C';
-    const half = (alongX ? s.w : s.d) / 2;
-    const doors = [-1, 1].map(sign => {
-      const hinge = new THREE.Group();
-      const panel = new THREE.Mesh(alongX ? new THREE.BoxGeometry(half - 0.03, 0.14, s.d - 0.06) : new THREE.BoxGeometry(s.w - 0.06, 0.14, half - 0.03), mat);
-      panel.receiveShadow = true;
-      if (alongX) { hinge.position.x = sign * half; panel.position.set(-sign * half / 2, -0.07, 0); }
-      else { hinge.position.z = sign * half; panel.position.set(0, -0.07, -sign * half / 2); }
-      hinge.add(panel);
-      hinge.userData = { sign, alongX };
-      g.add(hinge);
-      return hinge;
-    }) as [THREE.Group, THREE.Group];
-
-    // ふち（自分がいる側は濃い色にする）
-    const rim = new THREE.MeshStandardMaterial({ color: COLORS.rim, roughness: 0.6 });
-    const t = 0.16;
-    [[s.w + t * 2, t, 0, -s.d / 2 - t / 2], [s.w + t * 2, t, 0, s.d / 2 + t / 2], [t, s.d, -s.w / 2 - t / 2, 0], [t, s.d, s.w / 2 + t / 2, 0]].forEach(([w, d, x, z]) => {
-      const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.3, d), rim);
-      m.position.set(x, -0.09, z);
-      m.castShadow = true; m.receiveShadow = true;
-      g.add(m);
-    });
-    return { state: '', since: 0, angle: 0, doors, mat, rim, base };
   }
 
   // 新しい状態を受け取る（位置・発表・ゴーストなどの変わり目を覚えて、動きを始める）
@@ -189,7 +69,7 @@ export class FateScene {
       const relabel = !!a && (a.data.name !== p.name || a.data.author !== p.author || a.data.me !== p.me || a.data.lives !== p.lives || a.data.ghost !== p.ghost);
       if (a && (a.data.chara !== p.chara || a.data.color !== p.color || a.data.variant !== p.variant)) { this.removeActor(a); this.actors.delete(p.id); a = undefined; }
       if (!a) {
-        const animal = makeAnimal(p.chara, p.color, p.variant);
+        const animal = makeChara3D(p.chara, p.color, p.variant);
         animal.root.scale.setScalar(0.92);
         this.scene.add(animal.root);
         let arrow: THREE.Mesh | null = null;
@@ -198,7 +78,10 @@ export class FateScene {
           arrow.rotation.x = Math.PI; arrow.renderOrder = 11;
           this.scene.add(arrow);
         }
-        a = { animal, label: makeLabel(text, p.me, hearts), arrow, data: p, x: tx, z: tz, fromX: tx, fromZ: tz, toX: tx, toZ: tz, moveT: 1, fateSince: 0, pop: 1, phase: Math.random() * 6, baseY: p.pos === 'P' ? PODIUM_H : 0 };
+        const shadow = new THREE.Mesh(BLOB, BLOB_MAT);
+        shadow.rotation.x = -Math.PI / 2;
+        this.scene.add(shadow);
+        a = { animal, shadow, label: makeLabel(text, p.me, hearts), arrow, data: p, x: tx, z: tz, fromX: tx, fromZ: tz, toX: tx, toZ: tz, moveT: 1, fateSince: 0, pop: 1, phase: Math.random() * 6, baseY: p.pos === 'P' ? PODIUM_H : 0 };
         this.scene.add(a.label);
         this.actors.set(p.id, a);
         a.animal.setGhost(p.ghost);
@@ -324,7 +207,11 @@ export class FateScene {
       root.rotation.set(rx, turn, rz);
       root.scale.set(scale * (1 - squash), scale * (1 + squash * 2), scale * (1 - squash));
       for (const e of a.animal.eyes) e.scale.setScalar(eye);
-      a.animal.ring.visible = !p.ghost || visible;
+      // 丸い影：高く跳ぶほど小さく。床が開いている間・落ちたあと・ゴーストには出さない
+      const lift = Math.max(0, y - a.baseY);
+      a.shadow.visible = visible && !p.ghost && !floorOpen && p.fate !== 'fall';
+      a.shadow.position.set(a.x, a.baseY + 0.03, a.z);
+      a.shadow.scale.setScalar(Math.max(0.4, 1 - lift * 0.5) * scale / 0.92);
       a.label.visible = visible && !(p.fate === 'fall' && t > HANG); // 落ち始めたら、名前の札は消す
       a.label.position.set(a.x, Math.max(0, y) + 2.25, a.z - 0.25); // 顔に重ならないよう、頭の少し奥に出す
       (a.label.material as THREE.SpriteMaterial).opacity = p.ghost ? 0.6 : 1;
@@ -350,7 +237,7 @@ export class FateScene {
     sp.material.dispose();
   }
   private removeActor(a: Actor) {
-    this.scene.remove(a.animal.root);
+    this.scene.remove(a.animal.root, a.shadow);
     a.animal.dispose();
     this.disposeLabel(a.label);
     if (a.arrow) { this.scene.remove(a.arrow); a.arrow.geometry.dispose(); (a.arrow.material as THREE.Material).dispose(); }

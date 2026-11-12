@@ -1,11 +1,6 @@
 // アニメ風の人のキャラクター（2頭身。大きな目と髪型・衣装で描き分ける）。どれもオリジナルで、実在の作品のキャラクターは使わない
 import * as THREE from 'three';
-import type { Animal } from './animals';
-import { tinted } from './tint';
-
-const BALL = new THREE.SphereGeometry(1, 24, 16);
-const CONE = new THREE.ConeGeometry(1, 1, 16);
-const RING = new THREE.CylinderGeometry(1, 1, 1, 32);
+import { BALL, both, CONE, RING, type Builder } from './kit';
 
 type Kind = 'hero' | 'witch' | 'ninja' | 'idol' | 'pirate';
 export const CHIBIS: { kind: Kind; hair: string; eye: string; outfit: string; accent: string }[] = [
@@ -16,26 +11,11 @@ export const CHIBIS: { kind: Kind; hair: string; eye: string; outfit: string; ac
   { kind: 'pirate', hair: '#3a2a22', eye: '#2e8b57', outfit: '#f4efe6', accent: '#c0392b' }, // かいぞく
 ];
 const SKIN = '#ffe0c4', DARK = '#2b2b33';
-type V3 = [number, number, number];
+export const CHIBI_KEEP = [SKIN]; // 同じキャラクターの2人目からは色合いを変えるが、肌の色は変えない
 
-export function makeChibi(n: number, ringColor: string, variant = 0): Animal {
-  const c = CHIBIS[n % CHIBIS.length], k = c.kind;
-  const root = new THREE.Group();
-  const mats = new Map<string, THREE.MeshStandardMaterial>();
-  const mat = (col: string) => {
-    let m = mats.get(col);
-    if (!m) { const c3 = col === SKIN ? new THREE.Color(col) : tinted(col, variant, ringColor); m = new THREE.MeshStandardMaterial({ color: c3, roughness: 0.55 }); m.userData.base = c3.clone(); mats.set(col, m); } // 肌の色は変えない
-    return m;
-  };
-  const add = (geo: THREE.BufferGeometry, col: string, p: V3, s: V3, r?: V3, parent: THREE.Object3D = root) => {
-    const m = new THREE.Mesh(geo, mat(col));
-    m.position.set(...p); m.scale.set(...s);
-    if (r) m.rotation.set(...r);
-    m.castShadow = true;
-    parent.add(m);
-    return m;
-  };
-  const both = (f: (side: 1 | -1) => void) => { f(1); f(-1); };
+// 人を1体、組み立てる（部品を置くだけ。まとめて描ける形にするのは kit.ts）
+export function buildChibi(b: Builder, c: (typeof CHIBIS)[number]) {
+  const { root, add } = b, k = c.kind;
 
   // 体・手足
   add(BALL, c.outfit, [0, 0.42, 0], [0.33, 0.4, 0.29]);
@@ -90,7 +70,6 @@ export function makeChibi(n: number, ringColor: string, variant = 0): Animal {
   }
 
   // 目（アニメ風の大きな目：黒いふち・色のついた瞳・白い光）
-  const eyes: THREE.Object3D[] = [];
   both(s => {
     const eye = new THREE.Group();
     eye.position.set(s * 0.18, -0.02, 0.4);
@@ -103,32 +82,10 @@ export function makeChibi(n: number, ringColor: string, variant = 0): Animal {
       add(BALL, '#ffffff', [s * -0.025, 0.045, 0.045], [0.03, 0.035, 0.02], undefined, eye);
     }
     head.add(eye);
-    eyes.push(eye);
+    b.eyes.push(eye);
   });
   if (k !== 'ninja') {
     both(s => add(BALL, '#ff9aa8', [s * 0.3, -0.14, 0.33], [0.07, 0.04, 0.03], undefined, head));     // ほっぺ
     add(BALL, '#d9534f', [0, -0.2, 0.42], [0.035, 0.02, 0.02], undefined, head);                      // 口
   }
-
-  // 足元の輪・ゴースト（動物と同じ決まり）
-  const ring = new THREE.Mesh(RING, new THREE.MeshStandardMaterial({ color: ringColor, roughness: 0.6 }));
-  ring.scale.set(0.56, 0.05, 0.56);
-  ring.position.y = 0.025;
-  ring.receiveShadow = true;
-  root.add(ring);
-  const grey = new THREE.Color('#e4ebf2');
-  return {
-    root, eyes, ring,
-    setGhost(on) {
-      for (const m of mats.values()) {
-        m.color.copy(m.userData.base as THREE.Color);
-        if (on) m.color.lerp(grey, 0.72);
-        m.transparent = on; m.opacity = on ? 0.5 : 1; m.depthWrite = !on;
-      }
-      const rm = ring.material as THREE.MeshStandardMaterial;
-      rm.transparent = on; rm.opacity = on ? 0.35 : 1;
-      root.traverse(o => { if ((o as THREE.Mesh).isMesh && o !== ring) o.castShadow = !on; });
-    },
-    dispose() { for (const m of mats.values()) m.dispose(); (ring.material as THREE.Material).dispose(); },
-  };
 }
