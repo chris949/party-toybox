@@ -33,7 +33,7 @@ test('ブラインドブラフを2人で1ゲーム遊べる', async ({ browser }
     await guest.getByRole('button', { name: round % 2 ? '降りる' : '勝負！' }).click();
     // 発表：自分のカードも見える。点が動く
     for (const p of [host, guest]) {
-      await expect(p.getByText('発表')).toBeVisible({ timeout: 20_000 });
+      await expect(p.locator('.status', { hasText: '発表' })).toBeVisible({ timeout: 20_000 });
       await expect(p.locator('.bcard.back')).toHaveCount(0);
       await expect(p.locator('.bseat.win')).toHaveCount(1);
     }
