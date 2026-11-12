@@ -6,8 +6,9 @@ import type { FateView } from '../modes/fate/view';
 import type { HaikuView, HaikuWork } from '../modes/haiku/view';
 import type { BluffView } from '../modes/bluff/view';
 import type { BouquetView } from '../modes/bouquet/view';
+import type { BlendView } from '../modes/blend/view';
 import { BOUQUET_GOALS, BOUQUET_TIMES, DEFAULT_BOUQUET_TIME } from '../core/constants';
-import { BLUFF_TIMES, DEFAULT_BLUFF_TIME } from '../core/constants';
+import { BLEND_CROWDS, BLEND_TIMES, BLUFF_TIMES, DEFAULT_BLEND_CROWD, DEFAULT_BLEND_TIME, DEFAULT_BLUFF_TIME } from '../core/constants';
 import { DEFAULT_HAIKU_TIME, HAIKU_TIMES } from '../core/constants';
 import type { Action } from '../core/types';
 import type { PlayerView } from '../core/view';
@@ -53,6 +54,12 @@ export function parseAction(m: any): Action | null {
     case 'phrase': return Number.isInteger(m.round) && Array.isArray(m.tokens) ? { t: 'phrase', round: m.round, tokens: m.tokens.slice(0, 16) } : null;
     case 'redraw': return Number.isInteger(m.round) ? { t: 'redraw', round: m.round } : null;
     case 'choose': return Number.isInteger(m.round) ? { t: 'choose', round: m.round, id: cleanId(m.id) } : null;
+    case 'blendTime': return Number.isInteger(m.sec) ? { t: 'blendTime', sec: m.sec } : null;
+    case 'blendCrowd': return Number.isInteger(m.n) ? { t: 'blendCrowd', n: m.n } : null;
+    // まぎれろ！：行き先は、ホストのルールが舞台の中に収める。tick はホストのタイマーだけが出すので、参加者からは受け取らない
+    case 'go': return Number.isInteger(m.round) && Number.isFinite(m.x) && Number.isFinite(m.z) ? { t: 'go', round: m.round, x: m.x, z: m.z } : null;
+    case 'grab': return Number.isInteger(m.round) ? { t: 'grab', round: m.round } : null;
+    case 'suspect': return Number.isInteger(m.round) && Number.isInteger(m.i) ? { t: 'suspect', round: m.round, i: m.i } : null;
     case 'bluffTime': return Number.isInteger(m.sec) ? { t: 'bluffTime', sec: m.sec } : null;
     case 'bet': return Number.isInteger(m.round) && typeof m.go === 'boolean' ? { t: 'bet', round: m.round, go: m.go } : null;
     case 'haikuTime': return Number.isInteger(m.sec) ? { t: 'haikuTime', sec: m.sec } : null;
@@ -87,6 +94,8 @@ export function normalizeView(s: any): PlayerView {
     fateLives: (FATE_LIVES as readonly number[]).includes(int(s.fateLives)) ? int(s.fateLives) : DEFAULT_FATE_LIVES,
     bouquetTime: (BOUQUET_TIMES as readonly number[]).includes(int(s.bouquetTime)) ? int(s.bouquetTime) : DEFAULT_BOUQUET_TIME,
     bouquetGoal: (BOUQUET_GOALS as readonly number[]).includes(int(s.bouquetGoal)) ? int(s.bouquetGoal) : 0,
+    blendTime: (BLEND_TIMES as readonly number[]).includes(int(s.blendTime)) ? int(s.blendTime) : DEFAULT_BLEND_TIME,
+    blendCrowd: (BLEND_CROWDS as readonly number[]).includes(int(s.blendCrowd)) ? int(s.blendCrowd) : DEFAULT_BLEND_CROWD,
     bluffTime: (BLUFF_TIMES as readonly number[]).includes(int(s.bluffTime)) ? int(s.bluffTime) : DEFAULT_BLUFF_TIME,
     haikuStyle: s.haikuStyle === 'free' ? 'free' : 'theme',
     haikuTime: (HAIKU_TIMES as readonly number[]).includes(int(s.haikuTime)) ? int(s.haikuTime) : DEFAULT_HAIKU_TIME,
@@ -116,6 +125,23 @@ export function normalizeView(s: any): PlayerView {
     haiku: s.haiku ? normalizeHaiku(s.haiku) : null,
     bluff: s.bluff ? normalizeBluff(s.bluff) : null,
     bouquet: s.bouquet ? normalizeBouquet(s.bouquet) : null,
+    blend: s.blend ? normalizeBlend(s.blend) : null,
+  };
+}
+
+function normalizeBlend(b: any): BlendView {
+  const int = (v: unknown) => Number.isFinite(Number(v)) ? Math.trunc(Number(v)) : 0;
+  const str = (v: unknown) => String(v ?? '');
+  const nint = (v: unknown) => v == null ? null : int(v);
+  return {
+    round: int(b.round), rounds: int(b.rounds), hiderId: str(b.hiderId), hiderName: str(b.hiderName), chara: Math.max(0, int(b.chara)),
+    pos: Array.isArray(b.pos) ? b.pos.slice(0, 64).map(int) : [],
+    tick: int(b.tick), ready: !!b.ready, me: nint(b.me),
+    star: Array.isArray(b.star) && b.star.length === 2 ? [int(b.star[0]), int(b.star[1])] : null,
+    stars: int(b.stars), goal: int(b.goal), canGrab: !!b.canGrab, myGuess: nint(b.myGuess), guessed: int(b.guessed),
+    guesses: Array.isArray(b.guesses) ? b.guesses.map((x: any) => ({ id: str(x.id), name: str(x.name), i: nint(x.i), ok: !!x.ok })) : null,
+    gained: b.gained && typeof b.gained === 'object' ? Object.fromEntries(Object.entries(b.gained).map(([k, v]) => [k, int(v)])) : null,
+    void: !!b.void,
   };
 }
 

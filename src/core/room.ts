@@ -9,12 +9,12 @@ import { sanitizeFives } from '../modes/five/topics';
 import { sanitizeFates } from '../modes/fate/questions';
 import { HAIKU_STYLES, sanitizeHaikus } from '../modes/haiku/themes';
 import { sanitizeBouquets } from '../modes/bouquet/words';
-import { BOUQUET_GOALS, BOUQUET_TIMES, DEFAULT_BOUQUET_TIME, BLUFF_TIMES, DEFAULT_BLUFF_TIME, DEFAULT_HAIKU_TIME, HAIKU_TIMES } from './constants';
+import { BLEND_CROWDS, BLEND_TIMES, DEFAULT_BLEND_CROWD, DEFAULT_BLEND_TIME, BOUQUET_GOALS, BOUQUET_TIMES, DEFAULT_BOUQUET_TIME, BLUFF_TIMES, DEFAULT_BLUFF_TIME, DEFAULT_HAIKU_TIME, HAIKU_TIMES } from './constants';
 
 const charaOf = (n: unknown) => Number.isInteger(n) && (n as number) >= 0 && (n as number) < CHARA_MAX ? n as number : null;
 
 export function createRoom(code: string, hostId: string, minPlayers: number): RoomState {
-  return { code, hostId, minPlayers, gameNo: 1, gameMode: 'tier', pickMode: 'random', timeLimit: DEFAULT_TIME_LIMIT, fateTime: DEFAULT_FATE_TIME, fateQuota: DEFAULT_FATE_QUOTA, fateLives: DEFAULT_FATE_LIVES, haikuStyle: 'theme', haikuTime: DEFAULT_HAIKU_TIME, bluffTime: DEFAULT_BLUFF_TIME, bouquetTime: DEFAULT_BOUQUET_TIME, bouquetGoal: 0, bouquetsBy: {}, haikusBy: {}, players: [], topicsBy: {}, fivesBy: {}, fatesBy: {}, game: null };
+  return { code, hostId, minPlayers, gameNo: 1, gameMode: 'tier', pickMode: 'random', timeLimit: DEFAULT_TIME_LIMIT, fateTime: DEFAULT_FATE_TIME, fateQuota: DEFAULT_FATE_QUOTA, fateLives: DEFAULT_FATE_LIVES, haikuStyle: 'theme', haikuTime: DEFAULT_HAIKU_TIME, bluffTime: DEFAULT_BLUFF_TIME, blendTime: DEFAULT_BLEND_TIME, blendCrowd: DEFAULT_BLEND_CROWD, bouquetTime: DEFAULT_BOUQUET_TIME, bouquetGoal: 0, bouquetsBy: {}, haikusBy: {}, players: [], topicsBy: {}, fivesBy: {}, fatesBy: {}, game: null };
 }
 
 // 参加を受け付けるか。断るときはその理由
@@ -93,6 +93,14 @@ export function reduce(state: RoomState, a: ActionFrom, ctx: Ctx): RoomState {
       if (!isHost || room.game || !(BOUQUET_GOALS as readonly number[]).includes(a.n)) return state;
       room.bouquetGoal = a.n;
       return room;
+    case 'blendTime':
+      if (!isHost || room.game || !(BLEND_TIMES as readonly number[]).includes(a.sec)) return state;
+      room.blendTime = a.sec;
+      return room;
+    case 'blendCrowd':
+      if (!isHost || room.game || !(BLEND_CROWDS as readonly number[]).includes(a.n)) return state;
+      room.blendCrowd = a.n;
+      return room;
     case 'bluffTime':
       if (!isHost || room.game || !(BLUFF_TIMES as readonly number[]).includes(a.sec)) return state;
       room.bluffTime = a.sec;
@@ -161,7 +169,7 @@ export function reduce(state: RoomState, a: ActionFrom, ctx: Ctx): RoomState {
 
 export const nextTimer = (room: RoomState): Timer | null => room.game ? modeOf(room.game).nextTimer(room.game) : null;
 // CPU が動くモード
-export const BOT_MODES: readonly string[] = ['fate', 'haiku', 'bluff', 'bouquet'];
+export const BOT_MODES: readonly string[] = ['fate', 'haiku', 'bluff', 'bouquet', 'blend'];
 export const startErrorOf = (room: RoomState) =>
   room.players.some(p => p.bot) && !BOT_MODES.includes(room.gameMode)
     ? 'CPU は、このモードでは動きません。CPU を外すか、ティアリスト・セレクトファイブ以外のモードで遊んでください'

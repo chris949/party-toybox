@@ -9,6 +9,7 @@ import type { HaikuStyle } from '../modes/haiku/themes';
 import type { HaikuState } from '../modes/haiku/rules';
 import type { BluffState } from '../modes/bluff/rules';
 import type { BouquetState } from '../modes/bouquet/rules';
+import type { BlendState } from '../modes/blend/rules';
 
 export interface Player {
   id: string;
@@ -25,7 +26,7 @@ export interface Player {
 export const PICK_MODES = { random: '全部からランダム', each: '作成者ごとに1つずつ' } as const;
 export type PickMode = keyof typeof PICK_MODES;
 
-export const GAME_MODES = { tier: 'ティアリスト', five: 'セレクトファイブ', fate: '運命の二者択一', haiku: 'ハイカー575', bluff: 'ブラインドブラフ', bouquet: 'ワードブーケ' } as const;
+export const GAME_MODES = { tier: 'ティアリスト', five: 'セレクトファイブ', fate: '運命の二者択一', haiku: 'ハイカー575', bluff: 'ブラインドブラフ', bouquet: 'ワードブーケ', blend: 'まぎれろ！' } as const;
 export type GameMode = keyof typeof GAME_MODES;
 
 // ホストだけが持つ部屋の状態
@@ -46,12 +47,14 @@ export interface RoomState {
   bouquetTime: number;    // ワードブーケの、文を作る時間（秒）
   bouquetGoal: number;    // ワードブーケの終わり方（0 = 全員が親を1回。3・5 = 先取）
   bouquetsBy: Record<string, string[]>; // ワードブーケのお題
+  blendTime: number;      // まぎれろ！の、かくれる時間（秒）
+  blendCrowd: number;     // まぎれろ！の、舞台にいるキャラクターの数
   haikusBy: Record<string, string[]>; // ハイカー575 のお題（上の五文字）
   players: Player[];
   topicsBy: Record<string, Topic[]>;
   fivesBy: Record<string, FiveTopic[]>; // セレクトファイブのお題
   fatesBy: Record<string, FateQuestion[]>; // 運命の二者択一の問題
-  game: TierState | FiveState | FateState | HaikuState | BluffState | BouquetState | null; // null = ロビー
+  game: TierState | FiveState | FateState | HaikuState | BluffState | BouquetState | BlendState | null; // null = ロビー
 }
 
 // 状態を進める操作。from は操作した人（タイマーはホスト）
@@ -69,6 +72,12 @@ export type Action =
   | { t: 'bluffTime'; sec: number }
   | { t: 'bouquetTime'; sec: number }
   | { t: 'bouquetGoal'; n: number }
+  | { t: 'blendTime'; sec: number }
+  | { t: 'blendCrowd'; n: number }
+  | { t: 'tick' }                                  // まぎれろ！：位置を進める（ホストのタイマーが出す）
+  | { t: 'go'; round: number; x: number; z: number } // まぎれろ！：かくれる人の行き先
+  | { t: 'grab'; round: number }                   // まぎれろ！：ほしを取る
+  | { t: 'suspect'; round: number; i: number }     // まぎれろ！：「これが人だ」と選ぶ
   | { t: 'phrase'; round: number; tokens: number[] } // ワードブーケ：並べた文を提出する（0以上 = 手札の番号、負の数 = 助詞）
   | { t: 'redraw'; round: number }                    // ワードブーケ：手札を引き直す
   | { t: 'choose'; round: number; id: string }        // ワードブーケ：親が、いちばん刺さったものを選ぶ
