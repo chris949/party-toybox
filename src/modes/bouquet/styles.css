@@ -1,0 +1,25 @@
+/* ワードブーケの画面のスタイル（共通の色や部品は src/styles/app.css） */
+/* 並べた文 */
+.wline { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; min-height: 64px; margin: 12px 0 4px; padding: 10px;
+  border: 2.5px dashed var(--line); border-radius: 14px; background: #fffdf4; }
+.wline:not(.empty) { border-style: solid; border-color: var(--ink); }
+.wlabel { margin: 10px 0 4px; font-weight: 700; }
+.wpool { display: flex; flex-wrap: wrap; gap: 6px; }
+/* 言葉のカード（白）と、つなぐ言葉（水色・小さめ） */
+.wchip { min-height: 40px; padding: 4px 12px; border-radius: 12px; font-size: 15px; font-weight: 800; border-width: 2px; box-shadow: 0 2px 0 var(--ink); }
+.wchip.joint { min-height: 36px; padding: 2px 10px; background: #e2f2fd; border-color: #9fc3dc; box-shadow: none; font-size: 14px; }
+.wline .wchip.joint { background: #e2f2fd; }
+.wchip:disabled { opacity: .3; }
+.wline .wchip:disabled { opacity: 1; }
+/* できた文 */
+.wphrase { font-size: 19px; font-weight: 800; line-height: 1.45; overflow-wrap: anywhere; }
+.wphrase.mine { padding: 12px; border-radius: 14px; background: #fff8e1; border: 2.5px solid var(--ink); margin-bottom: 10px; }
+.wphrase.big { font-size: 26px; font-weight: 900; margin: 8px 0; }
+.wlist { display: grid; gap: 8px; margin-top: 10px; }
+.wentry { display: grid; gap: 4px; padding: 10px 12px; border-radius: 14px; border: 2px solid var(--line); background: var(--field); }
+.wentry.me { border-color: var(--ink); background: #fff8e1; }
+.wentry.won { border-color: var(--mint); background: var(--hit); }
+.wentry button { justify-self: end; }
+.wby { font-size: 13px; font-weight: 800; color: var(--muted); }
+.wby.big { font-size: 16px; color: var(--coral); font-weight: 900; }
+.wbloom { text-align: center; padding: 14px 8px; margin: 12px 0; border-radius: 16px; background: #fff8e1; border: 2.5px solid var(--ink); box-shadow: 0 4px 0 var(--ink); }

@@ -8,6 +8,7 @@ import type { FateState, Side } from '../modes/fate/rules';
 import type { HaikuStyle } from '../modes/haiku/themes';
 import type { HaikuState } from '../modes/haiku/rules';
 import type { BluffState } from '../modes/bluff/rules';
+import type { BouquetState } from '../modes/bouquet/rules';
 
 export interface Player {
   id: string;
@@ -24,7 +25,7 @@ export interface Player {
 export const PICK_MODES = { random: '全部からランダム', each: '作成者ごとに1つずつ' } as const;
 export type PickMode = keyof typeof PICK_MODES;
 
-export const GAME_MODES = { tier: 'ティアリスト', five: 'セレクトファイブ', fate: '運命の二者択一', haiku: 'ハイカー575', bluff: 'ブラインドブラフ' } as const;
+export const GAME_MODES = { tier: 'ティアリスト', five: 'セレクトファイブ', fate: '運命の二者択一', haiku: 'ハイカー575', bluff: 'ブラインドブラフ', bouquet: 'ワードブーケ' } as const;
 export type GameMode = keyof typeof GAME_MODES;
 
 // ホストだけが持つ部屋の状態
@@ -42,17 +43,20 @@ export interface RoomState {
   haikuStyle: HaikuStyle; // ハイカー575 の遊び方（お題持ち寄り／17文字ぜんぶ）
   haikuTime: number;      // ハイカー575 の1文字の制限時間（秒）
   bluffTime: number;      // ブラインドブラフの、しゃべる時間（秒）
+  bouquetTime: number;    // ワードブーケの、文を作る時間（秒）
+  bouquetGoal: number;    // ワードブーケの終わり方（0 = 全員が親を1回。3・5 = 先取）
+  bouquetsBy: Record<string, string[]>; // ワードブーケのお題
   haikusBy: Record<string, string[]>; // ハイカー575 のお題（上の五文字）
   players: Player[];
   topicsBy: Record<string, Topic[]>;
   fivesBy: Record<string, FiveTopic[]>; // セレクトファイブのお題
   fatesBy: Record<string, FateQuestion[]>; // 運命の二者択一の問題
-  game: TierState | FiveState | FateState | HaikuState | BluffState | null; // null = ロビー
+  game: TierState | FiveState | FateState | HaikuState | BluffState | BouquetState | null; // null = ロビー
 }
 
 // 状態を進める操作。from は操作した人（タイマーはホスト）
 export type Action =
-  | { t: 'join'; name: string; key: string; topics: Topic[]; fives?: FiveTopic[]; fates?: FateQuestion[]; haikus?: string[]; chara?: number; version: string; bot?: boolean }
+  | { t: 'join'; name: string; key: string; topics: Topic[]; fives?: FiveTopic[]; fates?: FateQuestion[]; haikus?: string[]; bouquets?: string[]; chara?: number; version: string; bot?: boolean }
   | { t: 'leave' }
   | { t: 'mode'; mode: PickMode }
   | { t: 'time'; sec: number }
@@ -63,11 +67,16 @@ export type Action =
   | { t: 'haikuStyle'; style: HaikuStyle }
   | { t: 'haikuTime'; sec: number }
   | { t: 'bluffTime'; sec: number }
+  | { t: 'bouquetTime'; sec: number }
+  | { t: 'bouquetGoal'; n: number }
+  | { t: 'phrase'; round: number; tokens: number[] } // ワードブーケ：並べた文を提出する（0以上 = 手札の番号、負の数 = 助詞）
+  | { t: 'redraw'; round: number }                    // ワードブーケ：手札を引き直す
+  | { t: 'choose'; round: number; id: string }        // ワードブーケ：親が、いちばん刺さったものを選ぶ
   | { t: 'bet'; round: number; go: boolean }  // ブラインドブラフ：勝負（true）か、降りる（false）か
   | { t: 'kana'; step: number; ch: string }   // ハイカー575：1文字書く
   | { t: 'rate'; round: number; n: number }   // ハイカー575：作品に★を付ける
   | { t: 'chara'; n: number }
-  | { t: 'topics'; topics: Topic[]; fives?: FiveTopic[]; fates?: FateQuestion[]; haikus?: string[] } // ロビーで持っていくお題を送り直す
+  | { t: 'topics'; topics: Topic[]; fives?: FiveTopic[]; fates?: FateQuestion[]; haikus?: string[]; bouquets?: string[] } // ロビーで持っていくお題を送り直す
   | { t: 'editing'; on: boolean }
   | { t: 'retract'; round: number } // 決定した予想・回答を取り消す
   | { t: 'move'; side: Side }

@@ -8,12 +8,13 @@ import { MODES, modeOf } from '../modes';
 import { sanitizeFives } from '../modes/five/topics';
 import { sanitizeFates } from '../modes/fate/questions';
 import { HAIKU_STYLES, sanitizeHaikus } from '../modes/haiku/themes';
-import { BLUFF_TIMES, DEFAULT_BLUFF_TIME, DEFAULT_HAIKU_TIME, HAIKU_TIMES } from './constants';
+import { sanitizeBouquets } from '../modes/bouquet/words';
+import { BOUQUET_GOALS, BOUQUET_TIMES, DEFAULT_BOUQUET_TIME, BLUFF_TIMES, DEFAULT_BLUFF_TIME, DEFAULT_HAIKU_TIME, HAIKU_TIMES } from './constants';
 
 const charaOf = (n: unknown) => Number.isInteger(n) && (n as number) >= 0 && (n as number) < CHARA_MAX ? n as number : null;
 
 export function createRoom(code: string, hostId: string, minPlayers: number): RoomState {
-  return { code, hostId, minPlayers, gameNo: 1, gameMode: 'tier', pickMode: 'random', timeLimit: DEFAULT_TIME_LIMIT, fateTime: DEFAULT_FATE_TIME, fateQuota: DEFAULT_FATE_QUOTA, fateLives: DEFAULT_FATE_LIVES, haikuStyle: 'theme', haikuTime: DEFAULT_HAIKU_TIME, bluffTime: DEFAULT_BLUFF_TIME, haikusBy: {}, players: [], topicsBy: {}, fivesBy: {}, fatesBy: {}, game: null };
+  return { code, hostId, minPlayers, gameNo: 1, gameMode: 'tier', pickMode: 'random', timeLimit: DEFAULT_TIME_LIMIT, fateTime: DEFAULT_FATE_TIME, fateQuota: DEFAULT_FATE_QUOTA, fateLives: DEFAULT_FATE_LIVES, haikuStyle: 'theme', haikuTime: DEFAULT_HAIKU_TIME, bluffTime: DEFAULT_BLUFF_TIME, bouquetTime: DEFAULT_BOUQUET_TIME, bouquetGoal: 0, bouquetsBy: {}, haikusBy: {}, players: [], topicsBy: {}, fivesBy: {}, fatesBy: {}, game: null };
 }
 
 // 参加を受け付けるか。断るときはその理由
@@ -23,7 +24,7 @@ export function joinError(room: RoomState, id: string, a: Extract<Action, { t: '
   if (room.game) return 'ゲーム進行中のため参加できません';
   if (room.players.length >= MAX_PLAYERS) return `満員です（最大${MAX_PLAYERS}人）`;
   if (a.bot) return null; // CPU は、お題を持ってこない
-  if (!sanitizeTopics(a.topics).length && !sanitizeFives(a.fives).length && !sanitizeFates(a.fates).length && !sanitizeHaikus(a.haikus).length) return 'お題を1つ以上持ってきてください';
+  if (!sanitizeTopics(a.topics).length && !sanitizeFives(a.fives).length && !sanitizeFates(a.fates).length && !sanitizeHaikus(a.haikus).length && !sanitizeBouquets(a.bouquets).length) return 'お題を1つ以上持ってきてください';
   return null;
 }
 
@@ -34,7 +35,7 @@ export function reduce(state: RoomState, a: ActionFrom, ctx: Ctx): RoomState {
   switch (a.t) {
     case 'join': {
       if (joinError(room, a.from, a)) return state;
-      const tps = sanitizeTopics(a.topics), fvs = sanitizeFives(a.fives), fts = sanitizeFates(a.fates), hks = sanitizeHaikus(a.haikus);
+      const tps = sanitizeTopics(a.topics), fvs = sanitizeFives(a.fives), fts = sanitizeFates(a.fates), hks = sanitizeHaikus(a.haikus), bqs = sanitizeBouquets(a.bouquets);
       let p = room.players.find(x => x.id === a.from);
       if (!p) {
         p = { id: a.from, key: clean(a.key, 64), name: '', online: true, score: 0, version: '', chara: 0 };
@@ -45,7 +46,7 @@ export function reduce(state: RoomState, a: ActionFrom, ctx: Ctx): RoomState {
       p.online = true;
       p.version = clean(a.version, 20) || '不明';
       p.chara = charaOf(a.chara) ?? p.chara;
-      if (!room.game && (tps.length || fvs.length || fts.length || hks.length)) { room.topicsBy[a.from] = tps; room.fivesBy[a.from] = fvs; room.fatesBy[a.from] = fts; room.haikusBy[a.from] = hks; }
+      if (!room.game && (tps.length || fvs.length || fts.length || hks.length || bqs.length)) { room.topicsBy[a.from] = tps; room.fivesBy[a.from] = fvs; room.fatesBy[a.from] = fts; room.haikusBy[a.from] = hks; room.bouquetsBy[a.from] = bqs; }
       return room;
     }
     case 'leave': {
@@ -57,6 +58,7 @@ export function reduce(state: RoomState, a: ActionFrom, ctx: Ctx): RoomState {
         delete room.fivesBy[a.from];
         delete room.fatesBy[a.from];
         delete room.haikusBy[a.from];
+        delete room.bouquetsBy[a.from];
       } else {
         p.online = false;
         modeOf(room.game).checkAdvance(room, room.game, ctx);
@@ -82,6 +84,14 @@ export function reduce(state: RoomState, a: ActionFrom, ctx: Ctx): RoomState {
     case 'haikuStyle':
       if (!isHost || room.game || !(a.style in HAIKU_STYLES)) return state;
       room.haikuStyle = a.style;
+      return room;
+    case 'bouquetTime':
+      if (!isHost || room.game || !(BOUQUET_TIMES as readonly number[]).includes(a.sec)) return state;
+      room.bouquetTime = a.sec;
+      return room;
+    case 'bouquetGoal':
+      if (!isHost || room.game || !(BOUQUET_GOALS as readonly number[]).includes(a.n)) return state;
+      room.bouquetGoal = a.n;
       return room;
     case 'bluffTime':
       if (!isHost || room.game || !(BLUFF_TIMES as readonly number[]).includes(a.sec)) return state;
@@ -118,6 +128,7 @@ export function reduce(state: RoomState, a: ActionFrom, ctx: Ctx): RoomState {
       room.fivesBy[a.from] = sanitizeFives(a.fives);
       room.fatesBy[a.from] = sanitizeFates(a.fates);
       room.haikusBy[a.from] = sanitizeHaikus(a.haikus);
+      room.bouquetsBy[a.from] = sanitizeBouquets(a.bouquets);
       return room;
     }
     case 'editing': {
@@ -138,6 +149,7 @@ export function reduce(state: RoomState, a: ActionFrom, ctx: Ctx): RoomState {
       room.fivesBy = Object.fromEntries(room.players.map(p => [p.id, room.fivesBy[p.id] ?? []]));
       room.fatesBy = Object.fromEntries(room.players.map(p => [p.id, room.fatesBy[p.id] ?? []]));
       room.haikusBy = Object.fromEntries(room.players.map(p => [p.id, room.haikusBy[p.id] ?? []]));
+      room.bouquetsBy = Object.fromEntries(room.players.map(p => [p.id, room.bouquetsBy[p.id] ?? []]));
       room.gameNo++;
       room.game = null;
       return room;
@@ -149,8 +161,8 @@ export function reduce(state: RoomState, a: ActionFrom, ctx: Ctx): RoomState {
 
 export const nextTimer = (room: RoomState): Timer | null => room.game ? modeOf(room.game).nextTimer(room.game) : null;
 // CPU が動くモード
-export const BOT_MODES: readonly string[] = ['fate', 'haiku', 'bluff'];
+export const BOT_MODES: readonly string[] = ['fate', 'haiku', 'bluff', 'bouquet'];
 export const startErrorOf = (room: RoomState) =>
   room.players.some(p => p.bot) && !BOT_MODES.includes(room.gameMode)
-    ? 'CPU は、このモードでは動きません。CPU を外すか、運命の二者択一・ハイカー575・ブラインドブラフで遊んでください'
+    ? 'CPU は、このモードでは動きません。CPU を外すか、ティアリスト・セレクトファイブ以外のモードで遊んでください'
     : MODES[room.gameMode].startError(room);

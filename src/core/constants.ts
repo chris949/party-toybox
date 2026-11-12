@@ -42,3 +42,9 @@ export const BLUFF_ROUNDS = 8;
 export const BLUFF_CARD_MAX = 13;                   // カードは 1〜13。同じ数字は配らない
 export const BLUFF_START = 10;                      // 最初の持ち点
 export const BLUFF_FOLD = 1, BLUFF_LOSE = 2, BLUFF_STRONG_FOLD = 2; // 降りる／勝負して負け／いちばん強いのに降りた（追加）
+
+// ワードブーケ（src/modes/bouquet/README.md の14章）
+export const BOUQUET_TIMES = [45, 60, 90] as const;  // 文を作る時間（秒）。ホストがロビーで選ぶ
+export const DEFAULT_BOUQUET_TIME = 60;
+export const BOUQUET_GOALS = [0, 3, 5] as const;     // 終わり方：0 = 全員が親を1回、3・5 = その点を先取
+export const BOUQUET_MAX_ROUNDS = 40;                // 先取のとき、長くなりすぎないよう打ち切るラウンド数

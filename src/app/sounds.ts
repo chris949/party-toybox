@@ -13,6 +13,15 @@ export function playStateSounds(prev: PlayerView | null, next: PlayerView) {
     else if (next.phase === 'result') Sound.play('fanfare');
     return;
   }
+  // ワードブーケ：手札が配られたらポロン、作品が出そろったらドラムロール、親が選んだらファンファーレ
+  if (next.bouquet) {
+    if (turn(prev) === turn(next)) return;
+    if (next.phase === 'compose') Sound.play('start');
+    else if (next.phase === 'choose') Sound.play('drumroll');
+    else if (next.phase === 'bloom') Sound.play(next.bouquet.winner ? 'fanfare' : 'pop');
+    else if (next.phase === 'result') Sound.play('fanfare');
+    return;
+  }
   // ブラインドブラフ：カードが配られたらポロン、発表でドラムロールのあとファンファーレ
   if (next.bluff) {
     if (turn(prev) === turn(next)) return;
