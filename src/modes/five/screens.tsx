@@ -1,8 +1,9 @@
-// セレクトファイブの画面：答える・答え合わせ（docs/spec.md の10.6・10.7）
+// セレクトファイブの画面：答える・答え合わせ（src/modes/five/README.md の10.6・10.7）
+import './styles.css';
 import { useEffect } from 'react';
 import { motion } from 'motion/react';
 import { ensureFivePick, isHost, retract, send, submitFive, toggleFive, type Pub, useStore } from '../../app/store';
-import { FIVE_PICK } from '../../core/fives';
+import { FIVE_PICK } from './topics';
 import { Standings } from '../../ui/common';
 import { Timer, useDeadline, Waiting } from '../tier/screens/parts';
 

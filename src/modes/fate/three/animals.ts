@@ -1,4 +1,4 @@
-// おもちゃ風の動物（docs/spec.md の11.12）。球と円すいを組み合わせて作る。並びは 2D のキャラクター（charas.tsx）と同じ
+// おもちゃ風の動物（src/modes/fate/README.md の11.12）。球と円すいを組み合わせて作る。並びは 2D のキャラクター（charas.tsx）と同じ
 import * as THREE from 'three';
 import { CHIBIS, makeChibi } from './chibis';
 import { tinted } from './tint';

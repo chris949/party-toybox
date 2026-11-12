@@ -1,0 +1,101 @@
+/* 運命の二者択一の画面のスタイル（共通の色や部品は src/styles/app.css） */
+/* ===== 運命の二者択一（v0.14） ===== */
+/* キャラクター（仮の絵）。枠の色で、同じキャラクターを選んだ人を見分ける */
+.chara { position: relative; display: inline-grid; place-items: center; flex: none; border-radius: 50%; border: 3px solid var(--ink);
+  background: #fff; line-height: 1; box-shadow: 0 2px 0 rgba(31,45,61,.25); }
+.chara .face { display: block; }
+.chara .fx { position: absolute; right: -6px; top: -6px; font-size: .55em; }
+.chara.move .face { animation: waddle .22s ease-in-out infinite alternate; }
+.chara.fall .face { transform: rotate(-14deg) scale(1.08); }
+.chara.ghost { border-style: dashed; background: #eef3f7; }
+.chara.ghost .face { filter: grayscale(1); opacity: .75; }
+@keyframes waddle { from { transform: rotate(-12deg) translateY(0); } to { transform: rotate(12deg) translateY(-3px); } }
+.chara-pick { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+.chara-pick button { min-height: 44px; padding: 0; font-size: 24px; border-width: 2px; border-color: var(--line); box-shadow: none; }
+.chara-pick button.on { background: #fff4cc; border-color: var(--ink); box-shadow: 0 3px 0 var(--ink); }
+
+/* 残り時間の帯・ひとこと・左右の答え */
+.fbar { height: 8px; margin: 10px 0 2px; border-radius: 999px; background: var(--field); border: 2px solid var(--line); overflow: hidden; }
+.fbar span { display: block; height: 100%; background: var(--sky); border-radius: 999px; transition: width .1s linear; }
+.fstrip { min-height: 58px; margin: 6px 0; display: grid; align-content: center; gap: 2px; text-align: center; font-weight: 700; font-size: 14px; }
+.fstrip .big, .fwin .big { font-size: 20px; font-weight: 900; }
+.fans-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12%; }
+button.fans { display: flex; gap: 8px; align-items: center; text-align: left; min-height: 58px; padding: 8px 10px; font-size: 16px; font-weight: 800;
+  border-color: var(--line); box-shadow: none; border-radius: 14px 14px 0 0; border-bottom-width: 0; }
+button.fans:disabled { opacity: 1; }
+button.fans:active:not(:disabled) { transform: none; }
+.fans.l { background: #e2f2fd; }
+.fans.r { background: #fff3cf; }
+.fans.sel { border-color: var(--ink); }
+.fans .ab { flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: #fff; border: 2px solid var(--ink); font-size: 14px; }
+.fans .txt { min-width: 0; overflow-wrap: anywhere; line-height: 1.3; }
+.fans.ok { background: var(--hit); border-color: var(--mint); }
+.fans.ng { background: #eef1f4; color: var(--muted); }
+.fans.ng .txt { text-decoration: line-through; }
+
+/* 舞台：上に左右の床、下の真ん中にスタート台。床は左右に開く2枚の扉で、下は穴 */
+.fstage { position: relative; transition: height .2s; }
+button.floor { position: absolute; top: 0; width: 44%; padding: 0; min-height: 0; overflow: hidden; background: none; box-shadow: none;
+  border: 2.5px solid var(--line); border-radius: 0 0 16px 16px; }
+button.floor.l { left: 0; }
+button.floor.r { right: 0; }
+button.floor:disabled { opacity: 1; }
+button.floor:active:not(:disabled) { transform: none; }
+.floor.sel { border-color: var(--ink); }
+.pad { position: absolute; left: 3%; right: 3%; overflow: hidden; border: 2.5px solid var(--line); border-radius: 62px; }
+.hole { position: absolute; inset: 0; background: radial-gradient(ellipse at center, #050a10 0%, #1f2d3d 75%, #3a4a5c 100%); }
+.door { position: absolute; top: 0; bottom: 0; width: 50.5%; transition: transform .28s cubic-bezier(.55, 0, .9, .4);
+  background: #cfe9fb repeating-linear-gradient(45deg, rgba(255,255,255,.45) 0 10px, transparent 10px 20px); }
+.door.a { left: 0; transform-origin: left; }
+.door.b { right: 0; transform-origin: right; }
+.floor.r .door { background-color: #ffe7a0; }
+.pad .door { background-color: #e6eef5; }
+.pad .lbl { position: absolute; left: 0; right: 0; bottom: 4px; text-align: center; font-size: 10px; font-weight: 800; color: #9fb3c4; }
+.open .door { transform: scaleX(.05); }
+.blink .door { animation: door-blink 2s cubic-bezier(.55, 0, .9, .4) both; }
+@keyframes door-blink { 0%, 100% { transform: none; } 14%, 55% { transform: scaleX(.05); } }
+.floor.ok { border-color: var(--mint); animation: floor-ok 1s ease-in-out 3; }
+.floor.ok .door { background-color: #bdf0dc; }
+@keyframes floor-ok { 0%, 100% { box-shadow: 0 0 0 0 var(--mint); } 50% { box-shadow: 0 0 0 5px var(--mint), 0 0 24px 6px color-mix(in srgb, var(--mint) 60%, transparent); } }
+.fstage.quake { animation: quake .5s ease-out .55s; }
+@keyframes quake { 0%, 100% { transform: none; } 20% { transform: translate(-5px, 3px); } 40% { transform: translate(5px, -3px); } 60% { transform: translate(-3px, 2px); } 80% { transform: translate(2px, -1px); } }
+
+/* 舞台の上のキャラクター（タップは下の床に通す） */
+.piece { position: absolute; z-index: 2; width: 44px; margin-left: -22px; pointer-events: none; }
+.piece.me { z-index: 3; }
+.piece .nm { display: block; width: 50px; margin: 1px 0 0 -3px; padding: 0 3px; border-radius: 6px; background: rgba(255,255,255,.88);
+  font-size: 10px; font-weight: 800; line-height: 1.3; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.piece.me .nm { background: var(--sun); box-shadow: 0 0 0 1.5px var(--ink); }
+.piece .arrow { position: absolute; left: 0; right: 0; top: -13px; text-align: center; font-size: 11px; line-height: 1; color: var(--coral);
+  -webkit-text-stroke: 3px #fff; paint-order: stroke fill; animation: bob .8s ease-in-out infinite; }
+.piece .tag { position: absolute; left: -6px; top: 30px; font-size: 9px; font-weight: 800; padding: 0 4px; border-radius: 6px; background: var(--ink); color: #fff; }
+@keyframes bob { 50% { transform: translateY(-3px); } }
+.float { animation: bob 1.6s ease-in-out infinite; }
+.hang { animation: hang .5s linear; }
+@keyframes hang { 0%, 100% { transform: none; } 15% { transform: translate(-3px, -6px) rotate(-10deg); } 35% { transform: translate(3px, -8px) rotate(10deg); }
+  55% { transform: translate(-3px, -7px) rotate(-8deg); } 75% { transform: translate(2px, -5px) rotate(8deg); } }
+.hop { animation: hop .5s ease-out .3s 2; }
+@keyframes hop { 0%, 100% { transform: none; } 40% { transform: translateY(-12px); } 70% { transform: translateY(0); } 85% { transform: translateY(-4px); } }
+.fwin { text-align: center; padding: 6px 0 12px; }
+.rank-row .chara { margin: -4px 0; }
+@media (prefers-reduced-motion: reduce) {
+  .chara.move .face, .piece .arrow, .float, .hang, .hop, .fstage.quake, .floor.ok, .blink .door { animation: none; }
+  .door { transition: none; }
+}
+
+/* 3Dの舞台（v0.15） */
+.fstage3d { display: block; width: 100%; aspect-ratio: 1.25; border-radius: 0 0 16px 16px; cursor: pointer; touch-action: manipulation;
+  background: linear-gradient(#f3faff, #dcedf9); }
+.mini-seg { flex: none; gap: 4px; }
+.mini-seg button { min-height: 30px; padding: 2px 10px; font-size: 12px; }
+
+/* お立ち台（v0.16）：その問題を作った人が立つ。左右の床のあいだ */
+.podium { position: absolute; top: 0; left: 45%; width: 10%; border: 2.5px solid var(--ink); border-radius: 12px;
+  background: linear-gradient(#ffe08a, var(--sun)); box-shadow: 0 3px 0 var(--ink); }
+.podium .lbl { position: absolute; left: 0; right: 0; bottom: 6px; text-align: center; writing-mode: vertical-rl; margin: 0 auto;
+  font-size: 10px; font-weight: 800; color: #9a6a00; letter-spacing: .1em; }
+
+/* ライフ（残機） */
+.hp { color: var(--coral); font-weight: 900; letter-spacing: 1px; }
+.piece .hp { display: block; width: 50px; margin-left: -3px; text-align: center; font-size: 9px; line-height: 1; -webkit-text-stroke: 2px #fff; paint-order: stroke fill; }
+.hp.big { font-size: 15px; }

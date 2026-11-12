@@ -3,7 +3,7 @@ import { useState, type ReactNode } from 'react';
 import { motion } from 'motion/react';
 import { Sound } from '../audio/sound';
 import { APP_VERSION, COMMIT, closeDialog, useStore } from '../app/store';
-import type { PlayerSummary } from '../modes/tier/view';
+import type { PlayerSummary } from '../core/view';
 
 export const TIER_COLORS = ['#ff6f6f', '#ff9f43', '#ffc83d', '#bde05a', '#36c99a', '#4ac3d6', '#4aa6f0'];
 export const tierColor = (r: number, n: number) => TIER_COLORS[n <= 1 ? 0 : Math.round((r / (n - 1)) * (TIER_COLORS.length - 1))];
@@ -31,7 +31,7 @@ export function Logo() {
   return (
     <div className="logo">
       <div className="bands">{[0, 2, 3, 4, 6].map(i => <span key={i} style={{ background: TIER_COLORS[i] }} />)}</div>
-      <h1>ティアリスト<br /><span className="w">ウォーズ</span></h1>
+      <h1>パーティ<br /><span className="w">トイボックス</span></h1>
     </div>
   );
 }
@@ -39,7 +39,7 @@ export function Logo() {
 export function TitleBar({ right }: { right?: ReactNode }) {
   return (
     <div className="bar">
-      <h1>ティアリスト<span className="w">ウォーズ</span></h1>
+      <h1>パーティ<span className="w">トイボックス</span></h1>
       <div className="row"><SoundButton />{right}</div>
     </div>
   );

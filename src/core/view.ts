@@ -1,14 +1,14 @@
 // 各参加者に見せてよい情報を作る（ロビーと、どちらのモードでも共通）。他人の順位・正解は答え合わせまで送らない
-import type { RoomState } from '../../core/types';
-import { startErrorOf } from '../../core/room';
-import { currentTarget, type Assigned, type Reveal, type TierPhase, type TierState } from './rules';
-import { answers, type FivePhase, type FiveState } from '../five/rules';
-import { fiveView, type FiveView } from '../five/view';
-import type { FatePhase, FateState } from '../fate/rules';
-import { fateView, type FateView } from '../fate/view';
-import { currentSheet, type HaikuPhase, type HaikuState } from '../haiku/rules';
-import { haikuView, type HaikuView } from '../haiku/view';
-import type { HaikuStyle } from '../../core/haikus';
+import type { RoomState } from './types';
+import { startErrorOf } from './room';
+import { currentTarget, type Assigned, type Reveal, type TierPhase, type TierState } from '../modes/tier/rules';
+import { answers, type FivePhase, type FiveState } from '../modes/five/rules';
+import { fiveView, type FiveView } from '../modes/five/view';
+import type { FatePhase, FateState } from '../modes/fate/rules';
+import { fateView, type FateView } from '../modes/fate/view';
+import { currentSheet, type HaikuPhase, type HaikuState } from '../modes/haiku/rules';
+import { haikuView, type HaikuView } from '../modes/haiku/view';
+import type { HaikuStyle } from '../modes/haiku/themes';
 
 export type ViewPhase = 'lobby' | TierPhase | FivePhase | FatePhase | HaikuPhase;
 

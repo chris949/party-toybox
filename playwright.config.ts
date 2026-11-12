@@ -4,6 +4,7 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: 'e2e',
   timeout: 120_000,
+  workers: 1, // モードごとにファイルを分けたが、今までどおり1つずつ順番に走らせる（同時に走らせると、秒読みのあるテストが不安定になる）
   retries: 1, // 不安定なときは1回だけやり直す
   reporter: process.env.CI ? [['github'], ['list']] : 'list',
   use: { baseURL: 'http://127.0.0.1:4173', trace: 'retain-on-failure' },

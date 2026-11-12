@@ -1,0 +1,16 @@
+/* セレクトファイブの画面のスタイル（共通の色や部品は src/styles/app.css） */
+/* セレクトファイブの選択肢カード */
+.fgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.fcard { position: relative; min-height: 52px; padding: 10px 12px; border-radius: 14px; border: 2.5px solid var(--line); background: var(--field);
+  font: inherit; font-weight: 800; font-size: 15px; color: var(--ink); text-align: left; box-shadow: none; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+button.fcard { cursor: pointer; }
+button.fcard:disabled:not(.on) { opacity: .45; }
+.fcard.on { background: #fff4cc; border-color: var(--ink); box-shadow: 0 3px 0 var(--ink); }
+.fcard.ok { background: var(--hit); border-color: var(--mint); }
+.fcard.dummy { background: var(--miss); border-color: var(--coral); }
+.fcard.mine { box-shadow: 0 0 0 2.5px var(--ink); }
+.fcard .tag { font-size: 11px; padding: 1px 6px; border-radius: 6px; color: #fff; background: var(--mint); }
+.fcard.dummy .tag { background: var(--coral); }
+.fcard .cnt { margin-left: auto; font-size: 12px; color: var(--muted); }
+.focus-rank.dummy-hit { color: var(--coral); font-size: 20px; }
+.dummy-box { margin-top: 14px; padding-top: 12px; border-top: 2px dashed var(--line); }

@@ -1,6 +1,6 @@
 // 状態が変わったときの効果音
 import { Sound } from '../audio/sound';
-import type { PlayerView } from '../modes/tier/view';
+import type { PlayerView } from '../core/view';
 
 export function playStateSounds(prev: PlayerView | null, next: PlayerView) {
   const turn = (x: PlayerView | null) => x && `${x.phase}-${x.gameNo}-${x.round}`;

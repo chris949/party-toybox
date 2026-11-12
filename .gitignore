@@ -3,3 +3,8 @@ dist
 .DS_Store
 test-results
 playwright-report
+
+# 手元だけで使う Claude Code の Skill（他の人が作ったものを含むので、ライセンスを確かめるまで公開リポジトリには入れない）
+.claude/
+.env
+.env.*

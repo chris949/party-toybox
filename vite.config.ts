@@ -10,7 +10,7 @@ const commit = (() => {
 })();
 
 export default defineConfig({
-  // GitHub Pages（/tier-list-wars/）でも手元でも動くよう、相対パスで出力する
+  // GitHub Pages（/party-toybox/）でも手元でも動くよう、相対パスで出力する
   base: './',
   plugins: [react()],
   define: {

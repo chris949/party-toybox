@@ -2,10 +2,10 @@
 import { create } from 'zustand';
 import { Sound } from '../audio/sound';
 import { MIN_PLAYERS_DEFAULT, MIN_PLAYERS_DEV } from '../core/constants';
-import { FIVE_PICK } from '../core/fives';
+import { FIVE_PICK } from '../modes/five/topics';
 import type { Action } from '../core/types';
 import type { Side } from '../modes/fate/rules';
-import type { PlayerView } from '../modes/tier/view';
+import type { PlayerView } from '../core/view';
 import { startGuest, type GuestOptions, type GuestSession } from '../net/guest';
 import { startHost, type HostSession } from '../net/host';
 import { ROOM_CODE_LEN } from '../net/protocol';

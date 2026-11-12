@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_FATE_LIVES, DEFAULT_FATE_QUOTA, DEFAULT_FATE_TIME, FATE_GRACE_MS, FATE_VERDICT_MS, MAX_PLAYERS } from '../src/core/constants';
-import { fateKey, SAMPLE_FATES, sanitizeFates, type FateQuestion } from '../src/core/fates';
-import { SAMPLE_FIVES, type FiveTopic } from '../src/core/fives';
+import { fateKey, SAMPLE_FATES, sanitizeFates, type FateQuestion } from '../src/modes/fate/questions';
+import { SAMPLE_FIVES, type FiveTopic } from '../src/modes/five/topics';
 import { nextTimer } from '../src/core/room';
 import { seeded } from '../src/core/random';
 import { cardOf, fateRanks, survivors, type FateState, type Side } from '../src/modes/fate/rules';
-import { viewFor } from '../src/modes/tier/view';
+import { viewFor } from '../src/core/view';
 import { samples, testRoom } from './helpers';
 
 const q = (text: string): FateQuestion => ({ text, right: `${text}の正解`, wrong: `${text}の不正解` });

@@ -1,6 +1,6 @@
-// ハイカー575 のルール（docs/spec.md の12章）。画面・通信・ブラウザの機能は使わない（時刻と乱数は ctx で受け取る）
+// ハイカー575 のルール（src/modes/haiku/README.md の12章）。画面・通信・ブラウザの機能は使わない（時刻と乱数は ctx で受け取る）
 import { HAIKU_RATE_SEC, HAIKU_REVEAL_FIRST_MS, HAIKU_REVEAL_STEP_MS, PICK_GRACE_MS } from '../../core/constants';
-import { HAIKU_LEN, RANDOM_KANA, SAMPLE_HAIKUS, THEME_LEN, toKana, type HaikuStyle } from '../../core/haikus';
+import { HAIKU_LEN, RANDOM_KANA, SAMPLE_HAIKUS, THEME_LEN, toKana, type HaikuStyle } from './themes';
 import { shuffle } from '../../core/random';
 import type { ActionFrom, Ctx, RoomState, Timer } from '../../core/types';
 

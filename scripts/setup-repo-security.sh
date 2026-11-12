@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # リポジトリのセキュリティ設定（docs/dependency-policy.md の4章・5章）。何度実行しても同じ状態になる
 set -euo pipefail
-REPO=chris949/tier-list-wars
+REPO=chris949/party-toybox
 
 echo "1/5 Dependabot alerts と security updates を有効にする"
 gh api -X PUT "repos/$REPO/vulnerability-alerts" --silent

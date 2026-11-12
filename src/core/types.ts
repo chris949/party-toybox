@@ -1,11 +1,11 @@
 import type { Random } from './random';
-import type { Topic } from './topics';
-import type { FiveTopic } from './fives';
+import type { Topic } from '../modes/tier/topics';
+import type { FiveTopic } from '../modes/five/topics';
 import type { TierState } from '../modes/tier/rules';
 import type { FiveState } from '../modes/five/rules';
-import type { FateQuestion } from './fates';
+import type { FateQuestion } from '../modes/fate/questions';
 import type { FateState, Side } from '../modes/fate/rules';
-import type { HaikuStyle } from './haikus';
+import type { HaikuStyle } from '../modes/haiku/themes';
 import type { HaikuState } from '../modes/haiku/rules';
 
 export interface Player {

@@ -1,6 +1,6 @@
-// セレクトファイブのルール（docs/spec.md の10章）。画面・通信・ブラウザの機能は使わない（時刻と乱数は ctx で受け取る）
+// セレクトファイブのルール（src/modes/five/README.md の10章）。画面・通信・ブラウザの機能は使わない（時刻と乱数は ctx で受け取る）
 import { PERFECT_BONUS, PICK_GRACE_MS, REVEAL_FIRST_MS, REVEAL_STEP_MS } from '../../core/constants';
-import { dummyRange, FIVE_PICK, fiveKey, SAMPLE_FIVE_KEYS, SAMPLE_FIVES, type FiveTopic } from '../../core/fives';
+import { dummyRange, FIVE_PICK, fiveKey, SAMPLE_FIVE_KEYS, SAMPLE_FIVES, type FiveTopic } from './topics';
 import { shuffle } from '../../core/random';
 import type { ActionFrom, Ctx, RoomState, Timer } from '../../core/types';
 

@@ -1,9 +1,9 @@
-// ティアリストウォーズのルール。画面・通信・ブラウザの機能は使わない（時刻と乱数は ctx で受け取る）
+// ティアリストのルール。画面・通信・ブラウザの機能は使わない（時刻と乱数は ctx で受け取る）
 import {
   PERFECT_BONUS, PICK_GRACE_MS, REVEAL_FIRST_MS, REVEAL_STEP_MS, REVEAL_SUSPENSE_MS,
 } from '../../core/constants';
 import { shuffle } from '../../core/random';
-import { SAMPLE_KEYS, topicKey } from '../../core/topics';
+import { SAMPLE_KEYS, topicKey } from './topics';
 import type { ActionFrom, Ctx, Player, RoomState, Timer } from '../../core/types';
 
 export type TierPhase = 'ranking' | 'guess' | 'reveal' | 'result';

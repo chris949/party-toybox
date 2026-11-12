@@ -1,12 +1,13 @@
 // 部屋の進行（どのモードでも共通）：参加・退出・ロビーの設定・開始・ロビーに戻る。
 // ゲーム中の操作はモードに渡す。画面・通信・ブラウザの機能は使わない
 import { CHARA_MAX, DEFAULT_FATE_LIVES, FATE_LIVES, DEFAULT_FATE_QUOTA, DEFAULT_FATE_TIME, FATE_QUOTAS, DEFAULT_TIME_LIMIT, FATE_TIMES, MAX_PLAYERS, NAME_MAX, TIME_LIMITS } from './constants';
-import { clean, sanitizeTopics } from './topics';
+import { clean } from './text';
+import { sanitizeTopics } from '../modes/tier/topics';
 import { GAME_MODES, PICK_MODES, type Action, type ActionFrom, type Ctx, type RoomState, type Timer } from './types';
 import { MODES, modeOf } from '../modes';
-import { sanitizeFives } from './fives';
-import { sanitizeFates } from './fates';
-import { HAIKU_STYLES, sanitizeHaikus } from './haikus';
+import { sanitizeFives } from '../modes/five/topics';
+import { sanitizeFates } from '../modes/fate/questions';
+import { HAIKU_STYLES, sanitizeHaikus } from '../modes/haiku/themes';
 import { DEFAULT_HAIKU_TIME, HAIKU_TIMES } from './constants';
 
 const charaOf = (n: unknown) => Number.isInteger(n) && (n as number) >= 0 && (n as number) < CHARA_MAX ? n as number : null;

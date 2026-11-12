@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_TIME_LIMIT, PERFECT_BONUS, PICK_GRACE_MS } from '../src/core/constants';
-import { dummyRange, FIVE_PICK, fiveKey, SAMPLE_FIVES, sanitizeFives, type FiveTopic } from '../src/core/fives';
+import { dummyRange, FIVE_PICK, fiveKey, SAMPLE_FIVES, sanitizeFives, type FiveTopic } from '../src/modes/five/topics';
 import { seeded } from '../src/core/random';
 import { deal, roundOf, validPicks } from '../src/modes/five/rules';
 import { fiveView } from '../src/modes/five/view';
