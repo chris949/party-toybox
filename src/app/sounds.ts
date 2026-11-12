@@ -13,6 +13,17 @@ export function playStateSounds(prev: PlayerView | null, next: PlayerView) {
     else if (next.phase === 'result') Sound.play('fanfare');
     return;
   }
+  // まぎれろ！：始まりでポロン、ほしが取られたらポン、発表でファンファーレ（位置は1秒に何度も届くので、変わり目だけ鳴らす）
+  if (next.blend) {
+    if (turn(prev) === turn(next)) {
+      if (prev?.blend && next.blend.stars > prev.blend.stars) Sound.play('pop');
+      return;
+    }
+    if (next.phase === 'hide') Sound.play('start');
+    else if (next.phase === 'found') Sound.play(next.blend.void ? 'pop' : 'fanfare');
+    else if (next.phase === 'result') Sound.play('fanfare');
+    return;
+  }
   // ワードブーケ：手札が配られたらポロン、作品が出そろったらドラムロール、親が選んだらファンファーレ
   if (next.bouquet) {
     if (turn(prev) === turn(next)) return;

@@ -96,7 +96,23 @@ export function startHost(o: HostOptions): void {
       return setTimeout(() => dispatch(b.id, { t: 'phrase', round: g.round, tokens }), 3000 + Math.random() * 7000);
     });
   }
+  // まぎれろ！：さがす側の CPU は、時間のどこかで1体を選ぶ（4回に1回は当てる）。かくれる側の CPU は、ルールが動かす
+  function runBlendBots() {
+    const g = room.game;
+    const bots = botsNow();
+    if (!bots.length || g?.kind !== 'blend' || g.phase !== 'hide') return;
+    const turn = `${room.gameNo}-blend-${g.round}`;
+    if (turn === botTurn) return;
+    botTurn = turn;
+    botTimers.forEach(clearTimeout);
+    const span = g.deadline - Date.now();
+    botTimers = bots.filter(b => b.id !== g.hiderId).map(b => {
+      const i = Math.random() < 0.25 ? g.me : Math.floor(Math.random() * g.mobs.length);
+      return setTimeout(() => dispatch(b.id, { t: 'suspect', round: g.round, i }), span * (0.3 + Math.random() * 0.65));
+    });
+  }
   function runBots() {
+    runBlendBots();
     runBouquetBots();
     runHaikuBots();
     runBluffBots();
