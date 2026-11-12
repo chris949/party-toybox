@@ -3,7 +3,8 @@ import { MAX_OPT, MAX_PLAYERS, MIN_OPT, NAME_MAX, PERFECT_BONUS, MIN_PLAYERS_DEF
 import { ROOM_CODE_LEN } from '../net/protocol';
 import { Logo, Notice, SoundButton, Version } from '../ui/common';
 import { CharaPicker } from '../modes/fate/charas';
-import { hostRoom, joinRoom, setChara, setName, setScreen, useStore } from './store';
+import { APP_VERSION, hostRoom, joinRoom, setChara, setName, setScreen, useStore } from './store';
+import { feedbackUrl } from './feedback';
 
 export function Home() {
   const { name, topics, fives, fates, haikus, bouquets, chara, notice, connecting, lastRoom } = useStore();
@@ -74,6 +75,10 @@ export function Home() {
           <li>モードを「ハイカー575」にすると、みんなで1文字ずつ書いて回し、五・七・五の句を作って遊べます。できた句は担当者が読み上げて、全員で★を付けます。</li>
         </ol>
       </details>
+      <section className="card">
+        <button className="wide" onClick={() => window.open(feedbackUrl(APP_VERSION), '_blank', 'noopener')}>💬 意見・不具合を送る</button>
+        <p className="muted small" style={{ margin: '8px 0 0' }}>GitHub のページが開きます（GitHub のアカウントが要ります）。送った内容は誰でも読めるように公開されるので、名前や連絡先は書かないでください。</p>
+      </section>
     </>
   );
 }
