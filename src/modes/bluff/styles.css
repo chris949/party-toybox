@@ -1,0 +1,19 @@
+/* ブラインドブラフの画面のスタイル（共通の色や部品は src/styles/app.css） */
+/* 全員が、頭の上にカードを掲げて並ぶ */
+.btable { display: grid; grid-template-columns: repeat(auto-fit, minmax(88px, 1fr)); gap: 12px 8px; margin: 14px 0; }
+.bseat { display: grid; justify-items: center; gap: 4px; padding: 8px 4px; border-radius: 14px; border: 2px solid transparent; }
+.bseat.me { background: #fff8e1; border-color: var(--ink); box-shadow: 0 3px 0 var(--ink); }
+.bcard { width: 54px; height: 72px; display: grid; place-items: center; border-radius: 10px; border: 2.5px solid var(--ink); background: #fff;
+  font-size: 30px; font-weight: 900; box-shadow: 0 3px 0 var(--ink); }
+.bcard.back { background: repeating-linear-gradient(45deg, var(--sky) 0 8px, #6fb9f5 8px 16px); color: #fff; -webkit-text-stroke: 1.5px var(--ink); }
+.bcard.best { background: #fff4cc; }
+.bname { font-size: 13px; font-weight: 800; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; gap: 4px; align-items: center; }
+.bres { font-size: 12px; font-weight: 800; display: flex; gap: 6px; align-items: center; min-height: 20px; }
+.bres .delta { font-size: 16px; font-weight: 900; }
+.bres .delta.plus { color: var(--mint); }
+.bres .delta.minus { color: var(--coral); }
+.bseat.win { background: var(--hit); border-color: var(--mint); }
+.bseat.oops { background: var(--miss); border-color: var(--coral); }
+.bseat.fold .bcard, .bseat.lose .bcard { opacity: .75; }
+.bbtns { margin-top: 4px; }
+.bbtns button { min-height: 56px; font-size: 18px; }

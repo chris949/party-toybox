@@ -34,3 +34,11 @@ export const HAIKU_TIMES = [10, 15, 20] as const;   // 1文字の制限時間（
 export const DEFAULT_HAIKU_TIME = 15;
 export const HAIKU_RATE_SEC = 30;                   // 採点の制限時間（秒）
 export const HAIKU_REVEAL_FIRST_MS = 1500, HAIKU_REVEAL_STEP_MS = 2500; // 発表で、1行ずつめくる間隔
+
+// ブラインドブラフ（src/modes/bluff/README.md の13章）
+export const BLUFF_TIMES = [20, 30, 45] as const;   // しゃべる時間（秒）。ホストがロビーで選ぶ
+export const DEFAULT_BLUFF_TIME = 30;
+export const BLUFF_ROUNDS = 8;
+export const BLUFF_CARD_MAX = 13;                   // カードは 1〜13。同じ数字は配らない
+export const BLUFF_START = 10;                      // 最初の持ち点
+export const BLUFF_FOLD = 1, BLUFF_LOSE = 2, BLUFF_STRONG_FOLD = 2; // 降りる／勝負して負け／いちばん強いのに降りた（追加）

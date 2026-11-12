@@ -22,9 +22,10 @@ export function Topics() {
       <div className="seg wrap" style={{ marginBottom: 12 }}>{(Object.entries(GAME_MODES) as [GameMode, string][]).map(([k, label]) => (
         <button key={k} className={tab === k ? 'on' : ''} onClick={() => useStore.setState({ topicsTab: k })}>{label}</button>
       ))}</div>
-      {/* ハイカー575 は、その場でみんなが書くので、取り込み・書き出しは置かない */}
-      {tab !== 'haiku' && <TopicTools key={tab} mode={tab} />}
-      {tab === 'five' ? <FiveList /> : tab === 'fate' ? <FateList /> : tab === 'haiku' ? <HaikuList /> : <TierList />}
+      {/* 取り込み・書き出しは、お題を作って持ち寄るモードにだけ置く（ハイカー575 は、その場でみんなが書く。ブラインドブラフは、お題を使わない） */}
+      {(tab === 'tier' || tab === 'five' || tab === 'fate') && <TopicTools key={tab} mode={tab} />}
+      {tab === 'five' ? <FiveList /> : tab === 'fate' ? <FateList /> : tab === 'haiku' ? <HaikuList /> : tab === 'tier' ? <TierList />
+        : <section className="card"><p className="muted" style={{ margin: 0 }}>「{GAME_MODES[tab]}」は、お題を使わないモードです。</p></section>}
     </>
   );
 }

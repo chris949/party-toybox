@@ -8,12 +8,12 @@ import { MODES, modeOf } from '../modes';
 import { sanitizeFives } from '../modes/five/topics';
 import { sanitizeFates } from '../modes/fate/questions';
 import { HAIKU_STYLES, sanitizeHaikus } from '../modes/haiku/themes';
-import { DEFAULT_HAIKU_TIME, HAIKU_TIMES } from './constants';
+import { BLUFF_TIMES, DEFAULT_BLUFF_TIME, DEFAULT_HAIKU_TIME, HAIKU_TIMES } from './constants';
 
 const charaOf = (n: unknown) => Number.isInteger(n) && (n as number) >= 0 && (n as number) < CHARA_MAX ? n as number : null;
 
 export function createRoom(code: string, hostId: string, minPlayers: number): RoomState {
-  return { code, hostId, minPlayers, gameNo: 1, gameMode: 'tier', pickMode: 'random', timeLimit: DEFAULT_TIME_LIMIT, fateTime: DEFAULT_FATE_TIME, fateQuota: DEFAULT_FATE_QUOTA, fateLives: DEFAULT_FATE_LIVES, haikuStyle: 'theme', haikuTime: DEFAULT_HAIKU_TIME, haikusBy: {}, players: [], topicsBy: {}, fivesBy: {}, fatesBy: {}, game: null };
+  return { code, hostId, minPlayers, gameNo: 1, gameMode: 'tier', pickMode: 'random', timeLimit: DEFAULT_TIME_LIMIT, fateTime: DEFAULT_FATE_TIME, fateQuota: DEFAULT_FATE_QUOTA, fateLives: DEFAULT_FATE_LIVES, haikuStyle: 'theme', haikuTime: DEFAULT_HAIKU_TIME, bluffTime: DEFAULT_BLUFF_TIME, haikusBy: {}, players: [], topicsBy: {}, fivesBy: {}, fatesBy: {}, game: null };
 }
 
 // 参加を受け付けるか。断るときはその理由
@@ -83,6 +83,10 @@ export function reduce(state: RoomState, a: ActionFrom, ctx: Ctx): RoomState {
       if (!isHost || room.game || !(a.style in HAIKU_STYLES)) return state;
       room.haikuStyle = a.style;
       return room;
+    case 'bluffTime':
+      if (!isHost || room.game || !(BLUFF_TIMES as readonly number[]).includes(a.sec)) return state;
+      room.bluffTime = a.sec;
+      return room;
     case 'haikuTime':
       if (!isHost || room.game || !(HAIKU_TIMES as readonly number[]).includes(a.sec)) return state;
       room.haikuTime = a.sec;
@@ -145,8 +149,8 @@ export function reduce(state: RoomState, a: ActionFrom, ctx: Ctx): RoomState {
 
 export const nextTimer = (room: RoomState): Timer | null => room.game ? modeOf(room.game).nextTimer(room.game) : null;
 // CPU が動くモード
-export const BOT_MODES: readonly string[] = ['fate', 'haiku'];
+export const BOT_MODES: readonly string[] = ['fate', 'haiku', 'bluff'];
 export const startErrorOf = (room: RoomState) =>
   room.players.some(p => p.bot) && !BOT_MODES.includes(room.gameMode)
-    ? 'CPU は、このモードでは動きません。CPU を外すか、運命の二者択一・ハイカー575 で遊んでください'
+    ? 'CPU は、このモードでは動きません。CPU を外すか、運命の二者択一・ハイカー575・ブラインドブラフで遊んでください'
     : MODES[room.gameMode].startError(room);

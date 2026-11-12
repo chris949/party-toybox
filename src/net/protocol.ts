@@ -4,6 +4,8 @@ import { DEFAULT_FATE_LIVES, FATE_LIVES, DEFAULT_FATE_QUOTA, DEFAULT_FATE_TIME, 
 import { GAME_MODES, type GameMode } from '../core/types';
 import type { FateView } from '../modes/fate/view';
 import type { HaikuView, HaikuWork } from '../modes/haiku/view';
+import type { BluffView } from '../modes/bluff/view';
+import { BLUFF_TIMES, DEFAULT_BLUFF_TIME } from '../core/constants';
 import { DEFAULT_HAIKU_TIME, HAIKU_TIMES } from '../core/constants';
 import type { Action } from '../core/types';
 import type { PlayerView } from '../core/view';
@@ -44,6 +46,8 @@ export function parseAction(m: any): Action | null {
     case 'editing': return { t: 'editing', on: !!m.on };
     case 'retract': return Number.isInteger(m.round) ? { t: 'retract', round: m.round } : null;
     case 'haikuStyle': return m.style === 'theme' || m.style === 'free' ? { t: 'haikuStyle', style: m.style } : null;
+    case 'bluffTime': return Number.isInteger(m.sec) ? { t: 'bluffTime', sec: m.sec } : null;
+    case 'bet': return Number.isInteger(m.round) && typeof m.go === 'boolean' ? { t: 'bet', round: m.round, go: m.go } : null;
     case 'haikuTime': return Number.isInteger(m.sec) ? { t: 'haikuTime', sec: m.sec } : null;
     case 'kana': return Number.isInteger(m.step) && typeof m.ch === 'string' ? { t: 'kana', step: m.step, ch: m.ch.slice(0, 4) } : null;
     case 'rate': return Number.isInteger(m.round) && Number.isInteger(m.n) ? { t: 'rate', round: m.round, n: m.n } : null;
@@ -74,6 +78,7 @@ export function normalizeView(s: any): PlayerView {
     fateTime: (FATE_TIMES as readonly number[]).includes(int(s.fateTime)) ? int(s.fateTime) : DEFAULT_FATE_TIME,
     fateQuota: (FATE_QUOTAS as readonly number[]).includes(int(s.fateQuota)) ? int(s.fateQuota) : DEFAULT_FATE_QUOTA,
     fateLives: (FATE_LIVES as readonly number[]).includes(int(s.fateLives)) ? int(s.fateLives) : DEFAULT_FATE_LIVES,
+    bluffTime: (BLUFF_TIMES as readonly number[]).includes(int(s.bluffTime)) ? int(s.bluffTime) : DEFAULT_BLUFF_TIME,
     haikuStyle: s.haikuStyle === 'free' ? 'free' : 'theme',
     haikuTime: (HAIKU_TIMES as readonly number[]).includes(int(s.haikuTime)) ? int(s.haikuTime) : DEFAULT_HAIKU_TIME,
     code: str(s.code),
@@ -100,6 +105,22 @@ export function normalizeView(s: any): PlayerView {
     five: s.five ? normalizeFive(s.five) : null,
     fate: s.fate ? normalizeFate(s.fate) : null,
     haiku: s.haiku ? normalizeHaiku(s.haiku) : null,
+    bluff: s.bluff ? normalizeBluff(s.bluff) : null,
+  };
+}
+
+function normalizeBluff(b: any): BluffView {
+  const int = (v: unknown) => Number.isFinite(Number(v)) ? Math.trunc(Number(v)) : 0;
+  const map = <T>(o: unknown, f: (v: unknown) => T): Record<string, T> =>
+    Object.fromEntries(Object.entries(o && typeof o === 'object' ? o : {}).map(([k, v]) => [k, f(v)]));
+  const sh = b.show;
+  return {
+    round: int(b.round), rounds: int(b.rounds),
+    cards: map(b.cards, v => v == null ? null : int(v)),
+    dealt: !!b.dealt,
+    myBet: b.myBet == null ? null : !!b.myBet,
+    bets: b.bets ? map(b.bets, v => !!v) : null,
+    show: sh ? { winner: sh.winner == null ? null : String(sh.winner), strongFold: sh.strongFold == null ? null : String(sh.strongFold), delta: map(sh.delta, int) } : null,
   };
 }
 
