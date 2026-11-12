@@ -9,6 +9,7 @@ import type { FateQuestion } from '../modes/fate/questions';
 import { viewFor, type PlayerView } from '../core/view';
 import { cleanWord } from '../modes/bomb/rules';
 import { BOMB_THEMES } from '../modes/bomb/themes';
+import { RELAY_WORDS, STAMPS } from '../modes/relay/stamps';
 import { peerOptions } from './peerOptions';
 import { cleanId, DEAD_MS, genCode, HEARTBEAT_MS, parseAction, PREFIX, type HostMsg } from './protocol';
 
@@ -133,7 +134,23 @@ export function startHost(o: HostOptions): void {
       dispatch(holder, { t: 'toss', round, word, to: others[Math.floor(Math.random() * others.length)].id });
     }, 1500 + Math.random() * 3500)];
   }
+  // スタンプ伝言：絵の番は、でたらめにスタンプを置く。答える番は、お題の一覧からでたらめに選ぶ
+  function runRelayBots() {
+    const g = room.game;
+    const bots = botsNow();
+    if (!bots.length || g?.kind !== 'relay' || g.phase !== 'work') return;
+    const turn = `${room.gameNo}-relay-${g.step}`;
+    if (turn === botTurn) return;
+    botTurn = turn;
+    botTimers.forEach(clearTimeout);
+    const rnd = (n: number) => Math.floor(Math.random() * n);
+    const step = g.step;
+    botTimers = bots.filter(b => g.ring.includes(b.id)).map(b => setTimeout(() => dispatch(b.id, step % 2 === 0
+      ? { t: 'relayDraw', step, stamps: Array.from({ length: 3 + rnd(4) }, () => ({ k: rnd(STAMPS.length), x: 15 + rnd(70), y: 15 + rnd(70), s: 2 + rnd(3), r: 0 })) }
+      : { t: 'relayGuess', step, text: RELAY_WORDS[rnd(RELAY_WORDS.length)] }), 2500 + Math.random() * 6000));
+  }
   function runBots() {
+    runRelayBots();
     runBombBots();
     runBlendBots();
     runBouquetBots();

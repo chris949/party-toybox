@@ -13,6 +13,18 @@ export function playStateSounds(prev: PlayerView | null, next: PlayerView) {
     else if (next.phase === 'result') Sound.play('fanfare');
     return;
   }
+  // スタンプ伝言：紙が回ってきたらポロン、発表でめくるたびにポン、伝わっていたらファンファーレ
+  if (next.relay) {
+    const shown = (x: PlayerView | null) => x?.relay?.show ? x.relay.show.items.length : -1;
+    if (turn(prev) === turn(next)) {
+      if (next.phase === 'unfold' && shown(next) > shown(prev)) Sound.play(next.relay.show?.hit ? 'perfect' : 'pop');
+      return;
+    }
+    if (next.phase === 'work') Sound.play('start');
+    else if (next.phase === 'unfold') Sound.play('drumroll');
+    else if (next.phase === 'result') Sound.play('fanfare');
+    return;
+  }
   // 爆弾まわし：火がついたらポロン、渡ったらポン、爆発でドカン（落ちる音を使う）。カチカチは画面の側で鳴らす
   if (next.bomb) {
     if (turn(prev) === turn(next)) {

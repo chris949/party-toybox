@@ -21,7 +21,7 @@ export function App() {
   useEffect(() => { window.scrollTo(0, 0); }, [key]);
   // 場面ごとにBGMを切り替える（音の設定の画面では、試聴のために切り替えない）
   const scene: Scene | null = screen === 'sound' ? null : !inRoom || pub.phase === 'lobby' ? 'lobby'
-    : pub.phase === 'recite' || pub.phase === 'show' || pub.phase === 'choose' || pub.phase === 'bloom' || pub.phase === 'found' || pub.phase === 'boom' ? 'reveal' : pub.phase === 'reveal' || pub.phase === 'result' ? pub.phase : 'pick'; // 運命の二者択一は、出題も発表も同じ曲のまま（数秒ごとに曲が変わると落ち着かない）
+    : pub.phase === 'recite' || pub.phase === 'show' || pub.phase === 'choose' || pub.phase === 'bloom' || pub.phase === 'found' || pub.phase === 'boom' || pub.phase === 'unfold' ? 'reveal' : pub.phase === 'reveal' || pub.phase === 'result' ? pub.phase : 'pick'; // 運命の二者択一は、出題も発表も同じ曲のまま（数秒ごとに曲が変わると落ち着かない）
   useEffect(() => { if (scene) Sound.setScene(scene); }, [scene]);
   // 端末で「動きを減らす」設定をしている人には、揺れや回転を出さない
   return <MotionConfig reducedMotion="user">

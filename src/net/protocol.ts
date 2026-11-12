@@ -8,8 +8,10 @@ import type { BluffView } from '../modes/bluff/view';
 import type { BouquetView } from '../modes/bouquet/view';
 import type { BlendView } from '../modes/blend/view';
 import type { BombView } from '../modes/bomb/view';
+import type { RelayItem, RelayView } from '../modes/relay/view';
+import { sanitizeStamps } from '../modes/relay/stamps';
 import { BOUQUET_GOALS, BOUQUET_TIMES, DEFAULT_BOUQUET_TIME } from '../core/constants';
-import { BOMB_FUSES, BOMB_ROUNDS, BOMB_WORD_MAX, DEFAULT_BOMB_FUSE, DEFAULT_BOMB_ROUNDS, BLEND_CROWDS, BLEND_TIMES, BLUFF_TIMES, DEFAULT_BLEND_CROWD, DEFAULT_BLEND_TIME, DEFAULT_BLUFF_TIME } from '../core/constants';
+import { DEFAULT_RELAY_TIME, RELAY_TEXT_MAX, RELAY_TIMES, BOMB_FUSES, BOMB_ROUNDS, BOMB_WORD_MAX, DEFAULT_BOMB_FUSE, DEFAULT_BOMB_ROUNDS, BLEND_CROWDS, BLEND_TIMES, BLUFF_TIMES, DEFAULT_BLEND_CROWD, DEFAULT_BLEND_TIME, DEFAULT_BLUFF_TIME } from '../core/constants';
 import { DEFAULT_HAIKU_TIME, HAIKU_TIMES } from '../core/constants';
 import type { Action } from '../core/types';
 import type { PlayerView } from '../core/view';
@@ -55,6 +57,9 @@ export function parseAction(m: any): Action | null {
     case 'phrase': return Number.isInteger(m.round) && Array.isArray(m.tokens) ? { t: 'phrase', round: m.round, tokens: m.tokens.slice(0, 16) } : null;
     case 'redraw': return Number.isInteger(m.round) ? { t: 'redraw', round: m.round } : null;
     case 'choose': return Number.isInteger(m.round) ? { t: 'choose', round: m.round, id: cleanId(m.id) } : null;
+    case 'relayTime': return Number.isInteger(m.sec) ? { t: 'relayTime', sec: m.sec } : null;
+    case 'relayDraw': return Number.isInteger(m.step) && Array.isArray(m.stamps) ? { t: 'relayDraw', step: m.step, stamps: sanitizeStamps(m.stamps) } : null;
+    case 'relayGuess': return Number.isInteger(m.step) && typeof m.text === 'string' ? { t: 'relayGuess', step: m.step, text: m.text.slice(0, RELAY_TEXT_MAX * 2) } : null;
     case 'bombRounds': return Number.isInteger(m.n) ? { t: 'bombRounds', n: m.n } : null;
     case 'bombFuse': return Number.isInteger(m.n) ? { t: 'bombFuse', n: m.n } : null;
     case 'toss': return Number.isInteger(m.round) && typeof m.word === 'string' && typeof m.to === 'string' ? { t: 'toss', round: m.round, word: m.word.slice(0, BOMB_WORD_MAX * 2), to: cleanId(m.to) } : null;
@@ -98,6 +103,7 @@ export function normalizeView(s: any): PlayerView {
     fateLives: (FATE_LIVES as readonly number[]).includes(int(s.fateLives)) ? int(s.fateLives) : DEFAULT_FATE_LIVES,
     bouquetTime: (BOUQUET_TIMES as readonly number[]).includes(int(s.bouquetTime)) ? int(s.bouquetTime) : DEFAULT_BOUQUET_TIME,
     bouquetGoal: (BOUQUET_GOALS as readonly number[]).includes(int(s.bouquetGoal)) ? int(s.bouquetGoal) : 0,
+    relayTime: (RELAY_TIMES as readonly number[]).includes(int(s.relayTime)) ? int(s.relayTime) : DEFAULT_RELAY_TIME,
     bombRounds: (BOMB_ROUNDS as readonly number[]).includes(int(s.bombRounds)) ? int(s.bombRounds) : DEFAULT_BOMB_ROUNDS,
     bombFuse: int(s.bombFuse) >= 0 && int(s.bombFuse) < BOMB_FUSES.length ? int(s.bombFuse) : DEFAULT_BOMB_FUSE,
     blendTime: (BLEND_TIMES as readonly number[]).includes(int(s.blendTime)) ? int(s.blendTime) : DEFAULT_BLEND_TIME,
@@ -133,6 +139,25 @@ export function normalizeView(s: any): PlayerView {
     bouquet: s.bouquet ? normalizeBouquet(s.bouquet) : null,
     blend: s.blend ? normalizeBlend(s.blend) : null,
     bomb: s.bomb ? normalizeBomb(s.bomb) : null,
+    relay: s.relay ? normalizeRelay(s.relay) : null,
+  };
+}
+
+function normalizeRelay(r: any): RelayView {
+  const int = (v: unknown) => Number.isFinite(Number(v)) ? Math.trunc(Number(v)) : 0;
+  const str = (v: unknown) => String(v ?? '');
+  const f = r.from, sh = r.show;
+  const item = (e: any): RelayItem => e?.kind === 'draw'
+    ? { by: str(e.by), byId: str(e.byId), auto: !!e.auto, kind: 'draw', stamps: sanitizeStamps(e.stamps) }
+    : { by: str(e?.by), byId: str(e?.byId), auto: !!e?.auto, kind: 'guess', text: str(e?.text) };
+  return {
+    step: int(r.step), steps: int(r.steps), kind: r.kind === 'guess' ? 'guess' : 'draw',
+    from: !f || typeof f !== 'object' ? null : 'word' in f ? { word: str(f.word) } : 'stamps' in f ? { stamps: sanitizeStamps(f.stamps) } : { text: str(f.text) },
+    submitted: !!r.submitted,
+    show: sh ? {
+      idx: int(sh.idx), count: int(sh.count), ownerId: str(sh.ownerId), ownerName: str(sh.ownerName), word: str(sh.word),
+      items: Array.isArray(sh.items) ? sh.items.map(item) : [], total: int(sh.total), hit: sh.hit == null ? null : !!sh.hit,
+    } : null,
   };
 }
 

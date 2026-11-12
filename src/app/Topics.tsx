@@ -26,7 +26,7 @@ export function Topics() {
       {/* 取り込み・書き出しは、お題を作って持ち寄るモードにだけ置く（ハイカー575 は、その場でみんなが書く。ワードブーケは、お題が1行だけ。ブラインドブラフ・まぎれろ！は、お題を使わない。爆弾まわしは、同梱のお題だけ） */}
       {(tab === 'tier' || tab === 'five' || tab === 'fate') && <TopicTools key={tab} mode={tab} />}
       {tab === 'five' ? <FiveList /> : tab === 'fate' ? <FateList /> : tab === 'haiku' ? <HaikuList /> : tab === 'bouquet' ? <BouquetList /> : tab === 'tier' ? <TierList />
-        : <section className="card"><p className="muted" style={{ margin: 0 }}>{tab === 'bomb' ? '「爆弾まわし」のお題は、同梱のものを使います（自分では作れません）。' : `「${GAME_MODES[tab]}」は、お題を使わないモードです。`}</p></section>}
+        : <section className="card"><p className="muted" style={{ margin: 0 }}>{tab === 'bomb' || tab === 'relay' ? `「${GAME_MODES[tab]}」のお題は、同梱のものを使います（自分では作れません）。` : `「${GAME_MODES[tab]}」は、お題を使わないモードです。`}</p></section>}
     </>
   );
 }
