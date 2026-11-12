@@ -1,0 +1,13 @@
+/* まぎれろ！の画面のスタイル（共通の色や部品は src/styles/app.css） */
+.mstage3d { display: block; width: 100%; aspect-ratio: 1.5; margin-top: 8px; border-radius: 16px; touch-action: manipulation;
+  background: linear-gradient(#dff1fd, #f4fbff); border: 2.5px solid var(--ink); }
+.mrole { margin: 10px 0 6px; font-weight: 700; line-height: 1.5; }
+.mstars { display: flex; align-items: center; gap: 4px; font-size: 22px; color: var(--line); }
+.mstars .on { color: #ffb020; }
+.mstars .small { margin-left: 6px; font-weight: 700; }
+.mgrab { margin-top: 10px; }
+.mpick { margin: 10px 0 0; font-weight: 800; }
+.mresult { margin: 12px 0 8px; font-weight: 800; }
+.mguess { display: flex; flex-wrap: wrap; gap: 6px; }
+.mguess span { padding: 4px 10px; border-radius: 999px; border: 2px solid var(--line); background: var(--field); font-weight: 800; font-size: 14px; }
+.mguess .ok { border-color: var(--mint); background: var(--hit); }

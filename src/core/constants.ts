@@ -48,3 +48,16 @@ export const BOUQUET_TIMES = [45, 60, 90] as const;  // 文を作る時間（秒
 export const DEFAULT_BOUQUET_TIME = 60;
 export const BOUQUET_GOALS = [0, 3, 5] as const;     // 終わり方：0 = 全員が親を1回、3・5 = その点を先取
 export const BOUQUET_MAX_ROUNDS = 40;                // 先取のとき、長くなりすぎないよう打ち切るラウンド数
+
+// まぎれろ！（src/modes/blend/README.md の15章）
+export const BLEND_TIMES = [30, 45, 60] as const;   // かくれる時間（秒）。ホストがロビーで選ぶ
+export const DEFAULT_BLEND_TIME = 45;
+export const BLEND_CROWDS = [8, 12, 16] as const;   // 舞台にいるキャラクターの数（かくれる人の1体を含む）
+export const DEFAULT_BLEND_CROWD = 12;
+export const BLEND_STARS = 3;                       // かくれる人が集める「ほし」の数。集めきれないと、かくれた人の点は0
+export const BLEND_FIND = 2;                        // 当てた人がもらう点
+export const BLEND_READY_MS = 3000;                 // 始まる前に、全員が止まっている時間（かくれる人が、自分のキャラクターを見つける時間）
+export const BLEND_TICK_MS = 200;                   // 位置を進めて、全員に送る間隔
+export const BLEND_W = 12, BLEND_D = 7;             // 舞台の広さ（横・奥行き）。真ん中が 0
+export const BLEND_SPEED = 2.4;                     // 歩く速さ（1秒に進む長さ）。人もCPUも同じ
+export const BLEND_STAR_R = 0.6;                    // ほしに「乗っている」とみなす近さ
