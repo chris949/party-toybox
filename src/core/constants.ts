@@ -61,3 +61,12 @@ export const BLEND_TICK_MS = 200;                   // 位置を進めて、全�
 export const BLEND_W = 12, BLEND_D = 7;             // 舞台の広さ（横・奥行き）。真ん中が 0
 export const BLEND_SPEED = 2.4;                     // 歩く速さ（1秒に進む長さ）。人もCPUも同じ
 export const BLEND_STAR_R = 0.6;                    // ほしに「乗っている」とみなす近さ
+
+// 爆弾まわし（src/modes/bomb/README.md の16章）
+export const BOMB_ROUNDS = [3, 5, 8] as const;      // 爆発の回数（＝ラウンド数）。ホストがロビーで選ぶ
+export const DEFAULT_BOMB_ROUNDS = 5;
+export const BOMB_FUSES = [[15, 30], [20, 45], [30, 70]] as const; // 導火線の長さ（秒）。この幅の中から、毎回ランダムに決める
+export const BOMB_FUSE_LABELS = ['みじかめ', 'ふつう', 'ながめ'] as const;
+export const DEFAULT_BOMB_FUSE = 1;
+export const BOMB_WORD_MAX = 20;                    // 言葉の長さの上限
+export const BOMB_HEATS = [0.5, 0.75, 0.9] as const; // 導火線がこの割合まで燃えたら、音と見た目を1段ずつ強くする
