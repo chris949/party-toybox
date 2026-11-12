@@ -70,3 +70,12 @@ export const BOMB_FUSE_LABELS = ['みじかめ', 'ふつう', 'ながめ'] as co
 export const DEFAULT_BOMB_FUSE = 1;
 export const BOMB_WORD_MAX = 20;                    // 言葉の長さの上限
 export const BOMB_HEATS = [0.5, 0.75, 0.9] as const; // 導火線がこの割合まで燃えたら、音と見た目を1段ずつ強くする
+
+// スタンプ伝言（src/modes/relay/README.md の17章）
+export const RELAY_TIMES = [45, 60, 90] as const;   // 絵を作る時間（秒）。ホストがロビーで選ぶ
+export const DEFAULT_RELAY_TIME = 60;
+export const RELAY_GUESS_SEC = 30;                  // 絵を見て、言葉で答える時間（秒）
+export const RELAY_MAX_STEPS = 6;                   // 1枚の紙が回る回数の上限（人数が多くても、長くなりすぎないように）
+export const RELAY_MAX_STAMPS = 15;                 // 1枚の絵に置けるスタンプの数
+export const RELAY_TEXT_MAX = 20;                   // 答えの長さの上限
+export const RELAY_SIZES = 5;                       // スタンプの大きさの段階（1〜5）

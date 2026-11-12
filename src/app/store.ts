@@ -10,6 +10,7 @@ import { startGuest, type GuestOptions, type GuestSession } from '../net/guest';
 import { startHost, type HostSession } from '../net/host';
 import { ROOM_CODE_LEN } from '../net/protocol';
 import { PHRASE_MAX } from '../modes/bouquet/words';
+import type { Stamp } from '../modes/relay/stamps';
 import {
   broughtFates, broughtFives, broughtBouquets, broughtHaikus, broughtTopics, loadBouquets, saveBouquets, type StoredBouquet, loadChara, loadFates, loadHaikus, saveHaikus, type StoredHaiku, loadFives, loadLastRoom, loadName, loadTopics, myId, myKey,
   saveChara, saveFates, saveFives, saveLastRoom, saveName, saveTopics,
@@ -52,6 +53,7 @@ interface State {
   haikus: StoredHaiku[];
   bouquets: StoredBouquet[];
   bouquetDraft: { key: string; tokens: number[] }; // ワードブーケで並べている途中の文（0以上 = 手札の番号、負の数 = 助詞）
+  relayDraft: { key: string; stamps: Stamp[]; text: string }; // スタンプ伝言で作っている途中の絵と答え
   chara: number; // 運命の二者択一で使うキャラクターの番号
   lastRoom: string;
   picker: { key: string; slots: (number | null)[] }; // slots[順位] = 選択肢の番号（空きは null）
@@ -65,7 +67,7 @@ let pendingTimer: ReturnType<typeof setTimeout> | null = null;
 export const useStore = create<State>(() => ({
   screen: 'home', roomEdit: false, notice: '', connecting: false, reconnecting: false, pub: null, pending: null,
   dialog: null, editing: null, editingFive: null, editingFate: null, topicsTab: 'tier', error: null,
-  name: loadName(), topics: loadTopics(), fives: loadFives(), fates: loadFates(), haikus: loadHaikus(), bouquets: loadBouquets(), bouquetDraft: { key: '', tokens: [] }, chara: loadChara(), lastRoom: loadLastRoom(),
+  name: loadName(), topics: loadTopics(), fives: loadFives(), fates: loadFates(), haikus: loadHaikus(), bouquets: loadBouquets(), bouquetDraft: { key: '', tokens: [] }, relayDraft: { key: '', stamps: [], text: '' }, chara: loadChara(), lastRoom: loadLastRoom(),
   picker: { key: '', slots: [] }, fivePick: { key: '', sel: [] },
 }));
 const set = useStore.setState;
@@ -81,7 +83,7 @@ function setPub(view: PlayerView, rejoined = false) {
   let pending = get().pending;
   if (pending) {
     const moved = pending.key !== turnKey(next);
-    if (moved || (pending.msg.t === 'rank' && next.myRank) || (pending.msg.t === 'guess' && next.myGuess) || (pending.msg.t === 'five' && next.five?.myPicks) || (pending.msg.t === 'kana' && next.haiku?.myDraft) || (pending.msg.t === 'bet' && next.bluff?.myBet != null) || (pending.msg.t === 'phrase' && next.bouquet?.myPhrase != null)) {
+    if (moved || (pending.msg.t === 'rank' && next.myRank) || (pending.msg.t === 'guess' && next.myGuess) || (pending.msg.t === 'five' && next.five?.myPicks) || (pending.msg.t === 'kana' && next.haiku?.myDraft) || (pending.msg.t === 'bet' && next.bluff?.myBet != null) || (pending.msg.t === 'phrase' && next.bouquet?.myPhrase != null) || ((pending.msg.t === 'relayDraw' || pending.msg.t === 'relayGuess') && next.relay?.submitted)) {
       pending = null;
       if (pendingTimer) clearTimeout(pendingTimer);
     }
@@ -268,6 +270,7 @@ export function setChara(n: number) {
 export function onTimeUp() {
   const { pub, pending } = get();
   if (!pub || pending || !needsToPick(pub)) return;
+  if (pub.phase === 'work') return submitRelay();     // スタンプ伝言：作っていた分で出す（何もなければ、ホストが埋める）
   if (pub.phase === 'compose') return submitPhrase(); // ワードブーケ：並べていた分で提出する（何も並べていなければ、提出なし）
   if (pub.phase === 'talk') return;  // ブラインドブラフ：選ばなかった人は、ホストが「降りる」にする
   if (pub.phase === 'write') return; // ハイカー575：書かなかった分は、ホストがランダムな文字で埋める
@@ -282,6 +285,7 @@ export function needsToPick(pub: Pub) {
   if (pub.phase === 'write') return !!pub.haiku?.writing && pub.haiku.myDraft == null;
   if (pub.phase === 'talk') return !!pub.bluff?.dealt && pub.bluff.myBet == null;
   if (pub.phase === 'compose') return !!pub.bouquet?.hand && pub.bouquet.myPhrase == null;
+  if (pub.phase === 'work') return !!pub.relay?.from && !pub.relay.submitted;
   return false;
 }
 
@@ -298,6 +302,30 @@ export const updateFives = (f: (t: StoredFive[]) => StoredFive[]) => {
   saveFives(fives);
   set({ fives });
 };
+
+// ===== スタンプ伝言 =====
+// 作っている途中の絵と答えは、回ごとに持つ（紙が回ったら、空から始める）
+export const relayKey = (pub: Pub) => `rl-${pub.gameNo}-${pub.relay?.step}`;
+const relayDraftOf = (pub: Pub) => { const d = get().relayDraft; return d.key === relayKey(pub) ? d : { key: relayKey(pub), stamps: [] as Stamp[], text: '' }; };
+export function setRelayStamps(stamps: Stamp[]) {
+  const { pub } = get();
+  if (pub?.relay?.from && !pub.relay.submitted) set({ relayDraft: { ...relayDraftOf(pub), stamps } });
+}
+export function setRelayText(text: string) {
+  const { pub } = get();
+  if (pub?.relay?.from && !pub.relay.submitted) set({ relayDraft: { ...relayDraftOf(pub), text } });
+}
+export function submitRelay() {
+  const { pub, pending } = get();
+  if (!pub?.relay?.from || pending || pub.phase !== 'work' || pub.relay.submitted) return;
+  const d = relayDraftOf(pub), step = pub.relay.step;
+  let msg: Action;
+  if (pub.relay.kind === 'draw') { if (!d.stamps.length) return; msg = { t: 'relayDraw', step, stamps: d.stamps }; }
+  else { if (!d.text.trim()) return; msg = { t: 'relayGuess', step, text: d.text.trim() }; }
+  set({ pending: { msg, key: turnKey(pub), tries: 0 } });
+  Sound.play('click');
+  sendPending();
+}
 
 // ===== ワードブーケ =====
 // 並べている途中の文は、ラウンドごと・手札ごとに持つ（引き直したら、並べていた分は消える）
