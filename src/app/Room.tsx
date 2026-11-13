@@ -21,16 +21,26 @@ import { PickLobby } from '../modes/tier/Lobby';
 import { FateResult, FateStage } from '../modes/fate/screens';
 import { HaikuRecite, HaikuResult, HaikuWrite } from '../modes/haiku/screens';
 import { Notice, TitleBar } from '../ui/common';
+import { HowTo } from './howto';
 import { addBot, isHost, leaveByUser, openRoomTopics, send, useStore, type Pub } from './store';
 
 export function Room() {
   const pub = useStore(s => s.pub)!;
   const reconnecting = useStore(s => s.reconnecting);
   const notice = useStore(s => s.notice);
+  const [help, setHelp] = useState(false);
   return <>
     {reconnecting && <div className="banner">ホストとの接続を確認しています… 再接続中</div>}
-    <TitleBar right={<button className="small" onClick={leaveByUser}>退出</button>} />
+    <TitleBar right={<>
+      {/* ゲーム中も、そのゲームのあそびかたを、いつでも開ける */}
+      {pub.game && <button className="small" aria-expanded={help} aria-label="あそびかた" onClick={() => setHelp(!help)}>？</button>}
+      <button className="small" onClick={leaveByUser}>退出</button>
+    </>} />
     {notice && <Notice>{notice}</Notice>}
+    {help && pub.game && <section className="card helpcard">
+      <div className="row" style={{ justifyContent: 'space-between' }}><h2 style={{ margin: 0 }}>{GAME_MODES[pub.game]} のあそびかた</h2><button className="small" onClick={() => setHelp(false)}>閉じる</button></div>
+      <HowTo mode={pub.game} compact />
+    </section>}
     {/* 運命の二者択一は、舞台の上に全員が出ているので、参加者の一覧は出さない */}
     {pub.phase !== 'lobby' && pub.game !== 'fate' && <section className="card"><Players pub={pub} /></section>}
     {pub.phase === 'lobby' ? <Lobby pub={pub} />
@@ -116,16 +126,8 @@ function Lobby({ pub }: { pub: Pub }) {
             <button key={k} className={pub.gameMode === k ? 'on' : ''} onClick={() => send({ t: 'game', mode: k })}>{label}</button>
           ))}</div>
         : <p style={{ margin: 0, fontWeight: 800 }}>{GAME_MODES[pub.gameMode]}</p>}
-      <p className="muted small" style={{ margin: '6px 0 0' }}>{pub.gameMode === 'five'
-        ? '正解とダミーを混ぜた選択肢から、正解だと思うものを5つ選びます。お題が足りない分はサンプルで補います'
-        : relay ? '絵と言葉の伝言ゲーム。お題をスタンプで絵にして隣へ回し、次の人は絵を見て言葉で答え、その次の人はその言葉をまた絵にします。最後に、どう伝わったかをみんなで見ます。お題は同梱のものを使います'
-        : bomb ? 'いつ爆発するか分からない爆弾を回します。回ってきたら、自分のお題の正解を1つ当てて、誰かに渡します。爆発したときに持っていた人の負け。お題は、セレクトファイブのものを使います'
-        : blend ? '同じ見た目のキャラクターが、舞台を大勢うろうろします。1体だけ、人が動かしています。ほかの全員で、どれが人かを当てます。お題は使いません'
-        : bouquet ? '配られた言葉のカードを並べて、お題に合うひとことを作ります。親が読み上げて、いちばん刺さったものを選びます。お題が足りない分はサンプルで補います'
-        : bluff ? '自分のカードだけ見えないトランプ遊び。ほかの人のカードは見えるので、通話でだまし合い、勝負するか降りるかを決めます。お題は使いません'
-        : haiku ? 'みんなで1文字ずつ書いて回し、五・七・五の句を作ります。できた句は担当者が読み上げて、全員で★を付けます'
-        : fate ? '2択クイズのサバイバル。左右に動いて答え、不正解の側は床が抜けて脱落。最後の1人になるまで続きます。問題が足りない分はサンプルで補います'
-        : 'お題を自分の好みで並べ、ほかの人の順位を当てます'}</p>
+      {/* 初めての人が、何をするゲームかを3つで分かるように（全員の画面に出る） */}
+      <HowTo mode={pub.gameMode} />
       {relay ? <RelayLobby pub={pub} host={host} /> : bomb ? <BombLobby pub={pub} host={host} /> : blend ? <BlendLobby pub={pub} host={host} /> : bouquet ? <BouquetLobby pub={pub} host={host} /> : bluff ? <BluffLobby pub={pub} host={host} /> : haiku ? <HaikuLobby pub={pub} host={host} /> : fate ? <FateLobby pub={pub} host={host} /> : <PickLobby pub={pub} host={host} />}
       <div style={{ marginTop: 16 }}>
         {host ? <>

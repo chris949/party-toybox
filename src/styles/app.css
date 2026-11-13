@@ -190,3 +190,20 @@ ol.rules li { margin-bottom: 4px; }
 .tools button.on { background: var(--sky); color: #fff; }
 textarea.topic-text { min-height: 140px; font-size: 14px; line-height: 1.5; resize: vertical; font-family: inherit; }
 textarea.topic-text[readonly] { background: #fff; }
+
+/* あそびかた（ロビーと、ゲーム中の「？」）。3つ読めば遊び始められる長さ */
+.howto { margin-top: 10px; padding: 10px 12px; border-radius: 14px; background: #fff8e1; border: 2px solid var(--ink); }
+.howto-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 16px; }
+.howto-icon { font-size: 22px; }
+.howto-new { margin-left: auto; padding: 2px 10px; border-radius: 999px; background: var(--mint); border: 2px solid var(--ink); font-size: 12px; font-weight: 900; }
+.howto ol { margin: 6px 0 0; padding-left: 22px; }
+.howto li { margin: 3px 0; font-weight: 700; line-height: 1.5; }
+.howto.compact { margin-top: 6px; background: var(--field); border-color: var(--line); }
+.howto.compact li { font-weight: 500; font-size: 14px; }
+.howto-title { margin: 14px 0 4px; font-size: 15px; }
+.howto-item { margin-top: 10px; }
+.helpcard { border-color: var(--ink); }
+/* お題の設定：いま部屋で選ばれているモード */
+.nowmode { display: grid; gap: 2px; margin: 0 0 10px; padding: 10px 12px; border-radius: 14px; background: #fff8e1; border: 2.5px solid var(--ink); }
+.nowmode span { font-size: 13px; color: var(--muted); font-weight: 700; }
+.nowtag { margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: var(--coral); color: #fff; font-size: 11px; font-weight: 900; vertical-align: middle; }

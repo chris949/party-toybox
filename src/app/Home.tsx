@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { MAX_OPT, MAX_PLAYERS, MIN_OPT, NAME_MAX, PERFECT_BONUS, MIN_PLAYERS_DEFAULT } from '../core/constants';
+import { MAX_PLAYERS, NAME_MAX, MIN_PLAYERS_DEFAULT } from '../core/constants';
 import { ROOM_CODE_LEN } from '../net/protocol';
 import { Logo, Notice, SoundButton, Version } from '../ui/common';
-import { CharaPicker } from '../modes/fate/charas';
-import { APP_VERSION, hostRoom, joinRoom, setChara, setName, setScreen, useStore } from './store';
+import { GAME_MODES, type GameMode } from '../core/types';
+import { APP_VERSION, hostRoom, joinRoom, setName, setScreen, useStore } from './store';
+import { HowTo } from './howto';
 import { feedbackUrl } from './feedback';
 
 export function Home() {
-  const { name, topics, fives, fates, haikus, bouquets, chara, notice, connecting, lastRoom } = useStore();
+  const { name, topics, fives, fates, haikus, bouquets, notice, connecting, lastRoom } = useStore();
   const [code, setCode] = useState(() => new URLSearchParams(location.search).get('room') || lastRoom);
   const count = topics.filter(t => t.bring).length + fives.filter(t => t.bring).length + fates.filter(t => t.bring).length + haikus.filter(t => t.bring).length + bouquets.filter(t => t.bring).length;
   const prefilled = !!(new URLSearchParams(location.search).get('room') || lastRoom);
@@ -24,8 +25,6 @@ export function Home() {
         <label className="field">あなたの名前
           <input type="text" maxLength={NAME_MAX} value={name} placeholder="例）たろう" onChange={e => setName(e.target.value)} />
         </label>
-        <div className="field muted small" style={{ margin: '4px 0 6px', fontWeight: 700 }}>キャラクター（「運命の二者択一」で使います）</div>
-        <CharaPicker value={chara} onPick={setChara} />
       </section>
       <section className="card">
         <h2>お題 <span className="count">持っていく {count}</span></h2>
@@ -59,21 +58,12 @@ export function Home() {
       <details className="card">
         <summary>あそびかた</summary>
         <ol className="rules">
-          <li>事前に「お題の設定」でお題と選択肢（{MIN_OPT}〜{MAX_OPT}個）を作っておく。いくつでもストックできます。</li>
-          <li>{MIN_PLAYERS_DEFAULT}〜{MAX_PLAYERS}人で部屋に集まり、ホストが開始。</li>
-          <li>みんなのお題がランダムに1人1つ配られるので、<b>自分の好み</b>で順位をつける。</li>
-          <li>メインゲーム：「〇〇さんの『お題』の順位は？」を本人以外が予想。</li>
-          <li>答え合わせ。順位が1つ合うごとに1点、全部ピッタリならボーナス+{PERFECT_BONUS}点。</li>
-          <li>全員分まわったら終了。最高得点の人の勝ち！</li>
-          <li>ロビーでモードを「セレクトファイブ」にすると、正解とダミーが混ざった選択肢から正解を5つ選ぶクイズで遊べます。</li>
-          <li>モードを「運命の二者択一」にすると、2択クイズのサバイバルで遊べます。左右に動いて答え、不正解の側は床が抜けて脱落。最後の1人になるまで続きます。</li>
-          <li>モードを「スタンプ伝言」にすると、絵と言葉の伝言ゲームで遊べます。お題をスタンプで絵にして回し、次の人は絵を見て言葉で答えます。</li>
-          <li>モードを「爆弾まわし」にすると、いつ爆発するか分からない爆弾を回します。回ってきたら、自分のお題（セレクトファイブのお題）の正解を1つ当てて、誰かに渡してください。</li>
-          <li>モードを「まぎれろ！」にすると、同じ見た目のキャラクターが大勢うろうろする舞台で、1体だけ人が動かします。ほかの全員で、どれが人かを当てます。</li>
-          <li>モードを「ワードブーケ」にすると、配られた言葉のカードを並べて、お題に合うひとことを作ります。親がいちばん刺さったものを選びます。</li>
-          <li>モードを「ブラインドブラフ」にすると、自分のカードだけ見えないトランプ遊びができます。ほかの人のカードは見えるので、通話でだまし合ってください。</li>
-          <li>モードを「ハイカー575」にすると、みんなで1文字ずつ書いて回し、五・七・五の句を作って遊べます。できた句は担当者が読み上げて、全員で★を付けます。</li>
+          <li>通話をつなぎ、1人が「部屋を作る」。出てきた部屋コードか招待リンクを、みんなに伝えます（{MIN_PLAYERS_DEFAULT}〜{MAX_PLAYERS}人）。</li>
+          <li>ホストが、ロビーで遊ぶゲーム（モード）を選んで「ゲーム開始」。人数が足りないときは、CPU を足せるゲームもあります。</li>
+          <li>ゲームによっては、みんなが作った「お題」を使います。「お題の設定」で作って、持っていくものにチェックを入れてください（作らなくても、サンプルで遊べます）。</li>
         </ol>
+        <h3 className="howto-title">ゲームごとのあそびかた</h3>
+        {(Object.keys(GAME_MODES) as GameMode[]).map(k => <div key={k} className="howto-item"><b>{GAME_MODES[k]}</b><HowTo mode={k} compact /></div>)}
       </details>
       <section className="card">
         <button className="wide" onClick={() => window.open(feedbackUrl(APP_VERSION), '_blank', 'noopener')}>💬 意見・不具合を送る</button>

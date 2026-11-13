@@ -12,7 +12,7 @@ import { ROOM_CODE_LEN } from '../net/protocol';
 import { PHRASE_MAX } from '../modes/bouquet/words';
 import type { Stamp } from '../modes/relay/stamps';
 import {
-  broughtFates, broughtFives, broughtBouquets, broughtHaikus, broughtTopics, loadBouquets, saveBouquets, loadBouquetWords, saveBouquetWords, type StoredBouquet, loadChara, loadFates, loadHaikus, saveHaikus, type StoredHaiku, loadFives, loadLastRoom, loadName, loadTopics, myId, myKey,
+  broughtFates, broughtFives, broughtBouquets, broughtHaikus, broughtTopics, loadBouquets, saveBouquets, loadBouquetWords, saveBouquetWords, markPlayed, type StoredBouquet, loadChara, loadFates, loadHaikus, saveHaikus, type StoredHaiku, loadFives, loadLastRoom, loadName, loadTopics, myId, myKey,
   saveChara, saveFates, saveFives, saveLastRoom, saveName, saveTopics,
   type StoredFate, type StoredFive, type StoredTopic,
 } from '../storage/local';
@@ -89,6 +89,7 @@ function setPub(view: PlayerView, rejoined = false) {
       if (pendingTimer) clearTimeout(pendingTimer);
     }
   }
+  if (next.game && prev?.phase === 'lobby') markPlayed(next.game); // ゲームが始まったら、そのモードを「遊んだことがある」と覚える
   playStateSounds(prev, next);
   playStateEffects(prev, next);
   // ロビーでお題の設定を開いている間は、その画面のままにする。ゲームが始まったら部屋に戻す（保存していない編集は消える）
@@ -156,9 +157,13 @@ export function send(a: Action) { session?.send(a); }
 export function addBot() { if (session?.isHost && get().pub?.phase === 'lobby') session.addBot(); }
 
 // ===== ロビーでお題を選び直す・編集する（v0.16） =====
+// お題を作れるモード（お題の設定のタブ）。爆弾まわしは、セレクトファイブのお題を使う
+export const TOPIC_TABS: readonly GameMode[] = ['tier', 'five', 'fate', 'haiku', 'bouquet'];
+export const topicTabOf = (mode: GameMode): GameMode | null => mode === 'bomb' ? 'five' : TOPIC_TABS.includes(mode) ? mode : null;
 export function openRoomTopics() {
   if (get().pub?.phase !== 'lobby') return;
-  set({ roomEdit: true, screen: 'topics', notice: '' });
+  // いま部屋で選ばれているモードのお題を、最初に開く（別のモードのお題を編集してしまう勘違いを防ぐ）
+  set({ roomEdit: true, screen: 'topics', notice: '', topicsTab: topicTabOf(get().pub!.gameMode) ?? get().topicsTab });
   send({ t: 'editing', on: true });
 }
 // 部屋に戻る。持っていくお題をホストに送り直す
