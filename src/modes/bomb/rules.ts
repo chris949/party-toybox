@@ -1,25 +1,29 @@
 // 爆弾まわしのルール（このフォルダの README.md の16章）。画面・通信・ブラウザの機能は使わない（時刻と乱数は ctx で受け取る）
-import { BOMB_FUSES, BOMB_HEATS, BOMB_WORD_MAX } from '../../core/constants';
+import { BOMB_FUSES, BOMB_HEATS, BOMB_LOCK_MS } from '../../core/constants';
 import { shuffle } from '../../core/random';
 import type { ActionFrom, Ctx, RoomState, Timer } from '../../core/types';
-import { BOMB_THEMES, normalizeWord } from './themes';
+import { dealQuiz, hasAnswer, type Quiz } from './quiz';
 
 export type BombPhase = 'hot' | 'boom' | 'result';
+export type BombStyle = 'tap' | 'type'; // 選択式／入力式
 
 export interface BombState {
   kind: 'bomb';
   phase: BombPhase;
+  style: BombStyle;
   ring: string[];                  // 開始時の参加者
   names: Record<string, string>;
   round: number;
   rounds: number;                  // 爆発の回数
-  theme: string;
-  used: string[];                  // 使ったお題
+  usedTitles: string[];            // 配ったお題（なるべく重ならないようにする）
+  quizzes: Record<string, Quiz>;   // 1人に1つのお題
   holderId: string;                // いま爆弾を持っている人
+  armed: boolean;                  // 持っている人が正解を当てて、渡せる状態か
+  lockUntil: number;               // はずれを選んだあと、この時刻までは選べない
   startAt: number;
   boomAt: number;                  // 爆発する時刻（参加者には送らない）
   heat: number;                    // 0〜3。導火線がどこまで燃えたか（音と見た目の強さ。これだけを送る）
-  words: { id: string; text: string }[]; // この回に出た言葉（言った人と一緒に）
+  log: { id: string; text: string; ok: boolean }[]; // この回に選ばれたもの（選んだ人と、当たり・はずれ）
   passes: number;
   loserId: string | null;          // 爆発したときに持っていた人
 }
@@ -40,28 +44,41 @@ const heatAt = (g: BombState, now: number) => {
   return BOMB_HEATS.filter(h => f >= h).length;
 };
 
-// 新しいラウンド：お題を決め、導火線の長さをこっそり決めて、火をつける
+// その人のお題（なければ配る。途中から入った人や、正解を使い切った人）
+function quizOf(room: RoomState, g: BombState, id: string, ctx: Ctx): Quiz {
+  if (!g.quizzes[id] || !hasAnswer(g.quizzes[id])) g.quizzes[id] = dealQuiz(room, id, g.usedTitles, ctx);
+  return g.quizzes[id];
+}
+// 爆弾を渡す
+function give(room: RoomState, g: BombState, to: string, ctx: Ctx) {
+  g.holderId = to;
+  g.armed = false;
+  g.lockUntil = 0;
+  quizOf(room, g, to, ctx);
+}
+
+// 新しいラウンド：1人に1つ、別々のお題を配り、導火線の長さをこっそり決めて、火をつける
 function light(room: RoomState, g: BombState, ctx: Ctx, holder: string) {
-  const fresh = BOMB_THEMES.filter(t => !g.used.includes(t.text));
-  g.theme = pick(fresh.length ? fresh : BOMB_THEMES, ctx).text;
-  g.used.push(g.theme);
-  g.holderId = isOnline(room, holder) ? holder : pick(online(room), ctx)?.id ?? holder;
+  g.quizzes = {};
+  for (const p of online(room)) g.quizzes[p.id] = dealQuiz(room, p.id, g.usedTitles, ctx);
   const [min, max] = BOMB_FUSES[room.bombFuse] ?? BOMB_FUSES[1];
   g.startAt = ctx.now;
   g.boomAt = ctx.now + Math.round((min + ctx.random() * (max - min)) * 1000);
   g.heat = 0;
-  g.words = [];
+  g.log = [];
   g.passes = 0;
   g.loserId = null;
   g.phase = 'hot';
+  give(room, g, isOnline(room, holder) ? holder : pick(online(room), ctx)?.id ?? holder, ctx);
 }
 
 export function start(room: RoomState, ctx: Ctx): BombState {
   const players = shuffle(online(room), ctx.random);
   room.players.forEach(p => { p.score = 0; });
   const g: BombState = {
-    kind: 'bomb', phase: 'hot', ring: players.map(p => p.id), names: Object.fromEntries(players.map(p => [p.id, p.name])),
-    round: 0, rounds: room.bombRounds, theme: '', used: [], holderId: '', startAt: 0, boomAt: 0, heat: 0, words: [], passes: 0, loserId: null,
+    kind: 'bomb', phase: 'hot', style: room.bombStyle, ring: players.map(p => p.id), names: Object.fromEntries(players.map(p => [p.id, p.name])),
+    round: 0, rounds: room.bombRounds, usedTitles: [], quizzes: {}, holderId: '', armed: false, lockUntil: 0,
+    startAt: 0, boomAt: 0, heat: 0, log: [], passes: 0, loserId: null,
   };
   light(room, g, ctx, players[0].id);
   return g;
@@ -79,30 +96,30 @@ function explode(room: RoomState, g: BombState) {
 export function checkAdvance(room: RoomState, g: BombState, ctx: Ctx) {
   if (g.phase !== 'hot' || isOnline(room, g.holderId)) return;
   const next = pick(online(room).filter(p => p.id !== g.holderId), ctx);
-  if (next) g.holderId = next.id;
-}
-
-// 言葉を整える。使えないときは null（空・同じ言葉がもう出ている）
-export function cleanWord(g: BombState, raw: unknown): string | null {
-  const text = String(raw ?? '').replace(/\s+/g, ' ').trim().slice(0, BOMB_WORD_MAX);
-  if (!text) return null;
-  const key = normalizeWord(text);
-  return g.words.some(w => normalizeWord(w.text) === key) ? null : text;
+  if (next) give(room, g, next.id, ctx);
 }
 
 export function reduce(room: RoomState, g: BombState, a: ActionFrom, ctx: Ctx): boolean {
   const isHost = a.from === room.hostId;
+  const holding = g.phase === 'hot' && a.from === g.holderId;
   switch (a.t) {
-    case 'toss': {
-      // 言葉を1つ言って、爆弾を渡す
-      if (g.phase !== 'hot' || a.round !== g.round || a.from !== g.holderId || a.to === a.from || !isOnline(room, a.to)) return false;
-      const text = cleanWord(g, a.word);
-      if (!text) return false;
-      g.words.push({ id: a.from, text });
-      g.holderId = a.to;
-      g.passes++;
+    case 'bombPick': {
+      // 選択肢を1つ選ぶ（入力式でも、打ち込んだ文字と合った選択肢の番号が届く）
+      const q = g.quizzes[a.from];
+      if (!holding || a.round !== g.round || g.armed || ctx.now < g.lockUntil || !q) return false;
+      if (!Number.isInteger(a.i) || a.i < 0 || a.i >= q.options.length || q.used[a.i] || q.wrong[a.i]) return false;
+      const ok = q.correct[a.i];
+      if (ok) { q.used[a.i] = true; g.armed = true; }
+      else { q.wrong[a.i] = true; g.lockUntil = ctx.now + BOMB_LOCK_MS; }
+      g.log.push({ id: a.from, text: q.options[a.i], ok });
       return true;
     }
+    case 'toss':
+      // 正解を当てたあと、爆弾を渡す
+      if (!holding || a.round !== g.round || !g.armed || a.to === a.from || !isOnline(room, a.to)) return false;
+      give(room, g, a.to, ctx);
+      g.passes++;
+      return true;
     case 'tick':
       // 導火線を進める（ホストのタイマーが出す）
       if (!isHost || g.phase !== 'hot') return false;

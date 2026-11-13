@@ -10,7 +10,7 @@ export function BlendLobby({ pub, host }: { pub: Pub; host: boolean }) {
           <button key={sec} className={pub.blendTime === sec ? 'on' : ''} onClick={() => send({ t: 'blendTime', sec })}>{sec}秒</button>
         ))}</div>
       : <p style={{ margin: 0, fontWeight: 800 }}>{pub.blendTime}秒</p>}
-    <p className="muted small" style={{ margin: '6px 0 0' }}>かくれる人は、この時間のうちに、ほしを{BLEND_STARS}つ集めます。全員が1回ずつかくれたら終わりです</p>
+    <p className="muted small" style={{ margin: '6px 0 0' }}>かくれる人は、この時間のうちに、ほしを{BLEND_STARS}つ集めます。集めきったら、その場で発表です。全員が1回ずつかくれたら終わりです</p>
     <h2 style={{ marginTop: 16 }}>キャラクターの数</h2>
     {host
       ? <div className="seg">{BLEND_CROWDS.map(n => (

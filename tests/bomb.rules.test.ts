@@ -1,25 +1,37 @@
 import { describe, expect, it } from 'vitest';
-import { BOMB_FUSES, BOMB_HEATS, BOMB_WORD_MAX, DEFAULT_BOMB_FUSE, DEFAULT_BOMB_ROUNDS } from '../src/core/constants';
+import { BOMB_FUSES, BOMB_HEATS, BOMB_LOCK_MS, DEFAULT_BOMB_FUSE, DEFAULT_BOMB_ROUNDS } from '../src/core/constants';
 import { nextTimer } from '../src/core/room';
 import { viewFor } from '../src/core/view';
+import { matchOption, normalizeWord } from '../src/modes/bomb/quiz';
 import type { BombState } from '../src/modes/bomb/rules';
-import { BOMB_THEMES, normalizeWord } from '../src/modes/bomb/themes';
+import type { FiveTopic } from '../src/modes/five/topics';
 import { samples, testRoom } from './helpers';
 
-function bombRoom(n: number, opts: { seed?: number; rounds?: number; fuse?: number } = {}) {
+const five = (title: string): FiveTopic => ({
+  title, answers: [1, 2, 3, 4, 5, 6].map(i => `${title}の正解${i}`), dummies: [1, 2, 3].map(i => `${title}のダミー${i}`), size: 8, dummy: 3,
+});
+
+// fives[i] は i 番目の人が持ってくるセレクトファイブのお題
+function bombRoom(n: number, opts: { seed?: number; rounds?: number; fuse?: number; fives?: FiveTopic[][]; style?: 'tap' | 'type' } = {}) {
   const t = testRoom(Array.from({ length: n }, () => samples()), { seed: opts.seed });
+  if (opts.fives) t.ids.forEach((id, i) => t.act(id, { t: 'topics', topics: samples(), fives: opts.fives![i] ?? [] }));
   t.host({ t: 'game', mode: 'bomb' });
   if (opts.rounds) t.host({ t: 'bombRounds', n: opts.rounds });
   if (opts.fuse != null) t.host({ t: 'bombFuse', n: opts.fuse });
+  if (opts.style) t.host({ t: 'bombStyle', style: opts.style });
   t.host({ t: 'start' });
   const g = () => t.room.game as BombState;
+  const quiz = () => g().quizzes[g().holderId];
+  const open = (right: boolean) => quiz().options.map((_, i) => i).filter(i => quiz().correct[i] === right && !quiz().used[i] && !quiz().wrong[i]);
   return {
-    ids: t.ids, ctx: t.ctx, act: t.act, host: t.host, advance: t.advance,
+    ids: t.ids, ctx: t.ctx, act: t.act, host: t.host, advance: t.advance, quiz, open,
     get room() { return t.room; },
     get g() { return g(); },
     others() { return t.ids.filter(id => id !== g().holderId); },
-    // 持っている人が、言葉を言って渡す
-    toss(word: string, to = t.ids.find(id => id !== g().holderId)!) { return t.act(g().holderId, { t: 'toss', round: g().round, word, to }); },
+    // 持っている人が、正解（right = false ならダミー）を1つ選ぶ
+    pick(right = true) { return t.act(g().holderId, { t: 'bombPick', round: g().round, i: open(right)[0] }); },
+    // 持っている人が、正解を当てて渡す
+    pass(to = t.ids.find(id => id !== g().holderId)!) { this.pick(); return t.act(g().holderId, { t: 'toss', round: g().round, to }); },
     // ホストのタイマーが鳴ったことにする
     fire() { const tm = nextTimer(t.room)!; t.ctx.now = tm.at; t.host(tm.action); },
     // 爆発まで進める
@@ -29,14 +41,31 @@ function bombRoom(n: number, opts: { seed?: number; rounds?: number; fuse?: numb
 }
 
 describe('爆弾まわし：お題', () => {
-  it('お題は30個以上あり、重複がない。それぞれに、CPU が言う言葉の例が6つ以上ある', () => {
-    expect(BOMB_THEMES.length).toBeGreaterThanOrEqual(30);
-    expect(new Set(BOMB_THEMES.map(t => t.text)).size).toBe(BOMB_THEMES.length);
-    for (const t of BOMB_THEMES) {
-      expect(t.words.length).toBeGreaterThanOrEqual(6);
-      expect(new Set(t.words.map(normalizeWord)).size).toBe(t.words.length);
-      expect(t.words.every(w => w.length <= BOMB_WORD_MAX)).toBe(true);
+  it('1人に1つ、別々のお題。みんなが持ってきたセレクトファイブのお題を使い、自分が作ったお題は自分に当たらない', () => {
+    for (let seed = 1; seed <= 30; seed++) {
+      const r = bombRoom(3, { seed: seed * 104729, fives: [[five('い')], [five('ろ')], [five('は')]] });
+      const titles = r.ids.map(id => r.g.quizzes[id].title);
+      expect(new Set(titles).size).toBe(3);
+      r.ids.forEach((id, i) => expect(r.g.quizzes[id].title).not.toBe(['い', 'ろ', 'は'][i]));
+      // 選択肢には、正解とダミーが混ざっている
+      for (const id of r.ids) {
+        const q = r.g.quizzes[id];
+        expect(q.correct.some(Boolean)).toBe(true);
+        expect(q.correct.some(c => !c)).toBe(true);
+      }
     }
+  });
+  it('持ってきたお題がなくても、サンプルで遊べる', () => {
+    const r = bombRoom(4);
+    expect(new Set(r.ids.map(id => r.g.quizzes[id].title)).size).toBe(4);
+    expect(r.ids.every(id => r.g.quizzes[id].by === 'サンプル')).toBe(true);
+  });
+  it('入力式：打ち込んだ文字と合う選択肢を探す（ひらがな・カタカナ・大文字小文字・空白のちがいは同じ）', () => {
+    expect(normalizeWord(' トマト ')).toBe('とまと');
+    expect(matchOption(['りんご', 'トマト', 'Apple pie'], 'とまと')).toBe(1);
+    expect(matchOption(['りんご', 'トマト', 'Apple pie'], 'applePie')).toBe(2);
+    expect(matchOption(['りんご', 'トマト'], 'みかん')).toBe(-1);
+    expect(matchOption(['りんご', 'トマト'], '  ')).toBe(-1);
   });
 });
 
@@ -46,45 +75,109 @@ describe('爆弾まわし：まわす', () => {
     expect(r.g.phase).toBe('hot');
     expect(r.ids).toContain(r.g.holderId);
     expect(r.g.rounds).toBe(DEFAULT_BOMB_ROUNDS);
+    expect(r.g.style).toBe('tap');
+    expect(bombRoom(2, { style: 'type' }).g.style).toBe('type');
     const [min, max] = BOMB_FUSES[DEFAULT_BOMB_FUSE];
     expect(r.g.boomAt - r.g.startAt).toBeGreaterThanOrEqual(min * 1000);
     expect(r.g.boomAt - r.g.startAt).toBeLessThanOrEqual(max * 1000);
   });
-  it('持っている人だけが、言葉を言って、ほかの人に渡せる', () => {
+  it('正解を当てるまでは渡せない。当てたら、ほかの人に渡せる', () => {
     const r = bombRoom(3);
     const holder = r.g.holderId, [a, b] = r.others();
-    r.act(a, { t: 'toss', round: r.g.round, word: 'りんご', to: b });      // 持っていない人
-    r.act(holder, { t: 'toss', round: r.g.round, word: 'りんご', to: holder }); // 自分に渡す
-    r.act(holder, { t: 'toss', round: r.g.round, word: 'りんご', to: 'nobody' });
-    r.act(holder, { t: 'toss', round: r.g.round + 1, word: 'りんご', to: a });
-    r.act(holder, { t: 'toss', round: r.g.round, word: '   ', to: a });      // 言葉がない
+    r.act(holder, { t: 'toss', round: r.g.round, to: a });   // まだ当てていない
+    r.act(a, { t: 'bombPick', round: r.g.round, i: 0 });      // 持っていない人
     expect(r.g.holderId).toBe(holder);
-    expect(r.g.words).toEqual([]);
-    r.act(holder, { t: 'toss', round: r.g.round, word: '  りんご ', to: a });
-    expect(r.g.holderId).toBe(a);
-    expect(r.g.words).toEqual([{ id: holder, text: 'りんご' }]);
+    expect(r.g.log).toEqual([]);
+    r.pick();
+    expect(r.g.armed).toBe(true);
+    expect(r.g.log).toHaveLength(1);
+    expect(r.g.log[0]).toMatchObject({ id: holder, ok: true });
+    r.pick(); // 当てたあとは、もう選べない
+    expect(r.g.log).toHaveLength(1);
+    r.act(holder, { t: 'toss', round: r.g.round, to: holder });
+    r.act(holder, { t: 'toss', round: r.g.round, to: 'nobody' });
+    r.act(holder, { t: 'toss', round: r.g.round + 1, to: a });
+    expect(r.g.holderId).toBe(holder);
+    r.act(holder, { t: 'toss', round: r.g.round, to: b });
+    expect(r.g.holderId).toBe(b);
+    expect(r.g.armed).toBe(false);
+    expect(r.g.passes).toBe(1);
   });
-  it('同じ言葉は、もう言えない（ひらがな・カタカナ・前後の空白のちがいは同じとみなす）。長すぎる言葉は切る', () => {
+  it('はずれ（ダミー）を選ぶと、2秒間は選べない。同じ選択肢は、もう選べない', () => {
     const r = bombRoom(2);
-    r.toss('トマト');
-    const holder = r.g.holderId;
-    r.toss('とまと');
-    r.toss(' トマト ');
-    expect(r.g.holderId).toBe(holder);
-    r.toss('あ'.repeat(50));
-    expect(r.g.words[1].text).toHaveLength(BOMB_WORD_MAX);
+    const wrong = r.open(false)[0];
+    r.act(r.g.holderId, { t: 'bombPick', round: r.g.round, i: wrong });
+    expect(r.g.armed).toBe(false);
+    expect(r.g.log[0].ok).toBe(false);
+    expect(r.quiz().wrong[wrong]).toBe(true);
+    r.pick(); // まだ選べない
+    expect(r.g.log).toHaveLength(1);
+    r.advance(BOMB_LOCK_MS);
+    r.act(r.g.holderId, { t: 'bombPick', round: r.g.round, i: wrong }); // 同じダミー
+    r.act(r.g.holderId, { t: 'bombPick', round: r.g.round, i: 99 });
+    expect(r.g.log).toHaveLength(1);
+    r.pick();
+    expect(r.g.armed).toBe(true);
+  });
+  it('一度当てた正解は、もう使えない。正解を使い切ったら、新しいお題が配られる', () => {
+    const r = bombRoom(2);
+    const a = r.g.holderId, title = r.g.quizzes[a].title;
+    const total = r.g.quizzes[a].correct.filter(Boolean).length;
+    for (let k = 0; k < total; k++) {
+      expect(r.g.holderId).toBe(a);
+      expect(r.g.quizzes[a].title).toBe(title);
+      expect(r.g.quizzes[a].used.filter(Boolean)).toHaveLength(k);
+      r.pass(); // a → 相手
+      r.pass(); // 相手 → a
+    }
+    expect(r.g.holderId).toBe(a);
+    expect(r.g.quizzes[a].title).not.toBe(title);
+    expect(r.g.quizzes[a].used.some(Boolean)).toBe(false);
   });
   it('切れている人には渡せない。持っている人が切れたら、爆弾はほかの人に飛ぶ', () => {
     const r = bombRoom(3);
-    const holder = r.g.holderId, [a, b] = r.others().filter(id => id !== r.ids[0]).concat(r.others());
-    if (holder === r.ids[0] || a === r.ids[0]) return; // ホストが抜けると部屋がなくなるので、この種では確かめない
+    const holder = r.g.holderId, [a] = r.others().filter(id => id !== r.ids[0]);
+    if (holder === r.ids[0]) return; // ホストが抜けると部屋がなくなるので、この種では確かめない
     r.act(a, { t: 'leave' });
-    r.act(holder, { t: 'toss', round: r.g.round, word: 'りんご', to: a });
+    r.pick();
+    r.act(holder, { t: 'toss', round: r.g.round, to: a });
     expect(r.g.holderId).toBe(holder);
     r.act(holder, { t: 'leave' });
-    expect(r.g.holderId).not.toBe(holder);
-    expect(r.g.holderId).not.toBe(a);
-    expect(b).toBeDefined();
+    expect(r.g.holderId).toBe(r.ids[0]);
+    expect(r.g.armed).toBe(false);
+  });
+});
+
+describe('爆弾まわし：見せる情報', () => {
+  it('持っている人のお題は全員に見える。どれが正解かは、選ぶまで送らない', () => {
+    const r = bombRoom(3);
+    const holder = r.g.holderId, [a] = r.others();
+    for (const id of r.ids) {
+      const v = viewFor(r.room, id, r.ctx.now).bomb!;
+      expect(v.quiz!.title).toBe(r.quiz().title);
+      expect(v.quiz!.mark.every(m => m === '')).toBe(true);
+      expect(JSON.stringify(v)).not.toContain('correct');
+      expect(JSON.stringify(v)).not.toContain(r.g.quizzes[a].title); // まだ持っていない人のお題は送らない
+    }
+    r.pick(false);
+    expect(viewFor(r.room, a, r.ctx.now).bomb!.quiz!.mark.filter(m => m === 'ng')).toHaveLength(1);
+    expect(viewFor(r.room, holder, r.ctx.now).bomb!.lockMs).toBe(BOMB_LOCK_MS);
+    r.advance(500);
+    expect(viewFor(r.room, holder, r.ctx.now).bomb!.lockMs).toBe(BOMB_LOCK_MS - 500);
+    r.advance(BOMB_LOCK_MS);
+    r.pick();
+    const v = viewFor(r.room, a, r.ctx.now).bomb!;
+    expect(v.quiz!.mark.filter(m => m === 'ok')).toHaveLength(1);
+    expect(v.armed).toBe(true);
+    expect(v.log.map(x => x.ok)).toEqual([false, true]);
+  });
+  it('爆発したら、持っていた人のお題の、残りの正解を見せる', () => {
+    const r = bombRoom(2);
+    const n = r.quiz().correct.filter(Boolean).length;
+    r.boom();
+    const v = viewFor(r.room, r.ids[0], r.ctx.now).bomb!;
+    expect(v.quiz!.mark.filter(m => m === 'ans')).toHaveLength(n);
+    expect(v.lockMs).toBe(0);
   });
 });
 
@@ -110,26 +203,26 @@ describe('爆弾まわし：導火線', () => {
     r.act(r.ids[1], { t: 'tick' });
     expect(r.room).toBe(before);
   });
-  it('爆発：持っていた人以外の全員に1点。次は、爆発した人から始まる', () => {
+  it('爆発：持っていた人以外の全員に1点。次は、爆発した人から、新しいお題で始まる', () => {
     const r = bombRoom(4);
-    r.toss('りんご');
+    r.pass();
     const loser = r.g.holderId;
+    const titles = r.ids.map(id => r.g.quizzes[id].title);
     r.boom();
     expect(r.g.phase).toBe('boom');
     expect(r.g.loserId).toBe(loser);
     expect(nextTimer(r.room)).toBeNull();
     for (const id of r.ids) expect(r.score(id)).toBe(id === loser ? 0 : 1);
-    r.toss('みかん'); // 爆発のあとは渡せない
-    expect(r.g.words).toHaveLength(1);
-    const theme = r.g.theme;
+    r.pick(); // 爆発のあとは選べない
+    expect(r.g.log).toHaveLength(1);
     r.act(r.ids[1], { t: 'next' });
     expect(r.g.phase).toBe('boom');
     r.host({ t: 'next' });
     expect(r.g.phase).toBe('hot');
     expect(r.g.round).toBe(1);
     expect(r.g.holderId).toBe(loser);
-    expect(r.g.theme).not.toBe(theme);
-    expect(r.g.words).toEqual([]);
+    expect(r.ids.map(id => r.g.quizzes[id].title).some(t => titles.includes(t))).toBe(false);
+    expect(r.g.log).toEqual([]);
     expect(r.g.heat).toBe(0);
   });
 });
@@ -143,32 +236,34 @@ describe('爆弾まわし：進行', () => {
     r.host({ t: 'lobby' });
     expect(r.room.game).toBeNull();
   });
-  it('設定：爆発の回数と導火線の長さは、ホストだけが、決まった値に変えられる', () => {
+  it('設定：答え方・爆発の回数・導火線の長さは、ホストだけが、決まった値に変えられる', () => {
     const t = testRoom([samples(), samples()]);
     t.act(t.ids[1], { t: 'bombRounds', n: 8 });
+    t.act(t.ids[1], { t: 'bombStyle', style: 'type' });
     t.host({ t: 'bombRounds', n: 4 });
     t.host({ t: 'bombFuse', n: 3 });
-    expect([t.room.bombRounds, t.room.bombFuse]).toEqual([DEFAULT_BOMB_ROUNDS, DEFAULT_BOMB_FUSE]);
+    t.host({ t: 'bombStyle', style: 'voice' as never });
+    expect([t.room.bombRounds, t.room.bombFuse, t.room.bombStyle]).toEqual([DEFAULT_BOMB_ROUNDS, DEFAULT_BOMB_FUSE, 'tap']);
     t.host({ t: 'bombRounds', n: 8 });
     t.host({ t: 'bombFuse', n: 0 });
-    expect([t.room.bombRounds, t.room.bombFuse]).toEqual([8, 0]);
+    t.host({ t: 'bombStyle', style: 'type' });
+    expect([t.room.bombRounds, t.room.bombFuse, t.room.bombStyle]).toEqual([8, 0, 'type']);
   });
 });
 
 describe('シミュレーション', () => {
-  it('100ゲーム：止まらず、毎回だれか1人が爆発し、お題はゲームの中で重ならない', () => {
+  it('100ゲーム：止まらず、毎回だれか1人が爆発し、持っている人にはいつも当てられる正解がある', () => {
     for (let seed = 1; seed <= 100; seed++) {
       const n = 2 + seed % 9, rounds = [3, 5, 8][seed % 3];
       const r = bombRoom(n, { seed: seed * 104729, rounds, fuse: seed % 3 });
-      const themes: string[] = [];
       for (let round = 0; round < rounds; round++) {
-        themes.push(r.g.theme);
-        // 爆発までのあいだに、何回か渡す
-        const passes = Math.floor(r.ctx.random() * 12);
-        for (let k = 0; k < passes; k++) {
-          const to = r.others()[Math.floor(r.ctx.random() * (n - 1))];
-          r.toss(`ことば${k}`, to);
-          if (r.ctx.random() < 0.3 && r.g.phase === 'hot') r.fire();
+        // 爆発までのあいだに、当てたり、はずしたり、渡したりする
+        const moves = Math.floor(r.ctx.random() * 40);
+        for (let k = 0; k < moves && r.g.phase === 'hot'; k++) {
+          expect(r.open(true).length).toBeGreaterThan(0);
+          if (r.ctx.random() < 0.3 && r.open(false).length) { r.pick(false); r.advance(BOMB_LOCK_MS); }
+          else r.pass(r.others()[Math.floor(r.ctx.random() * (n - 1))]);
+          if (r.ctx.random() < 0.15) r.fire();
         }
         r.boom();
         expect(r.g.phase).toBe('boom');
@@ -176,7 +271,6 @@ describe('シミュレーション', () => {
         r.host({ t: 'next' });
       }
       expect(r.g.phase).toBe('result');
-      expect(new Set(themes).size).toBe(rounds);
       expect(r.ids.reduce((s, id) => s + r.score(id), 0)).toBe(rounds * (n - 1));
     }
   }, 120_000);

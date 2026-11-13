@@ -14,7 +14,7 @@ import { DEFAULT_RELAY_TIME, RELAY_TIMES, BOMB_FUSES, BOMB_ROUNDS, DEFAULT_BOMB_
 const charaOf = (n: unknown) => Number.isInteger(n) && (n as number) >= 0 && (n as number) < CHARA_MAX ? n as number : null;
 
 export function createRoom(code: string, hostId: string, minPlayers: number): RoomState {
-  return { code, hostId, minPlayers, gameNo: 1, gameMode: 'tier', pickMode: 'random', timeLimit: DEFAULT_TIME_LIMIT, fateTime: DEFAULT_FATE_TIME, fateQuota: DEFAULT_FATE_QUOTA, fateLives: DEFAULT_FATE_LIVES, haikuStyle: 'theme', haikuTime: DEFAULT_HAIKU_TIME, bluffTime: DEFAULT_BLUFF_TIME, blendTime: DEFAULT_BLEND_TIME, blendCrowd: DEFAULT_BLEND_CROWD, bombRounds: DEFAULT_BOMB_ROUNDS, bombFuse: DEFAULT_BOMB_FUSE, relayTime: DEFAULT_RELAY_TIME, bouquetTime: DEFAULT_BOUQUET_TIME, bouquetGoal: 0, bouquetsBy: {}, haikusBy: {}, players: [], topicsBy: {}, fivesBy: {}, fatesBy: {}, game: null };
+  return { code, hostId, minPlayers, gameNo: 1, gameMode: 'tier', pickMode: 'random', timeLimit: DEFAULT_TIME_LIMIT, fateTime: DEFAULT_FATE_TIME, fateQuota: DEFAULT_FATE_QUOTA, fateLives: DEFAULT_FATE_LIVES, haikuStyle: 'theme', haikuTime: DEFAULT_HAIKU_TIME, bluffTime: DEFAULT_BLUFF_TIME, blendTime: DEFAULT_BLEND_TIME, blendCrowd: DEFAULT_BLEND_CROWD, bombRounds: DEFAULT_BOMB_ROUNDS, bombFuse: DEFAULT_BOMB_FUSE, bombStyle: 'tap', relayTime: DEFAULT_RELAY_TIME, bouquetTime: DEFAULT_BOUQUET_TIME, bouquetGoal: 0, bouquetsBy: {}, haikusBy: {}, players: [], topicsBy: {}, fivesBy: {}, fatesBy: {}, game: null };
 }
 
 // 参加を受け付けるか。断るときはその理由
@@ -100,6 +100,10 @@ export function reduce(state: RoomState, a: ActionFrom, ctx: Ctx): RoomState {
     case 'bombRounds':
       if (!isHost || room.game || !(BOMB_ROUNDS as readonly number[]).includes(a.n)) return state;
       room.bombRounds = a.n;
+      return room;
+    case 'bombStyle':
+      if (!isHost || room.game || (a.style !== 'tap' && a.style !== 'type')) return state;
+      room.bombStyle = a.style;
       return room;
     case 'bombFuse':
       if (!isHost || room.game || !Number.isInteger(a.n) || a.n < 0 || a.n >= BOMB_FUSES.length) return state;

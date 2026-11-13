@@ -67,7 +67,7 @@ function Players({ pub }: { pub: Pub }) {
       <span key={p.id} className={`pl ${p.online ? '' : 'off'} ${p.id === pub.me ? 'me' : ''}`}>
         {p.id === pub.hostId && '👑'}{p.bot && '🤖'}{pub.phase === 'lobby' && pub.gameMode === 'fate' && charaOf(p.chara).face}{p.name}
         {pub.phase !== 'lobby' ? <span className="sc">{p.score}</span>
-          : <span className="muted small">{pub.gameMode === 'fate' ? `問題${p.fates + p.fives}` : pub.gameMode === 'haiku' ? `お題${p.haikus}` : pub.gameMode === 'bluff' || pub.gameMode === 'blend' || pub.gameMode === 'bomb' || pub.gameMode === 'relay' ? '' : pub.gameMode === 'bouquet' ? `お題${p.bouquets}` : `お題${pub.gameMode === 'five' ? p.fives : p.topics}`}</span>}
+          : <span className="muted small">{pub.gameMode === 'fate' ? `問題${p.fates + p.fives}` : pub.gameMode === 'haiku' ? `お題${p.haikus}` : pub.gameMode === 'bluff' || pub.gameMode === 'blend' || pub.gameMode === 'relay' ? '' : pub.gameMode === 'bomb' ? `お題${p.fives}` : pub.gameMode === 'bouquet' ? `お題${p.bouquets}` : `お題${pub.gameMode === 'five' ? p.fives : p.topics}`}</span>}
         {p.done === true ? '✅' : p.done === false ? '⏳' : ''}
         {pub.phase === 'lobby' && p.editing && <span className="small">✏️ 編集中</span>}
         {pub.phase === 'lobby' && isHost() && p.id !== pub.me && <button className="mini" style={{ padding: '0 6px' }} onClick={() => send({ t: 'kick', id: p.id })}>✕</button>}
@@ -119,7 +119,7 @@ function Lobby({ pub }: { pub: Pub }) {
       <p className="muted small" style={{ margin: '6px 0 0' }}>{pub.gameMode === 'five'
         ? '正解とダミーを混ぜた選択肢から、正解だと思うものを5つ選びます。お題が足りない分はサンプルで補います'
         : relay ? '絵と言葉の伝言ゲーム。お題をスタンプで絵にして隣へ回し、次の人は絵を見て言葉で答え、その次の人はその言葉をまた絵にします。最後に、どう伝わったかをみんなで見ます。お題は同梱のものを使います'
-        : bomb ? 'いつ爆発するか分からない爆弾を回します。回ってきたら、お題に合う言葉を1つ入れて、誰かに渡します。爆発したときに持っていた人の負け。お題は同梱のものを使います'
+        : bomb ? 'いつ爆発するか分からない爆弾を回します。回ってきたら、自分のお題の正解を1つ当てて、誰かに渡します。爆発したときに持っていた人の負け。お題は、セレクトファイブのものを使います'
         : blend ? '同じ見た目のキャラクターが、舞台を大勢うろうろします。1体だけ、人が動かしています。ほかの全員で、どれが人かを当てます。お題は使いません'
         : bouquet ? '配られた言葉のカードを並べて、お題に合うひとことを作ります。親が読み上げて、いちばん刺さったものを選びます。お題が足りない分はサンプルで補います'
         : bluff ? '自分のカードだけ見えないトランプ遊び。ほかの人のカードは見えるので、通話でだまし合い、勝負するか降りるかを決めます。お題は使いません'

@@ -68,7 +68,7 @@ export const DEFAULT_BOMB_ROUNDS = 5;
 export const BOMB_FUSES = [[15, 30], [20, 45], [30, 70]] as const; // 導火線の長さ（秒）。この幅の中から、毎回ランダムに決める
 export const BOMB_FUSE_LABELS = ['みじかめ', 'ふつう', 'ながめ'] as const;
 export const DEFAULT_BOMB_FUSE = 1;
-export const BOMB_WORD_MAX = 20;                    // 言葉の長さの上限
+export const BOMB_LOCK_MS = 2000;                   // はずれ（ダミー）を選んだあと、操作できない時間
 export const BOMB_HEATS = [0.5, 0.75, 0.9] as const; // 導火線がこの割合まで燃えたら、音と見た目を1段ずつ強くする
 
 // スタンプ伝言（src/modes/relay/README.md の17章）
