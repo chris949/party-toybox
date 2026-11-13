@@ -23,3 +23,8 @@
 .wby { font-size: 13px; font-weight: 800; color: var(--muted); }
 .wby.big { font-size: 16px; color: var(--coral); font-weight: 900; }
 .wbloom { text-align: center; padding: 14px 8px; margin: 12px 0; border-radius: 16px; background: #fff8e1; border: 2.5px solid var(--ink); box-shadow: 0 4px 0 var(--ink); }
+/* お題の設定：持ち寄りの言葉の一覧（1語ずつ、✕ で消せる） */
+.wordlist { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.wordlist span { display: inline-flex; align-items: center; gap: 4px; padding: 4px 4px 4px 12px; border-radius: 999px; border: 2px solid var(--ink); background: #fff; font-weight: 800; font-size: 15px; }
+.wordlist .x { min-height: 28px; width: 28px; padding: 0; border-radius: 50%; border-width: 1.5px; box-shadow: none; font-size: 12px; }
+.row.wrap { flex-wrap: wrap; }

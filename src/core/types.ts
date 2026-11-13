@@ -50,6 +50,9 @@ export interface RoomState {
   bouquetTime: number;    // ワードブーケの、文を作る時間（秒）
   bouquetGoal: number;    // ワードブーケの終わり方（0 = 全員が親を1回。3・5 = 先取）
   bouquetsBy: Record<string, string[]>; // ワードブーケのお題
+  bouquetWordsBy: Record<string, string[]>; // ワードブーケの、持ち寄りの言葉
+  bouquetHand: number;    // ワードブーケの、手札の枚数
+  bouquetMix: boolean;    // ワードブーケの言葉：true = プリセットと混ぜる／false = 持ち寄りだけ
   blendTime: number;      // まぎれろ！の、かくれる時間（秒）
   blendCrowd: number;     // まぎれろ！の、舞台にいるキャラクターの数
   bombRounds: number;     // 爆弾まわしの、爆発の回数
@@ -66,7 +69,7 @@ export interface RoomState {
 
 // 状態を進める操作。from は操作した人（タイマーはホスト）
 export type Action =
-  | { t: 'join'; name: string; key: string; topics: Topic[]; fives?: FiveTopic[]; fates?: FateQuestion[]; haikus?: string[]; bouquets?: string[]; chara?: number; version: string; bot?: boolean }
+  | { t: 'join'; name: string; key: string; topics: Topic[]; fives?: FiveTopic[]; fates?: FateQuestion[]; haikus?: string[]; bouquets?: string[]; bouquetWords?: string[]; chara?: number; version: string; bot?: boolean }
   | { t: 'leave' }
   | { t: 'mode'; mode: PickMode }
   | { t: 'time'; sec: number }
@@ -79,6 +82,8 @@ export type Action =
   | { t: 'bluffTime'; sec: number }
   | { t: 'bouquetTime'; sec: number }
   | { t: 'bouquetGoal'; n: number }
+  | { t: 'bouquetHand'; n: number }
+  | { t: 'bouquetMix'; on: boolean }
   | { t: 'blendTime'; sec: number }
   | { t: 'blendCrowd'; n: number }
   | { t: 'bombRounds'; n: number }
@@ -100,7 +105,7 @@ export type Action =
   | { t: 'kana'; step: number; ch: string }   // ハイカー575：1文字書く
   | { t: 'rate'; round: number; n: number }   // ハイカー575：作品に★を付ける
   | { t: 'chara'; n: number }
-  | { t: 'topics'; topics: Topic[]; fives?: FiveTopic[]; fates?: FateQuestion[]; haikus?: string[]; bouquets?: string[] } // ロビーで持っていくお題を送り直す
+  | { t: 'topics'; topics: Topic[]; fives?: FiveTopic[]; fates?: FateQuestion[]; haikus?: string[]; bouquets?: string[]; bouquetWords?: string[] } // ロビーで持っていくお題を送り直す
   | { t: 'editing'; on: boolean }
   | { t: 'retract'; round: number } // 決定した予想・回答を取り消す
   | { t: 'move'; side: Side }

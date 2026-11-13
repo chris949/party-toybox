@@ -33,6 +33,7 @@ export interface PlayerSummary {
   fates: number;    // 運命の二者択一の問題の数
   haikus: number;   // ハイカー575 のお題の数
   bouquets: number; // ワードブーケのお題の数
+  bouquetWords: number; // ワードブーケの、持ち寄りの言葉の数
   chara: number;    // キャラクターの番号
   editing: boolean; // ロビーでお題を編集中か
   bot: boolean;     // CPU の参加者か
@@ -54,6 +55,8 @@ export interface PlayerView {
   bluffTime: number;      // ブラインドブラフの、しゃべる時間（秒）
   bouquetTime: number;    // ワードブーケの、文を作る時間（秒）
   bouquetGoal: number;    // ワードブーケの終わり方
+  bouquetHand: number;    // ワードブーケの、手札の枚数
+  bouquetMix: boolean;    // ワードブーケの言葉：プリセットと混ぜるか
   blendTime: number;      // まぎれろ！の、かくれる時間（秒）
   blendCrowd: number;     // まぎれろ！の、舞台にいるキャラクターの数
   bombRounds: number;     // 爆弾まわしの、爆発の回数
@@ -112,6 +115,8 @@ export function viewFor(room: RoomState, id: string, now: number): PlayerView {
     bluffTime: room.bluffTime,
     bouquetTime: room.bouquetTime,
     bouquetGoal: room.bouquetGoal,
+    bouquetHand: room.bouquetHand,
+    bouquetMix: room.bouquetMix,
     blendTime: room.blendTime,
     blendCrowd: room.blendCrowd,
     bombRounds: room.bombRounds,
@@ -124,7 +129,7 @@ export function viewFor(room: RoomState, id: string, now: number): PlayerView {
     players: room.players.map(p => ({
       id: p.id, name: p.name, score: p.score, online: p.online, version: p.version,
       topics: room.topicsBy[p.id]?.length ?? 0, fives: room.fivesBy[p.id]?.length ?? 0,
-      fates: room.fatesBy[p.id]?.length ?? 0, haikus: room.haikusBy[p.id]?.length ?? 0, bouquets: room.bouquetsBy[p.id]?.length ?? 0, chara: p.chara, editing: !!p.editing, bot: !!p.bot,
+      fates: room.fatesBy[p.id]?.length ?? 0, haikus: room.haikusBy[p.id]?.length ?? 0, bouquets: room.bouquetsBy[p.id]?.length ?? 0, bouquetWords: room.bouquetWordsBy[p.id]?.length ?? 0, chara: p.chara, editing: !!p.editing, bot: !!p.bot,
       done: rl ? (rl.phase === 'work' && rl.ring.includes(p.id) ? p.id in rl.drafts : null)
         : bm ? null
         : bd ? (bd.phase === 'hide' && p.id !== bd.hiderId && p.online ? p.id in bd.guesses : null)

@@ -47,6 +47,10 @@ export const BLUFF_FOLD = 1, BLUFF_LOSE = 2, BLUFF_STRONG_FOLD = 2; // 降りる
 export const BOUQUET_TIMES = [45, 60, 90] as const;  // 文を作る時間（秒）。ホストがロビーで選ぶ
 export const DEFAULT_BOUQUET_TIME = 60;
 export const BOUQUET_GOALS = [0, 3, 5] as const;     // 終わり方：0 = 全員が親を1回、3・5 = その点を先取
+export const BOUQUET_HANDS = [10, 14, 20, 30] as const; // 手札の枚数。ホストがロビーで選ぶ
+export const DEFAULT_BOUQUET_HAND = 14;
+export const BOUQUET_WORD_MAX = 12;                  // 持ち寄りの言葉の長さの上限
+export const BOUQUET_WORDS_PER_PLAYER = 60;          // 1人が持っていける言葉の数
 export const BOUQUET_MAX_ROUNDS = 40;                // 先取のとき、長くなりすぎないよう打ち切るラウンド数
 
 // まぎれろ！（src/modes/blend/README.md の15章）

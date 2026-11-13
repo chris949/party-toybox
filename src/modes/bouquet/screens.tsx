@@ -1,7 +1,7 @@
 // ワードブーケの画面：作る・親が選ぶ・発表・最終結果（このフォルダの README.md の14章）
 import './styles.css';
 import { motion } from 'motion/react';
-import { addToken, bouquetKey, isHost, removeToken, send, submitPhrase, useStore, type Pub } from '../../app/store';
+import { addToken, bouquetKey, clearTokens, isHost, removeToken, send, submitPhrase, useStore, type Pub } from '../../app/store';
 import { Standings } from '../../ui/common';
 import { Timer, useDeadline, Waiting } from '../tier/screens/parts';
 import { PARTICLES, particleToken, PHRASE_MAX } from './words';
@@ -52,8 +52,9 @@ export function BouquetCompose({ pub }: { pub: Pub }) {
         <div className="wpool">{PARTICLES.map((p, i) => (
           <button key={p} className="wchip joint" disabled={locked || full} onClick={() => addToken(particleToken(i))}>{p}</button>
         ))}</div>
-        <div className="row" style={{ marginTop: 12 }}>
-          <button disabled={locked || b.redrawn} onClick={() => send({ t: 'redraw', round: b.round })}>{b.redrawn ? '引き直し済み' : '手札を引き直す（1回）'}</button>
+        <div className="row wrap" style={{ marginTop: 12 }}>
+          <button disabled={locked || !tokens.length} onClick={clearTokens}>ぜんぶ外す</button>
+          <button disabled={locked || b.redrawn} onClick={() => send({ t: 'redraw', round: b.round })}>{b.redrawn ? '引き直し済み' : '引き直す（1回）'}</button>
           <button className="primary" style={{ flex: 1 }} disabled={locked || !tokens.some(t => t >= 0)} onClick={submitPhrase}>{pending ? '送信中…' : 'これで提出'}</button>
         </div>
       </> : b.myPhrase != null ? <>

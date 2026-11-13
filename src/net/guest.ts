@@ -9,7 +9,7 @@ import { peerOptions } from './peerOptions';
 import { DEAD_MS, GIVEUP_MS, HEARTBEAT_MS, normalizeView, PREFIX, type GuestMsg } from './protocol';
 
 export interface GuestOptions {
-  code: string; id: string; key: string; name: string; topics: Topic[]; fives: FiveTopic[]; fates: FateQuestion[]; haikus: string[]; bouquets: string[]; chara: number; version: string;
+  code: string; id: string; key: string; name: string; topics: Topic[]; fives: FiveTopic[]; fates: FateQuestion[]; haikus: string[]; bouquets: string[]; bouquetWords: string[]; chara: number; version: string;
   onView(view: PlayerView, rejoined: boolean): void;
   onReconnecting(on: boolean): void;
   onLeave(msg: string): void; // ホームに戻す（断られた・つながらない・再接続をあきらめた）
@@ -40,7 +40,7 @@ export function startGuest(o: GuestOptions): GuestSession {
       if (!mine()) return;
       const c = p.connect(PREFIX + o.code, { reliable: true });
       conn = c;
-      c.on('open', () => c.send({ t: 'join', id: o.id, key: o.key, name: o.name, topics: o.topics, fives: o.fives, fates: o.fates, haikus: o.haikus, bouquets: o.bouquets, chara: o.chara, version: o.version } satisfies GuestMsg));
+      c.on('open', () => c.send({ t: 'join', id: o.id, key: o.key, name: o.name, topics: o.topics, fives: o.fives, fates: o.fates, haikus: o.haikus, bouquets: o.bouquets, bouquetWords: o.bouquetWords, chara: o.chara, version: o.version } satisfies GuestMsg));
       c.on('data', (m: any) => {
         if (!mine()) return;
         lastSeen = Date.now();

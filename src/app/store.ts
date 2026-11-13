@@ -12,7 +12,7 @@ import { ROOM_CODE_LEN } from '../net/protocol';
 import { PHRASE_MAX } from '../modes/bouquet/words';
 import type { Stamp } from '../modes/relay/stamps';
 import {
-  broughtFates, broughtFives, broughtBouquets, broughtHaikus, broughtTopics, loadBouquets, saveBouquets, type StoredBouquet, loadChara, loadFates, loadHaikus, saveHaikus, type StoredHaiku, loadFives, loadLastRoom, loadName, loadTopics, myId, myKey,
+  broughtFates, broughtFives, broughtBouquets, broughtHaikus, broughtTopics, loadBouquets, saveBouquets, loadBouquetWords, saveBouquetWords, type StoredBouquet, loadChara, loadFates, loadHaikus, saveHaikus, type StoredHaiku, loadFives, loadLastRoom, loadName, loadTopics, myId, myKey,
   saveChara, saveFates, saveFives, saveLastRoom, saveName, saveTopics,
   type StoredFate, type StoredFive, type StoredTopic,
 } from '../storage/local';
@@ -52,6 +52,7 @@ interface State {
   fates: StoredFate[];
   haikus: StoredHaiku[];
   bouquets: StoredBouquet[];
+  bouquetWords: string[]; // ワードブーケの、持ち寄りの言葉
   bouquetDraft: { key: string; tokens: number[] }; // ワードブーケで並べている途中の文（0以上 = 手札の番号、負の数 = 助詞）
   relayDraft: { key: string; stamps: Stamp[]; text: string }; // スタンプ伝言で作っている途中の絵と答え
   chara: number; // 運命の二者択一で使うキャラクターの番号
@@ -67,7 +68,7 @@ let pendingTimer: ReturnType<typeof setTimeout> | null = null;
 export const useStore = create<State>(() => ({
   screen: 'home', roomEdit: false, notice: '', connecting: false, reconnecting: false, pub: null, pending: null,
   dialog: null, editing: null, editingFive: null, editingFate: null, topicsTab: 'tier', error: null,
-  name: loadName(), topics: loadTopics(), fives: loadFives(), fates: loadFates(), haikus: loadHaikus(), bouquets: loadBouquets(), bouquetDraft: { key: '', tokens: [] }, relayDraft: { key: '', stamps: [], text: '' }, chara: loadChara(), lastRoom: loadLastRoom(),
+  name: loadName(), topics: loadTopics(), fives: loadFives(), fates: loadFates(), haikus: loadHaikus(), bouquets: loadBouquets(), bouquetWords: loadBouquetWords(), bouquetDraft: { key: '', tokens: [] }, relayDraft: { key: '', stamps: [], text: '' }, chara: loadChara(), lastRoom: loadLastRoom(),
   picker: { key: '', slots: [] }, fivePick: { key: '', sel: [] },
 }));
 const set = useStore.setState;
@@ -108,7 +109,7 @@ export function hostRoom() {
   if (!canEnter()) return;
   set({ connecting: true, notice: '' });
   startHost({
-    id: myId, key: myKey, name: get().name, topics: broughtTopics(get().topics), fives: broughtFives(get().fives), fates: broughtFates(get().fates), haikus: broughtHaikus(get().haikus), bouquets: broughtBouquets(get().bouquets), chara: get().chara, version: APP_VERSION,
+    id: myId, key: myKey, name: get().name, topics: broughtTopics(get().topics), fives: broughtFives(get().fives), fates: broughtFates(get().fates), haikus: broughtHaikus(get().haikus), bouquets: broughtBouquets(get().bouquets), bouquetWords: get().bouquetWords, chara: get().chara, version: APP_VERSION,
     minPlayers: DEV ? MIN_PLAYERS_DEV : MIN_PLAYERS_DEFAULT,
     bots: DEV ? Math.trunc(Number(new URLSearchParams(location.search).get('bots'))) || 0 : 0, // ?dev&bots=9 で CPU を足す（動作確認用）
     onOpen: s => { session = s; },
@@ -123,7 +124,7 @@ export function joinRoom(raw: string) {
   if (code.length !== ROOM_CODE_LEN) { set({ notice: `部屋コード（${ROOM_CODE_LEN}文字）を入力してください` }); return; }
   set({ connecting: true, notice: '' });
   session = startGuest(guestOpts = {
-    code, id: myId, key: myKey, name: get().name, topics: broughtTopics(get().topics), fives: broughtFives(get().fives), fates: broughtFates(get().fates), haikus: broughtHaikus(get().haikus), bouquets: broughtBouquets(get().bouquets), chara: get().chara, version: APP_VERSION,
+    code, id: myId, key: myKey, name: get().name, topics: broughtTopics(get().topics), fives: broughtFives(get().fives), fates: broughtFates(get().fates), haikus: broughtHaikus(get().haikus), bouquets: broughtBouquets(get().bouquets), bouquetWords: get().bouquetWords, chara: get().chara, version: APP_VERSION,
     onView: (v, rejoined) => {
       if (get().lastRoom !== code) { saveLastRoom(code); set({ lastRoom: code }); }
       setPub(v, rejoined);
@@ -162,11 +163,11 @@ export function openRoomTopics() {
 }
 // 部屋に戻る。持っていくお題をホストに送り直す
 export function backToRoom() {
-  const topics = broughtTopics(get().topics), fives = broughtFives(get().fives), fates = broughtFates(get().fates), haikus = broughtHaikus(get().haikus), bouquets = broughtBouquets(get().bouquets);
-  if (guestOpts) Object.assign(guestOpts, { topics, fives, fates, haikus, bouquets });
+  const topics = broughtTopics(get().topics), fives = broughtFives(get().fives), fates = broughtFates(get().fates), haikus = broughtHaikus(get().haikus), bouquets = broughtBouquets(get().bouquets), bouquetWords = get().bouquetWords;
+  if (guestOpts) Object.assign(guestOpts, { topics, fives, fates, haikus, bouquets, bouquetWords });
   set({ roomEdit: false, screen: 'room', notice: '' });
   if (get().pub?.phase !== 'lobby') return;
-  send({ t: 'topics', topics, fives, fates, haikus, bouquets });
+  send({ t: 'topics', topics, fives, fates, haikus, bouquets, bouquetWords });
   send({ t: 'editing', on: false });
 }
 
@@ -345,6 +346,16 @@ export function removeToken(i: number) {
   if (!pub?.bouquet) return;
   set({ bouquetDraft: { key: bouquetKey(pub), tokens: draftOf(pub).filter((_, k) => k !== i) } });
 }
+// 並べたものを、ぜんぶ外す
+export function clearTokens() {
+  const { pub } = get();
+  if (pub?.bouquet) set({ bouquetDraft: { key: bouquetKey(pub), tokens: [] } });
+}
+export const updateBouquetWords = (f: (w: string[]) => string[]) => {
+  const bouquetWords = f(get().bouquetWords);
+  saveBouquetWords(bouquetWords);
+  set({ bouquetWords });
+};
 export function submitPhrase() {
   const { pub, pending } = get();
   if (!pub?.bouquet?.hand || pending || pub.phase !== 'compose' || pub.bouquet.myPhrase != null) return;
