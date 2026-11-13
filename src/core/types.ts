@@ -10,7 +10,7 @@ import type { HaikuState } from '../modes/haiku/rules';
 import type { BluffState } from '../modes/bluff/rules';
 import type { BouquetState } from '../modes/bouquet/rules';
 import type { BlendState } from '../modes/blend/rules';
-import type { BombState } from '../modes/bomb/rules';
+import type { BombState, BombStyle } from '../modes/bomb/rules';
 import type { RelayState } from '../modes/relay/rules';
 import type { Stamp } from '../modes/relay/stamps';
 
@@ -54,6 +54,7 @@ export interface RoomState {
   blendCrowd: number;     // まぎれろ！の、舞台にいるキャラクターの数
   bombRounds: number;     // 爆弾まわしの、爆発の回数
   bombFuse: number;       // 爆弾まわしの、導火線の長さ（BOMB_FUSES の番号）
+  bombStyle: BombStyle;   // 爆弾まわしの答え方（選択式／入力式）
   relayTime: number;      // スタンプ伝言の、絵を作る時間（秒）
   haikusBy: Record<string, string[]>; // ハイカー575 のお題（上の五文字）
   players: Player[];
@@ -82,10 +83,12 @@ export type Action =
   | { t: 'blendCrowd'; n: number }
   | { t: 'bombRounds'; n: number }
   | { t: 'bombFuse'; n: number }
+  | { t: 'bombStyle'; style: BombStyle }
+  | { t: 'bombPick'; round: number; i: number }   // 爆弾まわし：自分のお題の選択肢を1つ選ぶ
   | { t: 'relayTime'; sec: number }
   | { t: 'relayDraw'; step: number; stamps: Stamp[] } // スタンプ伝言：絵を出す
   | { t: 'relayGuess'; step: number; text: string }   // スタンプ伝言：言葉で答える
-  | { t: 'toss'; round: number; word: string; to: string } // 爆弾まわし：言葉を言って、爆弾を渡す
+  | { t: 'toss'; round: number; to: string }      // 爆弾まわし：正解を当てたあと、爆弾を渡す
   | { t: 'tick' }                                  // まぎれろ！：位置を進める／爆弾まわし：導火線を進める（ホストのタイマーが出す）
   | { t: 'go'; round: number; x: number; z: number } // まぎれろ！：かくれる人の行き先
   | { t: 'grab'; round: number }                   // まぎれろ！：ほしを取る

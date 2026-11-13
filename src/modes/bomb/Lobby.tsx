@@ -1,10 +1,20 @@
-// 爆弾まわしのロビーの設定：爆発の回数と、導火線の長さ（このフォルダの README.md の 16.2）
+// 爆弾まわしのロビーの設定：答え方・爆発の回数・導火線の長さ（このフォルダの README.md の 16.2）
 import { BOMB_FUSE_LABELS, BOMB_FUSES, BOMB_ROUNDS } from '../../core/constants';
 import { send, type Pub } from '../../app/store';
 
 export function BombLobby({ pub, host }: { pub: Pub; host: boolean }) {
   const [min, max] = BOMB_FUSES[pub.bombFuse] ?? BOMB_FUSES[1];
+  const styles = [['tap', '選択式'], ['type', '入力式']] as const;
   return <>
+    <h2 style={{ marginTop: 16 }}>答え方</h2>
+    {host
+      ? <div className="seg">{styles.map(([k, label]) => (
+          <button key={k} className={pub.bombStyle === k ? 'on' : ''} onClick={() => send({ t: 'bombStyle', style: k })}>{label}</button>
+        ))}</div>
+      : <p style={{ margin: 0, fontWeight: 800 }}>{pub.bombStyle === 'type' ? '入力式' : '選択式'}</p>}
+    <p className="muted small" style={{ margin: '6px 0 0' }}>{pub.bombStyle === 'type'
+      ? '正解だと思う選択肢の文字を、打ち込みます（ひらがなでも、カタカナでも通ります）'
+      : '正解だと思う選択肢を、タップします'}。お題は、みんなが持ってきたセレクトファイブのお題とサンプルから、1人に1つずつ配ります</p>
     <h2 style={{ marginTop: 16 }}>爆発の回数</h2>
     {host
       ? <div className="seg">{BOMB_ROUNDS.map(n => (

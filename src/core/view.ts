@@ -15,7 +15,7 @@ import { totalRounds, type BouquetPhase, type BouquetState } from '../modes/bouq
 import { bouquetView, type BouquetView } from '../modes/bouquet/view';
 import type { BlendPhase, BlendState } from '../modes/blend/rules';
 import { blendView, type BlendView } from '../modes/blend/view';
-import type { BombPhase, BombState } from '../modes/bomb/rules';
+import type { BombPhase, BombState, BombStyle } from '../modes/bomb/rules';
 import { bombView, type BombView } from '../modes/bomb/view';
 import type { RelayPhase, RelayState } from '../modes/relay/rules';
 import { relayView, type RelayView } from '../modes/relay/view';
@@ -58,6 +58,7 @@ export interface PlayerView {
   blendCrowd: number;     // まぎれろ！の、舞台にいるキャラクターの数
   bombRounds: number;     // 爆弾まわしの、爆発の回数
   bombFuse: number;       // 爆弾まわしの、導火線の長さ（番号）
+  bombStyle: BombStyle;   // 爆弾まわしの答え方
   relayTime: number;      // スタンプ伝言の、絵を作る時間（秒）
   code: string;
   hostId: string;
@@ -115,6 +116,7 @@ export function viewFor(room: RoomState, id: string, now: number): PlayerView {
     blendCrowd: room.blendCrowd,
     bombRounds: room.bombRounds,
     bombFuse: room.bombFuse,
+    bombStyle: room.bombStyle,
     relayTime: room.relayTime,
     code: room.code,
     hostId: room.hostId,
@@ -147,7 +149,7 @@ export function viewFor(room: RoomState, id: string, now: number): PlayerView {
     bluff: bl ? bluffView(bl, id) : null,
     bouquet: bq ? bouquetView(bq, id) : null,
     blend: bd ? blendView(bd, id, now) : null,
-    bomb: bm ? bombView(bm) : null,
+    bomb: bm ? bombView(bm, now) : null,
     relay: rl ? relayView(rl, id) : null,
   };
 }

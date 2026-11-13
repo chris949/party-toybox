@@ -25,10 +25,10 @@ export function playStateSounds(prev: PlayerView | null, next: PlayerView) {
     else if (next.phase === 'result') Sound.play('fanfare');
     return;
   }
-  // 爆弾まわし：火がついたらポロン、渡ったらポン、爆発でドカン（落ちる音を使う）。カチカチは画面の側で鳴らす
+  // 爆弾まわし：火がついたらポロン、正解・渡ったらポン、爆発でドカン（落ちる音を使う）。カチカチは画面の側で鳴らす
   if (next.bomb) {
     if (turn(prev) === turn(next)) {
-      if (prev?.bomb && next.bomb.passes > prev.bomb.passes) Sound.play('pop');
+      if (prev?.bomb && (next.bomb.passes > prev.bomb.passes || next.bomb.log.length > prev.bomb.log.length)) Sound.play(next.bomb.log.length > prev.bomb.log.length && !next.bomb.log[next.bomb.log.length - 1].ok ? 'click' : 'pop');
       return;
     }
     if (next.phase === 'hot') Sound.play('start');

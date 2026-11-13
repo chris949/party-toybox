@@ -7,8 +7,6 @@ import type { Topic } from '../modes/tier/topics';
 import type { FiveTopic } from '../modes/five/topics';
 import type { FateQuestion } from '../modes/fate/questions';
 import { viewFor, type PlayerView } from '../core/view';
-import { cleanWord } from '../modes/bomb/rules';
-import { BOMB_THEMES } from '../modes/bomb/themes';
 import { RELAY_WORDS, STAMPS } from '../modes/relay/stamps';
 import { peerOptions } from './peerOptions';
 import { cleanId, DEAD_MS, genCode, HEARTBEAT_MS, parseAction, PREFIX, type HostMsg } from './protocol';
@@ -114,25 +112,32 @@ export function startHost(o: HostOptions): void {
       return setTimeout(() => dispatch(b.id, { t: 'suspect', round: g.round, i }), span * (0.3 + Math.random() * 0.65));
     });
   }
-  // 爆弾まわし：爆弾を持ったら、少し考えて、お題の例から1つ言って、誰かに渡す
+  // 爆弾まわし：爆弾を持ったら、少し考えて選ぶ（7割で正解）。当てたら、ランダムな相手に渡す
   function runBombBots() {
     const g = room.game;
     const bots = botsNow();
     if (!bots.length || g?.kind !== 'bomb' || g.phase !== 'hot' || !bots.some(b => b.id === g.holderId)) return;
-    const turn = `${room.gameNo}-bomb-${g.round}-${g.passes}-${g.holderId}`;
+    const turn = `${room.gameNo}-bomb-${g.round}-${g.passes}-${g.holderId}-${g.log.length}`;
     if (turn === botTurn) return;
     botTurn = turn;
     botTimers.forEach(clearTimeout);
-    const holder = g.holderId, round = g.round, passes = g.passes;
+    const holder = g.holderId, round = g.round;
+    const rnd = <T,>(list: T[]) => list[Math.floor(Math.random() * list.length)];
+    const wait = g.armed ? 500 + Math.random() * 1000 : Math.max(0, g.lockUntil - Date.now()) + 1000 + Math.random() * 2000;
     botTimers = [setTimeout(() => {
       const now = room.game;
-      if (now?.kind !== 'bomb' || now.phase !== 'hot' || now.round !== round || now.passes !== passes || now.holderId !== holder) return;
-      const others = room.players.filter(p => p.online && p.id !== holder);
-      const examples = (BOMB_THEMES.find(t => t.text === now.theme)?.words ?? []).filter(w => cleanWord(now, w));
-      if (!others.length) return;
-      const word = examples.length ? examples[Math.floor(Math.random() * examples.length)] : `えーと…その${now.passes + 1}`;
-      dispatch(holder, { t: 'toss', round, word, to: others[Math.floor(Math.random() * others.length)].id });
-    }, 1500 + Math.random() * 3500)];
+      if (now?.kind !== 'bomb' || now.phase !== 'hot' || now.round !== round || now.holderId !== holder) return;
+      if (now.armed) {
+        const others = room.players.filter(p => p.online && p.id !== holder);
+        if (others.length) dispatch(holder, { t: 'toss', round, to: rnd(others).id });
+        return;
+      }
+      const q = now.quizzes[holder];
+      const open = q.options.map((_, i) => i).filter(i => !q.used[i] && !q.wrong[i]);
+      const right = open.filter(i => q.correct[i]), wrong = open.filter(i => !q.correct[i]);
+      const i = wrong.length && Math.random() < 0.3 ? rnd(wrong) : rnd(right.length ? right : open);
+      dispatch(holder, { t: 'bombPick', round, i });
+    }, wait)];
   }
   // スタンプ伝言：絵の番は、でたらめにスタンプを置く。答える番は、お題の一覧からでたらめに選ぶ
   function runRelayBots() {

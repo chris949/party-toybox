@@ -92,7 +92,7 @@ describe('まぎれろ！：動く', () => {
     r.act(r.ids[1], { t: 'tick' }); // 時間を進められるのは、ホストだけ
     expect(r.room).toBe(before);
   });
-  it('ほしは、乗っているときだけ取れる。3つ集めると、もう出ない', () => {
+  it('ほしは、乗っているときだけ取れる。3つ集めきったら、その場で発表へ進む', () => {
     const r = blendRoom(3);
     r.ready();
     for (let i = 0; i < 400 && !r.g.star; i++) r.tick();
@@ -104,12 +104,14 @@ describe('まぎれろ！：動く', () => {
     r.act(r.g.hiderId, { t: 'grab', round: r.g.round });
     expect(r.g.stars).toBe(0);
     for (let n = 1; n <= BLEND_STARS; n++) {
+      expect(r.g.phase).toBe('hide');
       r.collect();
       expect(r.g.stars).toBe(n);
       expect(r.g.star).toBeNull();
     }
-    for (let i = 0; i < 30; i++) r.tick();
-    expect(r.g.star).toBeNull();
+    expect(r.g.phase).toBe('found'); // 時間が残っていても、待たずに終わる
+    expect(r.ctx.now).toBeLessThan(r.g.startAt + DEFAULT_BLEND_TIME * 1000);
+    expect(nextTimer(r.room)).toBeNull();
   });
   it('CPU がほしに乗っても、ほしは消えない', () => {
     const r = blendRoom(3);
@@ -143,11 +145,13 @@ describe('まぎれろ！：当てる', () => {
   it('当てた人に2点。かくれた人は、ほしを集めきっていれば、だませた人数ぶんの点', () => {
     const r = blendRoom(4);
     r.ready();
-    for (let n = 0; n < BLEND_STARS; n++) r.collect();
+    for (let n = 0; n < BLEND_STARS - 1; n++) r.collect();
     const hider = r.g.hiderId, [a, b, c] = r.seekerIds(), me = r.g.me;
+    // 集めきられる前に選んでいたもので、判定する
     r.act(a, { t: 'suspect', round: r.g.round, i: me });
     r.act(b, { t: 'suspect', round: r.g.round, i: (me + 1) % DEFAULT_BLEND_CROWD });
-    r.finish();
+    r.collect();
+    r.act(c, { t: 'suspect', round: r.g.round, i: me }); // 発表のあとは、選べない
     expect(r.g.phase).toBe('found');
     expect(r.score(a)).toBe(BLEND_FIND);
     expect(r.score(b)).toBe(0);

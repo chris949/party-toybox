@@ -108,11 +108,13 @@ function toFound(room: RoomState, g: BlendState) {
   if (g.stars >= BLEND_STARS) add(g.hiderId, fooled);
 }
 
-// ほしを取る（人はボタンで、CPU の参加者は乗ったらすぐ）
-function grab(g: BlendState, now: number) {
+// ほしを取る（人はボタンで、CPU の参加者は乗ったらすぐ）。集めきったら、その場で発表へ
+// （集めたあとは、さがす人に手がかりが増えないので、残りの時間を待たせない。さがす人は、集めきられる前に選んでおく必要がある）
+function grab(room: RoomState, g: BlendState, now: number) {
   g.stars++;
   g.star = null;
   g.starAt = now + 1500;
+  if (g.stars >= BLEND_STARS) toFound(room, g);
 }
 
 // CPU の次の行き先：ときどき、ほしの上へ行く（ほしのまわりに人だかりを作って、かくれる人がまぎれられるようにする）
@@ -149,8 +151,8 @@ function advance(room: RoomState, g: BlendState, ctx: Ctx) {
       m.z += (m.tz - m.z) / d * step;
     }
   });
-  if (g.auto && onStar(g, g.mobs[g.me])) grab(g, ctx.now);
-  if (ctx.now >= g.deadline) toFound(room, g);
+  if (g.auto && onStar(g, g.mobs[g.me])) grab(room, g, ctx.now);
+  if (g.phase === 'hide' && ctx.now >= g.deadline) toFound(room, g);
 }
 
 // かくれる人がいなくなったら、その回は流す（点なし）
@@ -174,7 +176,7 @@ export function reduce(room: RoomState, g: BlendState, a: ActionFrom, ctx: Ctx):
     }
     case 'grab':
       if (g.phase !== 'hide' || a.round !== g.round || a.from !== g.hiderId || !onStar(g, g.mobs[g.me])) return false;
-      grab(g, ctx.now);
+      grab(room, g, ctx.now);
       return true;
     case 'suspect':
       if (g.phase !== 'hide' || a.round !== g.round || a.from === g.hiderId || !isOnline(room, a.from)) return false;
