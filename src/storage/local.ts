@@ -88,6 +88,10 @@ export const broughtBouquets = (list: StoredBouquet[]): string[] => list.filter(
 export const loadBouquetWords = (): string[] => sanitizeBouquetWords(local.get<unknown>('tlw-bouquet-words', []));
 export const saveBouquetWords = (words: string[]) => local.set('tlw-bouquet-words', words);
 
+// その端末で遊んだことのあるモード（あそびかたに「はじめて」の印を出すため）
+export const loadPlayed = (): string[] => { const v = local.get<unknown>('tlw-played', []); return Array.isArray(v) ? v.map(String) : []; };
+export const markPlayed = (mode: string) => { const v = loadPlayed(); if (!v.includes(mode)) local.set('tlw-played', [...v, mode]); };
+
 // 運命の二者択一で使うキャラクターの番号
 export const loadChara = () => Math.max(0, Math.trunc(Number(local.get('tlw-chara', 0))) || 0);
 export const saveChara = (n: number) => local.set('tlw-chara', n);
