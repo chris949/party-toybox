@@ -29,6 +29,9 @@ const isOnline = (room: RoomState, id: string) => !!room.players.find(p => p.id 
 // その回に作る人（親以外で、手札が配られた人）
 export const composers = (room: RoomState, g: BouquetState) => online(room).filter(p => p.id in g.hands);
 
+// 手札を1人ぶん配る：みんなが持ってきた言葉を1つにまとめ、ロビーの設定（枚数・混ぜるか）に合わせる
+const hand = (room: RoomState, ctx: Ctx) => dealHand(ctx.random, room.bouquetHand, online(room).flatMap(p => room.bouquetWordsBy[p.id] ?? []), room.bouquetMix);
+
 export function startError(room: RoomState): string | null {
   const n = online(room).length;
   if (n < room.minPlayers) return `あと${room.minPlayers - n}人必要です（${room.minPlayers}〜10人）`;
@@ -47,7 +50,7 @@ function deal(room: RoomState, g: BouquetState, ctx: Ctx) {
   g.theme = own ?? sample.find(t => !g.used.includes(t)) ?? sample[0];
   g.themeBy = own ? g.names[parent] ?? '???' : 'サンプル';
   g.used.push(g.theme);
-  g.hands = Object.fromEntries(online(room).filter(p => p.id !== parent).map(p => [p.id, dealHand(ctx.random)]));
+  g.hands = Object.fromEntries(online(room).filter(p => p.id !== parent).map(p => [p.id, hand(room, ctx)]));
   g.redrawn = {};
   g.phrases = {};
   g.winner = null;
@@ -97,7 +100,7 @@ export function reduce(room: RoomState, g: BouquetState, a: ActionFrom, ctx: Ctx
     case 'redraw':
       // 手札をまるごと引き直す（1ラウンドに1回。提出したあとは引き直せない）
       if (g.phase !== 'compose' || a.round !== g.round || !(a.from in g.hands) || a.from in g.phrases || g.redrawn[a.from]) return false;
-      g.hands[a.from] = dealHand(ctx.random);
+      g.hands[a.from] = hand(room, ctx);
       g.redrawn[a.from] = true;
       return true;
     case 'choose':

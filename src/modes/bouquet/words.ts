@@ -1,5 +1,5 @@
 // ワードブーケの言葉のカードと、お題。数字の根拠は、このフォルダの README.md の14章
-import { MAX_TOPICS_PER_PLAYER, TITLE_MAX } from '../../core/constants';
+import { BOUQUET_WORD_MAX, BOUQUET_WORDS_PER_PLAYER, MAX_TOPICS_PER_PLAYER, TITLE_MAX } from '../../core/constants';
 import { clean } from '../../core/text';
 import type { Random } from '../../core/random';
 import { shuffle } from '../../core/random';
@@ -42,11 +42,22 @@ const MODS = [
 export const WORD_COUNT = NOUNS.length + PHRASES.length + MODS.length;
 export const ALL_WORDS: readonly string[] = [...NOUNS, ...PHRASES, ...MODS];
 
-// 手札：名詞6・言い回し5・修飾3 の14枚（文になりやすいよう、種類を混ぜて配る）
+// 手札：プリセットの分は、名詞・言い回し・修飾を 6：5：3 の割合で配る（文になりやすいよう、種類を混ぜる）
 const HAND = { nouns: 6, phrases: 5, mods: 3 };
-export const HAND_SIZE = HAND.nouns + HAND.phrases + HAND.mods;
-export function dealHand(random: Random): string[] {
-  return [...shuffle(NOUNS, random).slice(0, HAND.nouns), ...shuffle(PHRASES, random).slice(0, HAND.phrases), ...shuffle(MODS, random).slice(0, HAND.mods)];
+export const HAND_SIZE = HAND.nouns + HAND.phrases + HAND.mods; // 初期値の枚数
+// own = みんなが持ってきた言葉。mix = プリセットと混ぜる（持ち寄りは半分まで）／false = 持ち寄りだけ（足りない分はプリセット）
+export function dealHand(random: Random, size = HAND_SIZE, own: readonly string[] = [], mix = true): string[] {
+  const mine = shuffle([...new Set(own)], random).slice(0, mix ? Math.floor(size / 2) : size);
+  const rest = size - mine.length;
+  const nouns = Math.round(rest * HAND.nouns / HAND_SIZE), phrases = Math.round(rest * HAND.phrases / HAND_SIZE), mods = rest - nouns - phrases;
+  // プリセットの分からは、持ってきた言葉と同じものを外す（手札の中で重ならないように。割合もくずれない）
+  const from = (list: readonly string[], n: number) => shuffle(list.filter(w => !own.includes(w)), random).slice(0, Math.max(0, n));
+  return [...mine, ...from(NOUNS, nouns), ...from(PHRASES, phrases), ...from(MODS, mods)];
+}
+// 参加者から届いた、持ち寄りの言葉を検査して整える
+export function sanitizeBouquetWords(list: unknown): string[] {
+  if (!Array.isArray(list)) return [];
+  return [...new Set(list.map(w => clean(w, BOUQUET_WORD_MAX)).filter(Boolean) as string[])].slice(0, BOUQUET_WORDS_PER_PLAYER);
 }
 
 // 助詞など：手札と別に、何度でも使える（助詞が足りずに文にならない、という不満を防ぐ）

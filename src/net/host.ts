@@ -16,7 +16,7 @@ type Conn = DataConnection & { pid?: string; lastSeen: number };
 export interface HostSession { isHost: true; code: string; send(a: Action): void; addBot(): void; close(): void }
 
 export interface HostOptions {
-  id: string; key: string; name: string; topics: Topic[]; fives: FiveTopic[]; fates: FateQuestion[]; haikus: string[]; bouquets: string[]; chara: number; version: string; minPlayers: number;
+  id: string; key: string; name: string; topics: Topic[]; fives: FiveTopic[]; fates: FateQuestion[]; haikus: string[]; bouquets: string[]; bouquetWords: string[]; chara: number; version: string; minPlayers: number;
   bots?: number; // 最初から入れておく CPU の参加者の数（動作確認用。?dev&bots=9）
   onOpen(session: HostSession): void;
   onView(view: PlayerView): void;
@@ -92,8 +92,9 @@ export function startHost(o: HostOptions): void {
       return;
     }
     botTimers = bots.filter(b => b.id in g.hands).map(b => {
-      // 「修飾＋名詞＋助詞＋言い回し」の形に並べる（手札は、名詞6・言い回し5・修飾3 の順に入っている）
-      const tokens = [11 + rnd(3), rnd(6), -(1 + rnd(8)), 6 + rnd(5)];
+      // 手札から、ちがう2枚を選んで、あいだに助詞を入れる（手札の枚数や中身は、ロビーの設定で変わる）
+      const n = g.hands[b.id].length, first = rnd(n), second = (first + 1 + rnd(n - 1)) % n;
+      const tokens = [first, -(1 + rnd(8)), second];
       return setTimeout(() => dispatch(b.id, { t: 'phrase', round: g.round, tokens }), 3000 + Math.random() * 7000);
     });
   }
@@ -219,7 +220,7 @@ export function startHost(o: HostOptions): void {
         else sendTo(c, { t: 'ping' });
       }
     }, HEARTBEAT_MS);
-    dispatch(o.id, { t: 'join', name: o.name, key: o.key, topics: o.topics, fives: o.fives, fates: o.fates, haikus: o.haikus, bouquets: o.bouquets, chara: o.chara, version: o.version });
+    dispatch(o.id, { t: 'join', name: o.name, key: o.key, topics: o.topics, fives: o.fives, fates: o.fates, haikus: o.haikus, bouquets: o.bouquets, bouquetWords: o.bouquetWords, chara: o.chara, version: o.version });
     for (let i = 0; i < Math.min(BOT_NAMES.length, o.bots ?? 0); i++) addBot();
     const session: HostSession = {
       isHost: true, code, addBot,
@@ -255,7 +256,7 @@ export function startHost(o: HostOptions): void {
         const old = conns[pid];
         if (old && old !== c) { delete conns[pid]; old.close(); }
         conns[pid] = c;
-        dispatch(pid, { t: 'join', name: m.name, key: m.key, topics: m.topics, fives: m.fives, fates: m.fates, haikus: m.haikus, bouquets: m.bouquets, chara: m.chara, version: m.version });
+        dispatch(pid, { t: 'join', name: m.name, key: m.key, topics: m.topics, fives: m.fives, fates: m.fates, haikus: m.haikus, bouquets: m.bouquets, bouquetWords: m.bouquetWords, chara: m.chara, version: m.version });
         return;
       }
       if (!c.pid || conns[c.pid] !== c || m?.t === 'pong') return;

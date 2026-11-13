@@ -38,6 +38,11 @@ test('ワードブーケを2人で1ゲーム遊べる', async ({ browser }) => {
     await expect(maker.locator('.wline .wchip')).toHaveCount(3);
     await maker.locator('.wline .wchip').nth(2).click();
     await expect(maker.locator('.wline .wchip')).toHaveCount(2);
+    // 「ぜんぶ外す」で空に戻り、もう一度並べられる
+    await maker.getByRole('button', { name: 'ぜんぶ外す' }).click();
+    await expect(maker.locator('.wline .wchip')).toHaveCount(0);
+    await cards.nth(2).click();
+    await maker.locator('.wpool .wchip.joint', { hasText: '！' }).click();
     await maker.getByRole('button', { name: 'これで提出' }).click();
     // 親が選ぶ：作った人の名前つきで1つ並ぶ。選べるのは親だけ
     for (const p of [host, guest]) await expect(p.locator('.wentry')).toHaveCount(1, { timeout: 20_000 });

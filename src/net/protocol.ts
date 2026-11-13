@@ -10,7 +10,7 @@ import type { BlendView } from '../modes/blend/view';
 import type { BombView } from '../modes/bomb/view';
 import type { RelayItem, RelayView } from '../modes/relay/view';
 import { sanitizeStamps } from '../modes/relay/stamps';
-import { BOUQUET_GOALS, BOUQUET_TIMES, DEFAULT_BOUQUET_TIME } from '../core/constants';
+import { BOUQUET_HANDS, DEFAULT_BOUQUET_HAND, BOUQUET_GOALS, BOUQUET_TIMES, DEFAULT_BOUQUET_TIME } from '../core/constants';
 import { DEFAULT_RELAY_TIME, RELAY_TEXT_MAX, RELAY_TIMES, BOMB_FUSES, BOMB_ROUNDS, DEFAULT_BOMB_FUSE, DEFAULT_BOMB_ROUNDS, BLEND_CROWDS, BLEND_TIMES, BLUFF_TIMES, DEFAULT_BLEND_CROWD, DEFAULT_BLEND_TIME, DEFAULT_BLUFF_TIME } from '../core/constants';
 import { DEFAULT_HAIKU_TIME, HAIKU_TIMES } from '../core/constants';
 import type { Action } from '../core/types';
@@ -26,7 +26,7 @@ export type HostMsg =
   | { t: 'ping' }
   | { t: 'error'; msg: string };
 
-export type JoinMsg = { t: 'join'; id: string; key: string; name: string; topics: unknown; fives?: unknown; fates?: unknown; haikus?: unknown; bouquets?: unknown; chara?: unknown; version: string };
+export type JoinMsg = { t: 'join'; id: string; key: string; name: string; topics: unknown; fives?: unknown; fates?: unknown; haikus?: unknown; bouquets?: unknown; bouquetWords?: unknown; chara?: unknown; version: string };
 export type GuestMsg = JoinMsg | { t: 'pong' } | Action;
 
 export const genCode = () => {
@@ -48,11 +48,13 @@ export function parseAction(m: any): Action | null {
     case 'five': return Array.isArray(m.picks) && Number.isInteger(m.round) ? { t: 'five', round: m.round, picks: m.picks.slice(0, 8), partial: !!m.partial } : null;
     case 'move': return m.side === 'L' || m.side === 'R' ? { t: 'move', side: m.side } : null;
     case 'chara': return Number.isInteger(m.n) ? { t: 'chara', n: m.n } : null;
-    case 'topics': return { t: 'topics', topics: m.topics, fives: m.fives, fates: m.fates, haikus: m.haikus, bouquets: m.bouquets }; // 中身はホストが検査して整える
+    case 'topics': return { t: 'topics', topics: m.topics, fives: m.fives, fates: m.fates, haikus: m.haikus, bouquets: m.bouquets, bouquetWords: m.bouquetWords }; // 中身はホストが検査して整える
     case 'editing': return { t: 'editing', on: !!m.on };
     case 'retract': return Number.isInteger(m.round) ? { t: 'retract', round: m.round } : null;
     case 'haikuStyle': return m.style === 'theme' || m.style === 'free' ? { t: 'haikuStyle', style: m.style } : null;
     case 'bouquetTime': return Number.isInteger(m.sec) ? { t: 'bouquetTime', sec: m.sec } : null;
+    case 'bouquetHand': return Number.isInteger(m.n) ? { t: 'bouquetHand', n: m.n } : null;
+    case 'bouquetMix': return typeof m.on === 'boolean' ? { t: 'bouquetMix', on: m.on } : null;
     case 'bouquetGoal': return Number.isInteger(m.n) ? { t: 'bouquetGoal', n: m.n } : null;
     case 'phrase': return Number.isInteger(m.round) && Array.isArray(m.tokens) ? { t: 'phrase', round: m.round, tokens: m.tokens.slice(0, 16) } : null;
     case 'redraw': return Number.isInteger(m.round) ? { t: 'redraw', round: m.round } : null;
@@ -104,6 +106,8 @@ export function normalizeView(s: any): PlayerView {
     fateQuota: (FATE_QUOTAS as readonly number[]).includes(int(s.fateQuota)) ? int(s.fateQuota) : DEFAULT_FATE_QUOTA,
     fateLives: (FATE_LIVES as readonly number[]).includes(int(s.fateLives)) ? int(s.fateLives) : DEFAULT_FATE_LIVES,
     bouquetTime: (BOUQUET_TIMES as readonly number[]).includes(int(s.bouquetTime)) ? int(s.bouquetTime) : DEFAULT_BOUQUET_TIME,
+    bouquetHand: (BOUQUET_HANDS as readonly number[]).includes(int(s.bouquetHand)) ? int(s.bouquetHand) : DEFAULT_BOUQUET_HAND,
+    bouquetMix: s.bouquetMix !== false,
     bouquetGoal: (BOUQUET_GOALS as readonly number[]).includes(int(s.bouquetGoal)) ? int(s.bouquetGoal) : 0,
     relayTime: (RELAY_TIMES as readonly number[]).includes(int(s.relayTime)) ? int(s.relayTime) : DEFAULT_RELAY_TIME,
     bombRounds: (BOMB_ROUNDS as readonly number[]).includes(int(s.bombRounds)) ? int(s.bombRounds) : DEFAULT_BOMB_ROUNDS,
@@ -119,7 +123,7 @@ export function normalizeView(s: any): PlayerView {
     me: str(s.me),
     players: (Array.isArray(s.players) ? s.players : []).map((p: any) => ({
       id: str(p.id), name: str(p.name), score: int(p.score), online: p.online !== false, version: str(p.version),
-      topics: int(p.topics), fives: int(p.fives), fates: int(p.fates), haikus: int(p.haikus), bouquets: int(p.bouquets), chara: Math.max(0, int(p.chara)), editing: p.editing === true, bot: p.bot === true, done: p.done === true ? true : p.done === false ? false : null,
+      topics: int(p.topics), fives: int(p.fives), fates: int(p.fates), haikus: int(p.haikus), bouquets: int(p.bouquets), bouquetWords: int(p.bouquetWords), chara: Math.max(0, int(p.chara)), editing: p.editing === true, bot: p.bot === true, done: p.done === true ? true : p.done === false ? false : null,
     })),
     startError: s.startError == null ? null : str(s.startError),
     timeLeft: s.timeLeft == null ? null : int(s.timeLeft),

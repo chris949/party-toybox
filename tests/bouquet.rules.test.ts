@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { BOUQUET_MAX_ROUNDS, DEFAULT_BOUQUET_TIME, MAX_PLAYERS, PICK_GRACE_MS } from '../src/core/constants';
+import { BOUQUET_HANDS, BOUQUET_WORD_MAX, BOUQUET_WORDS_PER_PLAYER, BOUQUET_MAX_ROUNDS, DEFAULT_BOUQUET_TIME, MAX_PLAYERS, PICK_GRACE_MS } from '../src/core/constants';
 import { nextTimer } from '../src/core/room';
 import { seeded } from '../src/core/random';
 import { viewFor } from '../src/core/view';
 import type { BouquetState } from '../src/modes/bouquet/rules';
-import { ALL_WORDS, dealHand, HAND_SIZE, PARTICLES, particleToken, PHRASE_MAX, SAMPLE_BOUQUETS, sanitizeBouquets, toPhrase, WORD_COUNT } from '../src/modes/bouquet/words';
+import { ALL_WORDS, dealHand, HAND_SIZE, PARTICLES, particleToken, PHRASE_MAX, SAMPLE_BOUQUETS, sanitizeBouquets, sanitizeBouquetWords, toPhrase, WORD_COUNT } from '../src/modes/bouquet/words';
 import { samples, testRoom } from './helpers';
 
 // ゲーム開始の手前まで。themes[i] は i 番目の人が持ってくるお題
@@ -23,6 +23,71 @@ function bouquetRoom(themes: string[][], opts: { seed?: number } = {}) {
   };
 }
 const none = (n: number): string[][] => Array.from({ length: n }, () => []);
+
+describe('手札の枚数と、言葉の持ち寄り', () => {
+  const own = ['筋肉', 'たこ焼き', '月曜日', '無敵', 'ねむい', '課長', '銀河', 'うどん', '奇跡', '全力', '推し', '布団'];
+  it('枚数を変えても、重複のない手札になる。プリセットの分は、名詞・言い回し・修飾が混ざる', () => {
+    for (const size of BOUQUET_HANDS) {
+      const h = dealHand(seeded(size * 7919), size);
+      expect(h).toHaveLength(size);
+      expect(new Set(h).size).toBe(size);
+      expect(h.every(w => ALL_WORDS.includes(w))).toBe(true);
+    }
+  });
+  it('プリセットと混ぜる：持ってきた言葉は、手札の半分まで。残りはプリセット', () => {
+    for (const size of BOUQUET_HANDS) {
+      const h = dealHand(seeded(size), size, own, true);
+      expect(h).toHaveLength(size);
+      expect(new Set(h).size).toBe(size);
+      expect(h.filter(w => own.includes(w))).toHaveLength(Math.min(own.length, Math.floor(size / 2)));
+    }
+    // 持ってきた言葉が少ないときは、あるだけ入る
+    expect(dealHand(seeded(3), 14, ['筋肉', '筋肉', '銀河'], true).filter(w => ['筋肉', '銀河'].includes(w))).toHaveLength(2);
+  });
+  it('持ち寄りだけ：手札を持ってきた言葉で配る。足りない分は、プリセットで埋める', () => {
+    expect(dealHand(seeded(1), 10, own, false).every(w => own.includes(w))).toBe(true);
+    const h = dealHand(seeded(1), 20, own, false);
+    expect(h).toHaveLength(20);
+    expect(new Set(h).size).toBe(20);
+    expect(h.filter(w => own.includes(w))).toHaveLength(own.length);
+    expect(dealHand(seeded(1), 14, [], false)).toHaveLength(14); // 誰も持ってきていなければ、全部プリセット
+  });
+  it('プリセットにある言葉を持ってきても、手札の中で重ならない', () => {
+    const h = dealHand(seeded(5), 30, ALL_WORDS.slice(0, 15), true);
+    expect(new Set(h).size).toBe(30);
+  });
+  it('届いた言葉は、検査して整える（空・重複を除き、長さと数を上限に収める）', () => {
+    expect(sanitizeBouquetWords('x')).toEqual([]);
+    expect(sanitizeBouquetWords([' 筋肉 ', '筋肉', '', null, 'あ'.repeat(30)])).toEqual(['筋肉', 'あ'.repeat(BOUQUET_WORD_MAX)]);
+    expect(sanitizeBouquetWords(Array.from({ length: 200 }, (_, i) => `言葉${i}`))).toHaveLength(BOUQUET_WORDS_PER_PLAYER);
+  });
+  it('ロビーの設定と、みんなが持ってきた言葉で、手札が配られる', () => {
+    const t = testRoom([samples(), samples(), samples()]);
+    t.act(t.ids[1], { t: 'topics', topics: samples(), bouquetWords: own });
+    t.act(t.ids[1], { t: 'bouquetHand', n: 20 }); // ホストだけが変えられる
+    t.host({ t: 'bouquetHand', n: 11 });
+    expect([t.room.bouquetHand, t.room.bouquetMix]).toEqual([14, true]);
+    t.host({ t: 'bouquetHand', n: 20 });
+    t.host({ t: 'bouquetMix', on: false });
+    expect(viewFor(t.room, t.ids[0], t.ctx.now)).toMatchObject({ bouquetHand: 20, bouquetMix: false });
+    expect(viewFor(t.room, t.ids[0], t.ctx.now).players.map(p => p.bouquetWords)).toEqual([0, own.length, 0]);
+    t.host({ t: 'game', mode: 'bouquet' });
+    t.host({ t: 'start' });
+    const g = t.room.game as BouquetState;
+    for (const h of Object.values(g.hands)) {
+      expect(h).toHaveLength(20);
+      expect(h.filter(w => own.includes(w))).toHaveLength(own.length); // 持ってきたのが1人でも、全員の手札に入る
+    }
+    // 引き直しても、同じ決まりで配られる
+    const id = Object.keys(g.hands)[0];
+    t.act(id, { t: 'redraw', round: 0 });
+    expect((t.room.game as BouquetState).hands[id]).toHaveLength(20);
+    // 並べた文には、持ってきた言葉が使える
+    const mine = (t.room.game as BouquetState).hands[id];
+    t.act(id, { t: 'phrase', round: 0, tokens: [mine.indexOf(own.find(w => mine.includes(w))!)] });
+    expect(own).toContain((t.room.game as BouquetState).phrases[id]);
+  });
+});
 
 describe('言葉とお題', () => {
   it('言葉のカードは300語以上あり、重複がない。手札は14枚で、毎回ちがう', () => {

@@ -3,7 +3,7 @@ import { pickCount, SAMPLE_TOPICS, type Topic } from '../modes/tier/topics';
 import { sanitizeFives, type FiveTopic } from '../modes/five/topics';
 import { sanitizeFates, type FateQuestion } from '../modes/fate/questions';
 import { toTheme } from '../modes/haiku/themes';
-import { sanitizeBouquets } from '../modes/bouquet/words';
+import { sanitizeBouquets, sanitizeBouquetWords } from '../modes/bouquet/words';
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -83,6 +83,10 @@ export function loadBouquets(): StoredBouquet[] {
 }
 export const saveBouquets = (list: StoredBouquet[]) => local.set('tlw-bouquets', list);
 export const broughtBouquets = (list: StoredBouquet[]): string[] => list.filter(b => b.bring).map(b => b.text);
+
+// ワードブーケの、持ち寄りの言葉（入れたものは、すべて持っていく）
+export const loadBouquetWords = (): string[] => sanitizeBouquetWords(local.get<unknown>('tlw-bouquet-words', []));
+export const saveBouquetWords = (words: string[]) => local.set('tlw-bouquet-words', words);
 
 // 運命の二者択一で使うキャラクターの番号
 export const loadChara = () => Math.max(0, Math.trunc(Number(local.get('tlw-chara', 0))) || 0);
