@@ -82,6 +82,7 @@ party-toybox/
     audio/                BGM・効果音（snes/ は内蔵のスーファミ風音源）
     storage/              お題・名前・設定の保存
     styles/app.css        共通のデザイン（色・角丸・ボタン・カードなど）
+  raid/                   ダイスレイドの盤面のページ（別ページ。部屋の画面が、枠の中に開く。絵は public/raid/）
   tests/                  ルールの自動テストとシミュレーション（<モード>.rules.test.ts、bots.test.ts など）
   e2e/                    画面の通しテスト（<モード>.spec.ts。共通の操作は helpers.ts）
   docs/                   共通の仕様書（spec.md）・バックログ・テスト記録・この文書

@@ -1,0 +1,734 @@
+{
+ "mage": {
+  "idle": [
+   {
+    "file": "sd/mage_idle1.png",
+    "w": 132,
+    "h": 178,
+    "ox": 0.505,
+    "oy": 0.955
+   },
+   {
+    "file": "sd/mage_idle2.png",
+    "w": 114,
+    "h": 178,
+    "ox": 0.467,
+    "oy": 0.955
+   },
+   {
+    "file": "sd/mage_idle3.png",
+    "w": 115,
+    "h": 175,
+    "ox": 0.452,
+    "oy": 0.954
+   }
+  ],
+  "walk": [
+   {
+    "file": "sd/mage_walk1.png",
+    "w": 125,
+    "h": 173,
+    "ox": 0.516,
+    "oy": 0.948
+   },
+   {
+    "file": "sd/mage_walk2.png",
+    "w": 119,
+    "h": 177,
+    "ox": 0.464,
+    "oy": 0.955
+   },
+   {
+    "file": "sd/mage_walk3.png",
+    "w": 123,
+    "h": 173,
+    "ox": 0.46,
+    "oy": 0.948
+   }
+  ],
+  "hit": [
+   {
+    "file": "sd/mage_hit1.png",
+    "w": 142,
+    "h": 173,
+    "ox": 0.459,
+    "oy": 0.954
+   },
+   {
+    "file": "sd/mage_hit2.png",
+    "w": 122,
+    "h": 169,
+    "ox": 0.421,
+    "oy": 0.953
+   },
+   {
+    "file": "sd/mage_hit3.png",
+    "w": 134,
+    "h": 162,
+    "ox": 0.468,
+    "oy": 0.951
+   }
+  ],
+  "attack": [
+   {
+    "file": "sd/mage_attack1.png",
+    "w": 133,
+    "h": 183,
+    "ox": 0.478,
+    "oy": 0.951
+   },
+   {
+    "file": "sd/mage_attack2.png",
+    "w": 144,
+    "h": 176,
+    "ox": 0.34,
+    "oy": 0.949
+   }
+  ],
+  "fx": {
+   "file": "sd/mage_fx.png",
+   "w": 103,
+   "h": 117,
+   "dx": 140,
+   "dy": -86
+  },
+  "facing": "right"
+ },
+ "warrior": {
+  "idle": [
+   {
+    "file": "sd/warrior_idle1.png",
+    "w": 116,
+    "h": 187,
+    "ox": 0.538,
+    "oy": 0.952
+   },
+   {
+    "file": "sd/warrior_idle2.png",
+    "w": 102,
+    "h": 184,
+    "ox": 0.528,
+    "oy": 0.957
+   },
+   {
+    "file": "sd/warrior_idle3.png",
+    "w": 118,
+    "h": 185,
+    "ox": 0.449,
+    "oy": 0.951
+   }
+  ],
+  "walk": [
+   {
+    "file": "sd/warrior_walk1.png",
+    "w": 112,
+    "h": 177,
+    "ox": 0.525,
+    "oy": 0.949
+   },
+   {
+    "file": "sd/warrior_walk2.png",
+    "w": 110,
+    "h": 180,
+    "ox": 0.544,
+    "oy": 0.95
+   },
+   {
+    "file": "sd/warrior_walk3.png",
+    "w": 138,
+    "h": 180,
+    "ox": 0.468,
+    "oy": 0.956
+   }
+  ],
+  "hit": [
+   {
+    "file": "sd/warrior_hit1.png",
+    "w": 127,
+    "h": 177,
+    "ox": 0.464,
+    "oy": 0.955
+   },
+   {
+    "file": "sd/warrior_hit2.png",
+    "w": 106,
+    "h": 171,
+    "ox": 0.488,
+    "oy": 0.959
+   },
+   {
+    "file": "sd/warrior_hit3.png",
+    "w": 129,
+    "h": 151,
+    "ox": 0.546,
+    "oy": 0.947
+   }
+  ],
+  "attack": [
+   {
+    "file": "sd/warrior_attack1.png",
+    "w": 146,
+    "h": 180,
+    "ox": 0.477,
+    "oy": 0.961
+   },
+   {
+    "file": "sd/warrior_attack2.png",
+    "w": 198,
+    "h": 177,
+    "ox": 0.289,
+    "oy": 0.949
+   }
+  ],
+  "fx": {
+   "file": "sd/warrior_fx.png",
+   "w": 173,
+   "h": 166,
+   "dx": 95,
+   "dy": -85
+  },
+  "facing": "right"
+ },
+ "priest": {
+  "idle": [
+   {
+    "file": "sd/priest_idle1.png",
+    "w": 103,
+    "h": 187,
+    "ox": 0.505,
+    "oy": 0.957
+   },
+   {
+    "file": "sd/priest_idle2.png",
+    "w": 102,
+    "h": 181,
+    "ox": 0.503,
+    "oy": 0.956
+   },
+   {
+    "file": "sd/priest_idle3.png",
+    "w": 107,
+    "h": 184,
+    "ox": 0.49,
+    "oy": 0.951
+   }
+  ],
+  "walk": [
+   {
+    "file": "sd/priest_walk1.png",
+    "w": 107,
+    "h": 183,
+    "ox": 0.508,
+    "oy": 0.962
+   },
+   {
+    "file": "sd/priest_walk2.png",
+    "w": 108,
+    "h": 188,
+    "ox": 0.504,
+    "oy": 0.963
+   },
+   {
+    "file": "sd/priest_walk3.png",
+    "w": 109,
+    "h": 185,
+    "ox": 0.481,
+    "oy": 0.946
+   }
+  ],
+  "hit": [
+   {
+    "file": "sd/priest_hit1.png",
+    "w": 124,
+    "h": 168,
+    "ox": 0.464,
+    "oy": 0.946
+   },
+   {
+    "file": "sd/priest_hit2.png",
+    "w": 121,
+    "h": 164,
+    "ox": 0.443,
+    "oy": 0.945
+   },
+   {
+    "file": "sd/priest_hit3.png",
+    "w": 125,
+    "h": 146,
+    "ox": 0.448,
+    "oy": 0.945
+   }
+  ],
+  "attack": [
+   {
+    "file": "sd/priest_attack1.png",
+    "w": 140,
+    "h": 202,
+    "ox": 0.47,
+    "oy": 0.95
+   },
+   {
+    "file": "sd/priest_attack2.png",
+    "w": 161,
+    "h": 190,
+    "ox": 0.372,
+    "oy": 0.932
+   }
+  ],
+  "fx": {
+   "file": "sd/priest_fx.png",
+   "w": 107,
+   "h": 168,
+   "dx": 104,
+   "dy": -95
+  },
+  "facing": "right"
+ },
+ "archer": {
+  "idle": [
+   {
+    "file": "sd/archer_idle1.png",
+    "w": 116,
+    "h": 187,
+    "ox": 0.519,
+    "oy": 0.947
+   },
+   {
+    "file": "sd/archer_idle2.png",
+    "w": 115,
+    "h": 184,
+    "ox": 0.463,
+    "oy": 0.951
+   },
+   {
+    "file": "sd/archer_idle3.png",
+    "w": 122,
+    "h": 190,
+    "ox": 0.471,
+    "oy": 0.953
+   }
+  ],
+  "walk": [
+   {
+    "file": "sd/archer_walk1.png",
+    "w": 121,
+    "h": 180,
+    "ox": 0.474,
+    "oy": 0.95
+   },
+   {
+    "file": "sd/archer_walk2.png",
+    "w": 113,
+    "h": 181,
+    "ox": 0.538,
+    "oy": 0.956
+   },
+   {
+    "file": "sd/archer_walk3.png",
+    "w": 139,
+    "h": 182,
+    "ox": 0.462,
+    "oy": 0.94
+   }
+  ],
+  "hit": [
+   {
+    "file": "sd/archer_hit1.png",
+    "w": 126,
+    "h": 192,
+    "ox": 0.484,
+    "oy": 0.953
+   },
+   {
+    "file": "sd/archer_hit2.png",
+    "w": 126,
+    "h": 169,
+    "ox": 0.505,
+    "oy": 0.941
+   },
+   {
+    "file": "sd/archer_hit3.png",
+    "w": 120,
+    "h": 172,
+    "ox": 0.516,
+    "oy": 0.942
+   }
+  ],
+  "attack": [
+   {
+    "file": "sd/archer_attack1.png",
+    "w": 143,
+    "h": 182,
+    "ox": 0.437,
+    "oy": 0.951
+   },
+   {
+    "file": "sd/archer_attack2.png",
+    "w": 165,
+    "h": 191,
+    "ox": 0.409,
+    "oy": 0.948
+   }
+  ],
+  "fx": {
+   "file": "sd/archer_fx.png",
+   "w": 76,
+   "h": 65,
+   "dx": 129,
+   "dy": -108
+  },
+  "facing": "right"
+ },
+ "slime": {
+  "facing": "left",
+  "idle": [
+   {
+    "file": "sd/slime_idle1.png",
+    "w": 86,
+    "h": 72,
+    "ox": 0.494,
+    "oy": 0.861
+   },
+   {
+    "file": "sd/slime_idle2.png",
+    "w": 86,
+    "h": 70,
+    "ox": 0.494,
+    "oy": 0.857
+   },
+   {
+    "file": "sd/slime_idle3.png",
+    "w": 86,
+    "h": 74,
+    "ox": 0.494,
+    "oy": 0.865
+   }
+  ],
+  "walk": [
+   {
+    "file": "sd/slime_walk1.png",
+    "w": 86,
+    "h": 73,
+    "ox": 0.492,
+    "oy": 0.863
+   },
+   {
+    "file": "sd/slime_walk2.png",
+    "w": 86,
+    "h": 69,
+    "ox": 0.494,
+    "oy": 0.855
+   },
+   {
+    "file": "sd/slime_walk3.png",
+    "w": 86,
+    "h": 73,
+    "ox": 0.496,
+    "oy": 0.863
+   }
+  ],
+  "attack": [
+   {
+    "file": "sd/slime_attack1.png",
+    "w": 85,
+    "h": 69,
+    "ox": 0.496,
+    "oy": 0.855
+   },
+   {
+    "file": "sd/slime_attack2.png",
+    "w": 85,
+    "h": 76,
+    "ox": 0.498,
+    "oy": 0.868
+   }
+  ],
+  "hit": [
+   {
+    "file": "sd/slime_hit1.png",
+    "w": 85,
+    "h": 70,
+    "ox": 0.497,
+    "oy": 0.871
+   },
+   {
+    "file": "sd/slime_hit2.png",
+    "w": 84,
+    "h": 69,
+    "ox": 0.5,
+    "oy": 0.87
+   },
+   {
+    "file": "sd/slime_hit3.png",
+    "w": 79,
+    "h": 62,
+    "ox": 0.496,
+    "oy": 0.887
+   }
+  ]
+ },
+ "goblin": {
+  "facing": "left",
+  "idle": [
+   {
+    "file": "sd/goblin_idle1.png",
+    "w": 103,
+    "h": 92,
+    "ox": 0.492,
+    "oy": 0.902
+   },
+   {
+    "file": "sd/goblin_idle2.png",
+    "w": 103,
+    "h": 91,
+    "ox": 0.493,
+    "oy": 0.901
+   },
+   {
+    "file": "sd/goblin_idle3.png",
+    "w": 103,
+    "h": 93,
+    "ox": 0.493,
+    "oy": 0.903
+   }
+  ],
+  "walk": [
+   {
+    "file": "sd/goblin_walk1.png",
+    "w": 104,
+    "h": 93,
+    "ox": 0.47,
+    "oy": 0.892
+   },
+   {
+    "file": "sd/goblin_walk2.png",
+    "w": 103,
+    "h": 90,
+    "ox": 0.493,
+    "oy": 0.9
+   },
+   {
+    "file": "sd/goblin_walk3.png",
+    "w": 102,
+    "h": 93,
+    "ox": 0.505,
+    "oy": 0.892
+   }
+  ],
+  "attack": [
+   {
+    "file": "sd/goblin_attack1.png",
+    "w": 100,
+    "h": 92,
+    "ox": 0.532,
+    "oy": 0.88
+   },
+   {
+    "file": "sd/goblin_attack2.png",
+    "w": 105,
+    "h": 98,
+    "ox": 0.428,
+    "oy": 0.878
+   }
+  ],
+  "hit": [
+   {
+    "file": "sd/goblin_hit1.png",
+    "w": 99,
+    "h": 93,
+    "ox": 0.544,
+    "oy": 0.882
+   },
+   {
+    "file": "sd/goblin_hit2.png",
+    "w": 97,
+    "h": 95,
+    "ox": 0.57,
+    "oy": 0.884
+   },
+   {
+    "file": "sd/goblin_hit3.png",
+    "w": 93,
+    "h": 90,
+    "ox": 0.591,
+    "oy": 0.889
+   }
+  ]
+ },
+ "orc": {
+  "facing": "left",
+  "idle": [
+   {
+    "file": "sd/orc_idle1.png",
+    "w": 120,
+    "h": 107,
+    "ox": 0.489,
+    "oy": 0.916
+   },
+   {
+    "file": "sd/orc_idle2.png",
+    "w": 120,
+    "h": 105,
+    "ox": 0.489,
+    "oy": 0.914
+   },
+   {
+    "file": "sd/orc_idle3.png",
+    "w": 120,
+    "h": 108,
+    "ox": 0.488,
+    "oy": 0.917
+   }
+  ],
+  "walk": [
+   {
+    "file": "sd/orc_walk1.png",
+    "w": 121,
+    "h": 108,
+    "ox": 0.465,
+    "oy": 0.907
+   },
+   {
+    "file": "sd/orc_walk2.png",
+    "w": 120,
+    "h": 105,
+    "ox": 0.489,
+    "oy": 0.914
+   },
+   {
+    "file": "sd/orc_walk3.png",
+    "w": 119,
+    "h": 108,
+    "ox": 0.512,
+    "oy": 0.907
+   }
+  ],
+  "attack": [
+   {
+    "file": "sd/orc_attack1.png",
+    "w": 118,
+    "h": 106,
+    "ox": 0.541,
+    "oy": 0.896
+   },
+   {
+    "file": "sd/orc_attack2.png",
+    "w": 120,
+    "h": 113,
+    "ox": 0.427,
+    "oy": 0.894
+   }
+  ],
+  "hit": [
+   {
+    "file": "sd/orc_hit1.png",
+    "w": 118,
+    "h": 108,
+    "ox": 0.553,
+    "oy": 0.889
+   },
+   {
+    "file": "sd/orc_hit2.png",
+    "w": 113,
+    "h": 111,
+    "ox": 0.575,
+    "oy": 0.892
+   },
+   {
+    "file": "sd/orc_hit3.png",
+    "w": 108,
+    "h": 106,
+    "ox": 0.595,
+    "oy": 0.906
+   }
+  ]
+ },
+ "boss": {
+  "facing": "left",
+  "idle": [
+   {
+    "file": "sd/boss_idle1.png",
+    "w": 149,
+    "h": 140,
+    "ox": 0.426,
+    "oy": 0.929
+   },
+   {
+    "file": "sd/boss_idle2.png",
+    "w": 149,
+    "h": 137,
+    "ox": 0.43,
+    "oy": 0.927
+   },
+   {
+    "file": "sd/boss_idle3.png",
+    "w": 149,
+    "h": 144,
+    "ox": 0.422,
+    "oy": 0.931
+   }
+  ],
+  "walk": [
+   {
+    "file": "sd/boss_walk1.png",
+    "w": 148,
+    "h": 146,
+    "ox": 0.412,
+    "oy": 0.932
+   },
+   {
+    "file": "sd/boss_walk2.png",
+    "w": 149,
+    "h": 136,
+    "ox": 0.43,
+    "oy": 0.926
+   },
+   {
+    "file": "sd/boss_walk3.png",
+    "w": 155,
+    "h": 141,
+    "ox": 0.433,
+    "oy": 0.922
+   }
+  ],
+  "attack": [
+   {
+    "file": "sd/boss_attack1.png",
+    "w": 159,
+    "h": 142,
+    "ox": 0.454,
+    "oy": 0.93
+   },
+   {
+    "file": "sd/boss_attack2.png",
+    "w": 149,
+    "h": 163,
+    "ox": 0.349,
+    "oy": 0.933
+   }
+  ],
+  "hit": [
+   {
+    "file": "sd/boss_hit1.png",
+    "w": 162,
+    "h": 144,
+    "ox": 0.448,
+    "oy": 0.924
+   },
+   {
+    "file": "sd/boss_hit2.png",
+    "w": 165,
+    "h": 150,
+    "ox": 0.462,
+    "oy": 0.933
+   },
+   {
+    "file": "sd/boss_hit3.png",
+    "w": 164,
+    "h": 155,
+    "ox": 0.465,
+    "oy": 0.955
+   }
+  ]
+ }
+}

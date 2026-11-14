@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>ダイスレイド</title>
+  </head>
+  <body>
+    <!-- ダイスレイドの盤面の画面。パーティトイボックスの部屋の画面（src/modes/raid/screens.tsx）が、枠（iframe）の中に開く。
+         見た目の決まり（style.css）がページ全体に掛かる書き方なので、別のページに分けてある -->
+    <div id="game"></div>
+    <div id="hud">
+      <header id="topbar"></header>
+      <div id="sys"></div>
+      <aside id="party"></aside>
+      <section id="me"></section>
+      <section id="tray" class="empty"></section>
+      <section id="hand"></section>
+      <section id="actions"></section>
+      <button id="logtoggle" title="ログ">📜</button>
+      <aside id="log"></aside>
+    </div>
+    <div id="modal" hidden></div>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>

@@ -1,38 +1,47 @@
-// ダイスレイドの画面。いまは、つなぎ込みを確かめるための仮の画面（盤面の絵は出ない。README の 18.5）
+// ダイスレイドの画面：盤面のページ（raid/index.html）を、枠（iframe）の中に開く（このフォルダの README.md の 18.5）。
+// 盤面のページは、見た目の決まりがページ全体に掛かる作りなので、同じページには混ぜない。
+// 盤面とのやり取りは、raid/src/main.ts の先頭に書いてある
+import './styles.css';
+import { useEffect, useRef, useState } from 'react';
 import { isHost, send, type Pub } from '../../app/store';
-import { Standings } from '../../ui/common';
-import { decideAction, getActorId } from './engine';
+import { Sound } from '../../audio/sound';
+import { sanitizeRaidAction } from './actions';
 
 export function RaidStage({ pub }: { pub: Pub }) {
   const r = pub.raid!;
-  const g = r.game;
-  const actor = getActorId(g);
-  const mine = actor != null && actor === r.mySeat;
-  return (
-    <section className="card">
-      <span className="status">ラウンド {g.round} / {g.config.maxRounds}　{g.phase === 'boss' ? '決戦' : '準備'}</span>
-      <p className="muted small" style={{ margin: '10px 0 0' }}>🚧 仮の画面です（盤面の絵は、これから載せます）。つなぎ込みを確かめるため、自分の番は「おまかせ」で進められます</p>
-      <p style={{ fontWeight: 800 }}>チームのライフ {g.teamLife}{g.boss ? `　／　ボスのHP ${g.boss.hp}` : ''}</p>
-      <div className="players">{g.players.map((p, i) => (
-        <span key={p.id} className={`pl ${i === r.mySeat ? 'me' : ''}`}>{actor === i && '▶ '}{p.name}（Lv{p.level}・HP{p.hp}・💰{p.coins}）</span>
-      ))}</div>
-      {mine && <button className="primary wide" style={{ marginTop: 12 }} onClick={() => send({ t: 'raidAct', seq: r.seq, action: decideAction(g) })}>おまかせで一手進める</button>}
-      {!mine && actor != null && <p className="muted" style={{ marginTop: 12 }}>{g.players[actor].name}の番です…</p>}
-      <div className="muted small" style={{ marginTop: 12, maxHeight: 180, overflowY: 'auto' }}>{g.log.slice(-8).map((l, i) => <div key={i}>{l}</div>)}</div>
-    </section>
-  );
-}
+  const frame = useRef<HTMLIFrameElement>(null);
+  const [ready, setReady] = useState(false);
+  const latest = useRef(r);
+  latest.current = r;
+  const post = (m: unknown) => frame.current?.contentWindow?.postMessage(m, location.origin);
+  const state = () => ({ t: 'state', game: latest.current.game, events: latest.current.events, seq: latest.current.seq });
 
-export function RaidResult({ pub }: { pub: Pub }) {
-  const g = pub.raid!.game;
+  // 盤面のページからの連絡：用意ができた／自分の番の操作／ロビーに戻る
+  useEffect(() => {
+    const onMessage = (ev: MessageEvent) => {
+      if (ev.origin !== location.origin || ev.source !== frame.current?.contentWindow) return;
+      const m = ev.data as { t?: string; seq?: unknown; action?: unknown };
+      if (m?.t === 'ready') {
+        post({ t: 'init', mySeat: latest.current.mySeat, host: isHost() });
+        post(state());
+        setReady(true);
+      } else if (m?.t === 'act') {
+        const action = sanitizeRaidAction(m.action);
+        if (action && Number.isInteger(m.seq)) send({ t: 'raidAct', seq: m.seq as number, action });
+      } else if (m?.t === 'lobby' && isHost()) send({ t: 'lobby' });
+    };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, []);
+  // 操作が1つ進むたびに、新しい盤面を渡す
+  useEffect(() => { if (ready) post(state()); }, [ready, r.seq]);
+  // 盤面のページが自分の音を鳴らすので、こちらの BGM は止めておく
+  useEffect(() => { Sound.setQuiet(true); return () => Sound.setQuiet(false); }, []);
+
   return (
-    <section className="card">
-      <h2>{g.result === 'win' ? '🎉 討伐成功！' : '💀 全滅…'}</h2>
-      <p className="muted small" style={{ margin: '0 0 8px' }}>勝ち負けは全員で同じです。下は、貢献度の順位です</p>
-      <Standings players={pub.players} me={pub.me} />
-      <div style={{ marginTop: 16 }}>
-        {isHost() ? <button className="primary wide" onClick={() => send({ t: 'lobby' })}>ロビーに戻る</button> : <p className="muted">ホストがロビーに戻すのを待っています…</p>}
-      </div>
-    </section>
+    <div className="raid-frame">
+      {!ready && <p className="raid-loading">盤面を読み込んでいます…</p>}
+      <iframe ref={frame} title="ダイスレイドの盤面" src={`${import.meta.env.BASE_URL}raid/index.html`} allow="autoplay" />
+    </div>
   );
 }

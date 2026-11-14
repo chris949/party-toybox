@@ -1,7 +1,7 @@
 {
   "name": "party-toybox",
   "private": true,
-  "version": "0.34.0",
+  "version": "0.35.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -18,6 +18,7 @@
     "howler": "2.2.4",
     "motion": "14.9.1",
     "peerjs": "1.5.5",
+    "phaser": "3.90.0",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "three": "0.187.0",

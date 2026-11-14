@@ -20,7 +20,8 @@ export function App() {
   const [title, setTitle] = useState(shouldShowTitle);
   // 画面（フェーズ）が変わったときだけ入場の動きを付ける。同じ画面の更新では動かさない
   // 運命の二者択一は、出題から発表までキャラクターが同じ場所に居続けるので、1ゲームを通して同じ画面として扱う
-  const key = !inRoom ? screen : pub.game === 'fate' && pub.phase !== 'result' ? `room-fate-${pub.gameNo}` : `room-${pub.phase}-${pub.round}`;
+  // ダイスレイドは、盤面のページを枠の中に開いたままにするので、1ゲームを通して同じ画面として扱う（作り直すと、盤面を読み込み直してしまう）
+  const key = !inRoom ? screen : pub.game === 'raid' ? `room-raid-${pub.gameNo}` : pub.game === 'fate' && pub.phase !== 'result' ? `room-fate-${pub.gameNo}` : `room-${pub.phase}-${pub.round}`;
   useEffect(() => { window.scrollTo(0, 0); }, [key]);
   // 場面ごとにBGMを切り替える（音の設定の画面では、試聴のために切り替えない）
   const scene: Scene | null = screen === 'sound' ? null : !inRoom || pub.phase === 'lobby' ? 'lobby'

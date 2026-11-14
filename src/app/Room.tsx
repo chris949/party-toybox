@@ -13,7 +13,7 @@ import { BlendLobby } from '../modes/blend/Lobby';
 import { BombLobby } from '../modes/bomb/Lobby';
 import { RelayLobby } from '../modes/relay/Lobby';
 import { RaidLobby } from '../modes/raid/Lobby';
-import { RaidResult, RaidStage } from '../modes/raid/screens';
+import { RaidStage } from '../modes/raid/screens';
 import { RelayResult, RelayUnfold, RelayWork } from '../modes/relay/screens';
 import { BombResult, BombStage } from '../modes/bomb/screens';
 import { BlendResult, BlendStage } from '../modes/blend/screens';
@@ -57,8 +57,7 @@ export function Room() {
           : pub.phase === 'answer' ? <Answer pub={pub} />
           : pub.phase === 'question' || pub.phase === 'verdict' ? <FateStage pub={pub} />
           : pub.fate ? <FateResult pub={pub} />
-          : pub.phase === 'raid' ? <RaidStage pub={pub} />
-          : pub.raid ? <RaidResult pub={pub} />
+          : pub.raid ? <RaidStage pub={pub} />
           : pub.phase === 'work' ? <RelayWork pub={pub} />
           : pub.phase === 'unfold' ? <RelayUnfold pub={pub} />
           : pub.relay ? <RelayResult pub={pub} />
