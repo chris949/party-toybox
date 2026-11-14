@@ -1,6 +1,7 @@
 {
   "name": "party-toybox",
   "private": true,
+  "license": "MIT",
   "version": "0.32.0",
   "type": "module",
   "scripts": {
