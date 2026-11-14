@@ -6,13 +6,18 @@ import { FiveList } from '../modes/five/TopicsEditor';
 import { FateList } from '../modes/fate/TopicsEditor';
 import { HaikuList } from '../modes/haiku/TopicsEditor';
 import { BouquetList } from '../modes/bouquet/TopicsEditor';
-import { GAME_MODES } from '../core/types';
+import { GAME_MODES, type GameMode } from '../core/types';
 import { TopicTools } from './TopicTools';
 
 export function Topics() {
   const saved = useStore(s => s.topicsTab);
   const roomEdit = useStore(s => s.roomEdit);
   const playing = useStore(s => s.pub?.gameMode);
+  // モードごとの「持っていく数」（左の一覧に出す。どのモードに何を用意したかが、一目で分かるように）
+  // （1つずつ取り出す。まとめて新しい入れ物で返すと、画面の作り直しが止まらなくなる）
+  const tier = useStore(s => s.topics), five = useStore(s => s.fives), fate = useStore(s => s.fates), haiku = useStore(s => s.haikus), bouquet = useStore(s => s.bouquets);
+  const brought = { tier, five, fate, haiku, bouquet };
+  const count = (k: GameMode) => (brought as Partial<Record<GameMode, { bring: boolean }[]>>)[k]?.filter(t => t.bring).length ?? 0;
   // タブは、お題を作れるモードだけ（お題を使わないモードまで並べると、どれを編集しているのか分かりにくい）
   const tab = TOPIC_TABS.includes(saved) ? saved : 'tier';
   // 部屋から開いたとき：いま部屋で選ばれているモードと、そのモードが使うお題のタブ
@@ -32,13 +37,20 @@ export function Topics() {
           : tab === nowTab ? 'このモードのお題を開いています' : `下で開いているのは「${GAME_MODES[tab]}」のお題です`}</span>
       </div>}
       {roomEdit && <p className="muted small" style={{ margin: '0 0 10px' }}>部屋に入ったまま編集しています。「部屋に戻る」を押すと、チェックを入れたお題が部屋に反映されます。</p>}
-      {/* お題の形がモードごとに違うので、ストックを分ける */}
-      <div className="seg wrap" style={{ marginBottom: 12 }}>{TOPIC_TABS.map(k => (
-        <button key={k} className={tab === k ? 'on' : ''} onClick={() => useStore.setState({ topicsTab: k })}>{GAME_MODES[k]}{k === nowTab && <span className="nowtag">いま</span>}</button>
-      ))}</div>
+      {/* お題の形がモードごとに違うので、ストックを分ける。スマホ幅は上にタブ、PC 幅は左にモードの一覧（docs/spec.md の 3.2） */}
+      <div className="topics-grid">
+      <nav className="seg wrap topics-nav" aria-label="モード">{TOPIC_TABS.map(k => (
+        <button key={k} className={tab === k ? 'on' : ''} aria-current={tab === k} onClick={() => useStore.setState({ topicsTab: k })}>
+          <span>{GAME_MODES[k]}{k === nowTab && <span className="nowtag">いま</span>}</span>
+          <span className="navcount" title="持っていく数">{count(k)}</span>
+        </button>
+      ))}</nav>
+      <div className="topics-main">
       {/* 取り込み・書き出しは、お題を作って持ち寄るモードにだけ置く（ハイカー575 は、その場でみんなが書く。ワードブーケは、お題が1行だけ） */}
       {(tab === 'tier' || tab === 'five' || tab === 'fate') && <TopicTools key={tab} mode={tab} />}
       {tab === 'five' ? <FiveList /> : tab === 'fate' ? <FateList /> : tab === 'haiku' ? <HaikuList /> : tab === 'bouquet' ? <BouquetList /> : <TierList />}
+      </div>
+      </div>
     </>
   );
 }

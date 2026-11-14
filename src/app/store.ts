@@ -23,7 +23,7 @@ export const APP_VERSION = __APP_VERSION__;
 export const COMMIT = __COMMIT__;
 export const DEV = new URLSearchParams(location.search).has('dev'); // ?dev で最少2人から遊べる（動作確認用）
 
-export type Screen = 'home' | 'topics' | 'edit' | 'editFive' | 'editFate' | 'sound' | 'room';
+export type Screen = 'home' | 'topics' | 'edit' | 'editFive' | 'editFate' | 'sound' | 'howto' | 'room';
 // 受け取った状態。締め切りは自分の時計に直して持つ
 export type Pub = PlayerView & { localDeadline: number };
 export interface Editing { id: string | null; title: string; options: string[]; count: number }
