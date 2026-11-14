@@ -33,41 +33,49 @@ export function Room() {
     {reconnecting && <div className="banner">ホストとの接続を確認しています… 再接続中</div>}
     <TitleBar right={<>
       {/* ゲーム中も、そのゲームのあそびかたを、いつでも開ける */}
-      {pub.game && <button className="small" aria-expanded={help} aria-label="あそびかた" onClick={() => setHelp(!help)}>？</button>}
+      {pub.game && <button className="small sp-only" aria-expanded={help} aria-label="あそびかた" onClick={() => setHelp(!help)}>？</button>}
       <button className="small" onClick={leaveByUser}>退出</button>
     </>} />
     {notice && <Notice>{notice}</Notice>}
-    {help && pub.game && <section className="card helpcard">
-      <div className="row" style={{ justifyContent: 'space-between' }}><h2 style={{ margin: 0 }}>{GAME_MODES[pub.game]} のあそびかた</h2><button className="small" onClick={() => setHelp(false)}>閉じる</button></div>
-      <HowTo mode={pub.game} compact />
-    </section>}
-    {/* 運命の二者択一は、舞台の上に全員が出ているので、参加者の一覧は出さない */}
-    {pub.phase !== 'lobby' && pub.game !== 'fate' && <section className="card"><Players pub={pub} /></section>}
-    {pub.phase === 'lobby' ? <Lobby pub={pub} />
-      : pub.phase === 'ranking' ? <Ranking pub={pub} />
-      : pub.phase === 'guess' ? <Guess pub={pub} />
-      : pub.phase === 'answer' ? <Answer pub={pub} />
-      : pub.phase === 'question' || pub.phase === 'verdict' ? <FateStage pub={pub} />
-      : pub.fate ? <FateResult pub={pub} />
-      : pub.phase === 'work' ? <RelayWork pub={pub} />
-      : pub.phase === 'unfold' ? <RelayUnfold pub={pub} />
-      : pub.relay ? <RelayResult pub={pub} />
-      : pub.phase === 'hot' || pub.phase === 'boom' ? <BombStage pub={pub} />
-      : pub.bomb ? <BombResult pub={pub} />
-      : pub.phase === 'hide' || pub.phase === 'found' ? <BlendStage pub={pub} />
-      : pub.blend ? <BlendResult pub={pub} />
-      : pub.phase === 'compose' ? <BouquetCompose pub={pub} />
-      : pub.phase === 'choose' ? <BouquetChoose pub={pub} />
-      : pub.phase === 'bloom' ? <BouquetBloom pub={pub} />
-      : pub.bouquet ? <BouquetResult pub={pub} />
-      : pub.phase === 'talk' ? <BluffTalk pub={pub} />
-      : pub.phase === 'show' ? <BluffShow pub={pub} />
-      : pub.bluff ? <BluffResult pub={pub} />
-      : pub.phase === 'write' ? <HaikuWrite pub={pub} />
-      : pub.phase === 'recite' ? <HaikuRecite pub={pub} />
-      : pub.haiku ? <HaikuResult pub={pub} />
-      : pub.phase === 'reveal' ? (pub.five ? <FiveReveal pub={pub} /> : <Reveal pub={pub} />)
-      : <Result pub={pub} />}
+    {/* スマホ幅：上から順に1列。PC 幅：左にゲームの画面、右に参加者とあそびかたを出したままにする（docs/spec.md の 3.4.2） */}
+    <div className={`room-grid ${pub.phase === 'lobby' ? 'lobby' : ''}`}>
+      {pub.phase !== 'lobby' && <aside className="room-side">
+        {help && pub.game && <section className="card helpcard sp-only">
+          <div className="row" style={{ justifyContent: 'space-between' }}><h2 style={{ margin: 0 }}>{GAME_MODES[pub.game]} のあそびかた</h2><button className="small" onClick={() => setHelp(false)}>閉じる</button></div>
+          <HowTo mode={pub.game} compact />
+        </section>}
+        {/* 運命の二者択一は、舞台の上に全員が出ているので、参加者の一覧は出さない */}
+        {pub.game !== 'fate' && <section className="card"><h2 className="pc-only">参加者</h2><Players pub={pub} /></section>}
+        {pub.game && <section className="card pc-only"><h2>{GAME_MODES[pub.game]} のあそびかた</h2><HowTo mode={pub.game} compact /></section>}
+      </aside>}
+      <div className="room-main">
+        {pub.phase === 'lobby' ? <Lobby pub={pub} />
+          : pub.phase === 'ranking' ? <Ranking pub={pub} />
+          : pub.phase === 'guess' ? <Guess pub={pub} />
+          : pub.phase === 'answer' ? <Answer pub={pub} />
+          : pub.phase === 'question' || pub.phase === 'verdict' ? <FateStage pub={pub} />
+          : pub.fate ? <FateResult pub={pub} />
+          : pub.phase === 'work' ? <RelayWork pub={pub} />
+          : pub.phase === 'unfold' ? <RelayUnfold pub={pub} />
+          : pub.relay ? <RelayResult pub={pub} />
+          : pub.phase === 'hot' || pub.phase === 'boom' ? <BombStage pub={pub} />
+          : pub.bomb ? <BombResult pub={pub} />
+          : pub.phase === 'hide' || pub.phase === 'found' ? <BlendStage pub={pub} />
+          : pub.blend ? <BlendResult pub={pub} />
+          : pub.phase === 'compose' ? <BouquetCompose pub={pub} />
+          : pub.phase === 'choose' ? <BouquetChoose pub={pub} />
+          : pub.phase === 'bloom' ? <BouquetBloom pub={pub} />
+          : pub.bouquet ? <BouquetResult pub={pub} />
+          : pub.phase === 'talk' ? <BluffTalk pub={pub} />
+          : pub.phase === 'show' ? <BluffShow pub={pub} />
+          : pub.bluff ? <BluffResult pub={pub} />
+          : pub.phase === 'write' ? <HaikuWrite pub={pub} />
+          : pub.phase === 'recite' ? <HaikuRecite pub={pub} />
+          : pub.haiku ? <HaikuResult pub={pub} />
+          : pub.phase === 'reveal' ? (pub.five ? <FiveReveal pub={pub} /> : <Reveal pub={pub} />)
+          : <Result pub={pub} />}
+      </div>
+    </div>
   </>;
 }
 
@@ -99,7 +107,8 @@ function Lobby({ pub }: { pub: Pub }) {
   const blend = pub.gameMode === 'blend';
   const bomb = pub.gameMode === 'bomb';
   const relay = pub.gameMode === 'relay';
-  return <>
+  return <div className="lobby-grid">
+    <div className="lobby-left">
     <section className="card" style={{ textAlign: 'center' }}>
       <div className="muted small">部屋コード</div>
       <div className="code">{pub.code}</div>
@@ -120,7 +129,10 @@ function Lobby({ pub }: { pub: Pub }) {
       {host && (fate || haiku || bluff || bouquet || blend || bomb || relay) && <button className="wide small" style={{ marginTop: 8 }} disabled={pub.players.length >= MAX_PLAYERS} onClick={addBot}>＋ CPUを追加</button>}
       {host && pub.players.some(p => p.editing && p.id !== pub.me) && <p className="muted small" style={{ margin: '6px 0 0' }}>✏️ {pub.players.filter(p => p.editing && p.id !== pub.me).map(p => `${p.name}さん`).join('、')}がお題を編集中です</p>}
       {old.length > 0 && <Notice>⚠ ホスト（{hostVer}）と違う版の人がいます：{old.map(p => `${p.name}さん（${p.version}）`).join('、')}。ページを再読み込みしてもらってください</Notice>}
-      <h2 style={{ marginTop: 16 }}>モード</h2>
+    </section>
+    </div>
+    <section className="card lobby-mode">
+      <h2>モード</h2>
       {host
         ? <div className="seg wrap">{(Object.entries(GAME_MODES) as [GameMode, string][]).map(([k, label]) => (
             <button key={k} className={pub.gameMode === k ? 'on' : ''} onClick={() => send({ t: 'game', mode: k })}>{label}</button>
@@ -136,5 +148,5 @@ function Lobby({ pub }: { pub: Pub }) {
         </> : <p className="muted">ホストの開始を待っています…{pub.startError && <><br /><span className="small">{pub.startError}</span></>}</p>}
       </div>
     </section>
-  </>;
+  </div>;
 }
