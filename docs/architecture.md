@@ -67,7 +67,7 @@ party-toybox/
   index.html              入口（中身はほぼ空。src/main.tsx を読み込む）
   src/
     main.tsx              起動
-    app/                  画面の切り替え（ホーム／お題の設定の枠／ルームとロビーの枠）、画面の状態（store.ts）、効果音・紙吹雪のきっかけ
+    app/                  画面の切り替え（ホーム／お題の設定の枠／ルームとロビーの枠）、画面の状態（store.ts）、あそびかた（howto.tsx）、効果音・紙吹雪のきっかけ
     core/                 どのモードでも共通のルール（画面も通信も知らない）
       room.ts             部屋・参加者・参加と退出・ロビーの設定・CPU の参加者
       view.ts             各参加者に見せてよい情報を作る（共通の部分。モードの分は、各モードの view.ts を呼ぶ）
@@ -76,7 +76,7 @@ party-toybox/
       random.ts / text.ts 乱数（テストで結果を固定できるよう、外から差し込む）／入力された文字を整える
     modes/
       index.ts            モードの一覧
-      tier/  five/  fate/  haiku/     ← モードごとのフォルダ（下の表）
+      tier/ five/ fate/ haiku/ bluff/ bouquet/ blend/ bomb/ relay/   ← モードごとのフォルダ（下の表）
     net/                  P2P 通信（host.ts：ホスト側と CPU の参加者／guest.ts：参加者側／protocol.ts：メッセージの形と検査）
     ui/                   共通の画面部品
     audio/                BGM・効果音（snes/ は内蔵のスーファミ風音源）
@@ -92,13 +92,13 @@ party-toybox/
 
 | ファイル | 中身 |
 |---|---|
-| `README.md` | **そのモードの仕様の正**（ルール・お題の形・ロビーの設定・画面・得点） |
+| `README.md` | 上半分は、あそぶ人向けの「あそびかた」。下半分が **そのモードの仕様の正**（ルール・お題の形・ロビーの設定・画面・得点） |
 | `rules.ts` | ルール（開始・操作の受け付け・タイマー）。画面・通信・ブラウザの機能は使わない |
 | `view.ts` | 各参加者に見せてよい情報（ティアリストだけは、共通の `core/view.ts` の中にある） |
-| `topics.ts`（運命の二者択一は `questions.ts`、ハイカー575 は `themes.ts`） | お題の形・検査・同梱のサンプル |
+| `topics.ts`（運命の二者択一は `questions.ts`、ハイカー575 は `themes.ts`、ワードブーケは `words.ts`、爆弾まわしは `quiz.ts`、スタンプ伝言は `stamps.ts`） | お題の形・検査・同梱のサンプル（お題を使わないモードには、ない） |
 | `TopicsEditor.tsx` | お題の一覧と作成・編集の画面 |
 | `Lobby.tsx` | ロビーでホストが選ぶ設定（ティアリストの `Lobby.tsx` は、セレクトファイブも使う） |
-| `screens.tsx`（ティアリストは `screens/`） | ゲーム中の画面 |
+| `screens.tsx`（ティアリストは `screens/`） | ゲーム中の画面（3Dの舞台を持つモードは、`three/` も） |
 | `styles.css` | そのモードの画面のスタイル（ティアリストの分は、共通の `styles/app.css` にある） |
 
 **まだ共通の場所に残っているもの**（モードを足すたびに手を入れる所）：`core/types.ts`（操作と部屋の状態）、`core/room.ts`（ロビーの設定の受け付け）、`core/view.ts`、`net/protocol.ts`（届いた値の検査）、`app/store.ts`（提出の操作）、`app/Room.tsx`（画面の振り分け）、`storage/local.ts`（保存）。ここをモード側から登録する形に変えるのは、次の整理の候補（バックログ）。
@@ -145,7 +145,7 @@ nextTimer(state) => { at: number, action } | null
 ```ts
 interface GameMode {
   id: string                 // 'tier'
-  name: string               // 'ティアリストウォーズ'
+  name: string               // 'ティアリスト'
   minPlayers: number
   maxPlayers: number
   settings: SettingDef[]     // ロビーで選べる設定（例：出題方式）

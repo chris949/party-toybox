@@ -23,7 +23,7 @@ export interface Player {
   version: string;  // 参加者が開いているアプリの版
   chara: number;    // 運命の二者択一で使うキャラクターの番号
   editing?: boolean; // ロビーでお題を編集中か
-  bot?: boolean;     // CPU の参加者か（ホストが足す。運命の二者択一とハイカー575 でだけ動く）
+  bot?: boolean;     // CPU の参加者か（ホストが足す。動くモードは room.ts の BOT_MODES）
 }
 
 export const PICK_MODES = { random: '全部からランダム', each: '作成者ごとに1つずつ' } as const;
