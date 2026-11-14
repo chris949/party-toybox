@@ -5,12 +5,14 @@ import { nextTimer } from '../src/core/room';
 import { seeded } from '../src/core/random';
 import { currentSheet, sheetOf, textOf, writerOf, type HaikuState } from '../src/modes/haiku/rules';
 import { viewFor } from '../src/core/view';
-import { samples, testRoom } from './helpers';
+import { custom, samples, testRoom } from './helpers';
 
 // ゲーム開始の手前まで。haikus[i] は i 番目の人が持ってくるお題
-function haikuRoom(haikus: string[][], opts: { seed?: number; style?: 'theme' | 'free' } = {}) {
-  const t = testRoom(haikus.map(() => samples()), { seed: opts.seed });
-  t.ids.forEach((id, i) => t.act(id, { t: 'join', name: `プレイヤー${i}`, key: `k${i}`, topics: samples(), haikus: haikus[i], version: 'test' }));
+// light = ティアリストのお題を、小さいもの1つにする。操作のたびに部屋を丸ごと写すので、全員がサンプル10個を持つと、何千回も操作するシミュレーションが重くなる
+function haikuRoom(haikus: string[][], opts: { seed?: number; style?: 'theme' | 'free'; light?: boolean } = {}) {
+  const topics = () => opts.light ? [custom('軽いお題')] : samples();
+  const t = testRoom(haikus.map(topics), { seed: opts.seed });
+  t.ids.forEach((id, i) => t.act(id, { t: 'join', name: `プレイヤー${i}`, key: `k${i}`, topics: topics(), haikus: haikus[i], version: 'test' }));
   t.host({ t: 'game', mode: 'haiku' });
   if (opts.style) t.host({ t: 'haikuStyle', style: opts.style });
   const g = () => t.room.game as HaikuState;
@@ -260,7 +262,7 @@ describe('シミュレーション', () => {
     for (let seed = 1; seed <= 200; seed++) {
       const rnd = seeded(seed * 7919);
       const n = 2 + Math.floor(rnd() * (MAX_PLAYERS - 1));
-      const t = haikuRoom(Array.from({ length: n }, () => rnd() < 0.3 ? ['あいうえお', 'かきくけこ'] : []), { seed, style: rnd() < 0.5 ? 'free' : 'theme' });
+      const t = haikuRoom(Array.from({ length: n }, () => rnd() < 0.3 ? ['あいうえお', 'かきくけこ'] : []), { seed, style: rnd() < 0.5 ? 'free' : 'theme', light: true });
       t.host({ t: 'start' });
       let steps = 0;
       while (t.g.phase !== 'result') {
