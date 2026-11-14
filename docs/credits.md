@@ -7,6 +7,9 @@
 | フォント：M PLUS Rounded 1c | `@fontsource/m-plus-rounded-1c`（npm） | M+ FONTS PROJECT / Google Fonts | SIL Open Font License 1.1 | 2026-11-05 |
 | 内蔵のBGM（ひだまりの町・せかせかタイム・ドキドキの瞬間・かちどき） | `src/audio/snes/songs.ts`（楽譜として書いたもの。音源ファイルはない） | このプロジェクトで作曲（オリジナル） | このリポジトリと同じ扱い | 2026-11-05 |
 | 同梱のBGM・効果音 | （まだなし） | — | — | — |
+| ダイスレイドの絵：職業4つの立ち絵・顔・コマ・動き | `public/raid/chars/`・`public/raid/sd/` | このリポジトリの持ち主が用意したもの | このリポジトリと同じ扱い（持ち主の確認：2026-11-15） | 2026-11-15 |
+| ダイスレイドの絵：ボード・カード・モンスター | `public/raid/bg/`・`public/raid/cards/`・`public/raid/sd/` | スクリプトで作った仮の絵（このプロジェクトで作成） | このリポジトリと同じ扱い | 2026-11-15 |
+| ライブラリ：Phaser 3（ダイスレイドの盤面） | `phaser`（npm） | Richard Davey, Phaser Studio Inc. | MIT | 2026-11-15 |
 
 **曲を足すときの確認事項**
 - ゲームで使ってよいか

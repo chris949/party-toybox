@@ -18,8 +18,10 @@ let started = false; // 最初に画面に触れたか（ブラウザの決ま�
 let scene: Scene = 'lobby';
 let playing: { url: string | null; howl: Howl | null; scene: Scene } | null = null; // url が null なら内蔵のBGM
 
-const effBgm = () => mode === 'all' ? vol.bgm : 0;
-const effSe = () => mode === 'off' ? 0 : vol.se;
+// quiet = いったん黙る（ダイスレイドの盤面のページが、自分の音を鳴らしている間）
+let quiet = false;
+const effBgm = () => quiet ? 0 : mode === 'all' ? vol.bgm : 0;
+const effSe = () => quiet ? 0 : mode === 'off' ? 0 : vol.se;
 const BASE = import.meta.env.BASE_URL;
 const extOf = (s: string) => (s.match(/\.([a-z0-9]+)(?:$|\?)/i)?.[1] ?? 'mp3').toLowerCase();
 const FORMAT_BY_TYPE: Record<string, string> = { 'audio/mpeg': 'mp3', 'audio/mp3': 'mp3', 'audio/mp4': 'm4a', 'audio/x-m4a': 'm4a', 'audio/aac': 'aac', 'audio/wav': 'wav', 'audio/x-wav': 'wav', 'audio/ogg': 'ogg', 'audio/webm': 'webm', 'audio/flac': 'flac' };
@@ -194,6 +196,8 @@ export const Sound = {
     saveVolumes(vol);
     applyVolumes();
   },
+  // 別のページ（枠の中）が音を鳴らす間、こちらの BGM と効果音を止める
+  setQuiet(on: boolean) { if (on === quiet) return; quiet = on; applyVolumes(); },
   setScene(s: Scene) { if (s === scene) return; Sound.setHurry(false); scene = s; startScene(); },
   // 制限時間の残りわずか：BGM を少し速くする
   setHurry(on: boolean) { if (on === hurry) return; hurry = on; setRate(on ? HURRY_RATE : 1); },

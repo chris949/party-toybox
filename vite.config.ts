@@ -13,6 +13,8 @@ export default defineConfig({
   // GitHub Pages（/party-toybox/）でも手元でも動くよう、相対パスで出力する
   base: './',
   plugins: [react()],
+  // ページは2つ：本体（index.html）と、ダイスレイドの盤面（raid/index.html。部屋の画面が、枠の中に開く）
+  build: { rollupOptions: { input: { main: 'index.html', raid: 'raid/index.html' } } },
   define: {
     __APP_VERSION__: JSON.stringify(`v${pkg.version}`),
     __COMMIT__: JSON.stringify(commit),
