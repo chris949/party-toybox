@@ -34,7 +34,7 @@ export function startHost(o: HostOptions): void {
 
   const sendTo = (c: Conn | undefined, m: HostMsg) => { if (c?.open) c.send(m); };
 
-  // ===== CPU の参加者（docs/spec.md の2.1）。ホストがロビーで足す。運命の二者択一とハイカー575 でだけ動く =====
+  // ===== CPU の参加者（docs/spec.md の2.1）。ホストがロビーで足す。動くモードは core/room.ts の BOT_MODES =====
   const BOT_NAMES = ['じろう', 'さくら', 'ゆうき', 'みさき', 'けんた', 'あおい', 'りく', 'ひなた', 'そうた'];
   const botsNow = () => room.players.filter(p => p.bot);
   // 空いている番号で1人足す（満員なら、部屋のルールが断る）
