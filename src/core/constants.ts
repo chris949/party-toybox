@@ -83,3 +83,9 @@ export const RELAY_MAX_STEPS = 6;                   // 1枚の紙が回る回数
 export const RELAY_MAX_STAMPS = 15;                 // 1枚の絵に置けるスタンプの数
 export const RELAY_TEXT_MAX = 20;                   // 答えの長さの上限
 export const RELAY_SIZES = 5;                       // スタンプの大きさの段階（1〜5）
+
+// ダイスレイド（src/modes/raid/README.md の18章）
+export const RAID_SEATS = 4;                        // 席の数（人が座らない席は、CPU が埋める）
+export const RAID_CPU_MS = 700;                     // CPU の席が、一手を進めるまでの間
+export const RAID_MODES = ['quick', 'standard'] as const; // 長さ：クイック（約10分）／スタンダード（15〜20分）
+export const DEFAULT_RAID_MODE = 'quick';

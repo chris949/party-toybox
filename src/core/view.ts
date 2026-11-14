@@ -19,8 +19,10 @@ import type { BombPhase, BombState, BombStyle } from '../modes/bomb/rules';
 import { bombView, type BombView } from '../modes/bomb/view';
 import type { RelayPhase, RelayState } from '../modes/relay/rules';
 import { relayView, type RelayView } from '../modes/relay/view';
+import type { RaidMode, RaidPhase } from '../modes/raid/rules';
+import { raidView, type RaidView } from '../modes/raid/view';
 
-export type ViewPhase = 'lobby' | TierPhase | FivePhase | FatePhase | HaikuPhase | BluffPhase | BouquetPhase | BlendPhase | BombPhase | RelayPhase;
+export type ViewPhase = 'lobby' | TierPhase | FivePhase | FatePhase | HaikuPhase | BluffPhase | BouquetPhase | BlendPhase | BombPhase | RelayPhase | RaidPhase;
 
 export interface PlayerSummary {
   id: string;
@@ -63,6 +65,7 @@ export interface PlayerView {
   bombFuse: number;       // 爆弾まわしの、導火線の長さ（番号）
   bombStyle: BombStyle;   // 爆弾まわしの答え方
   relayTime: number;      // スタンプ伝言の、絵を作る時間（秒）
+  raidMode: RaidMode;     // ダイスレイドの長さ
   code: string;
   hostId: string;
   me: string;
@@ -84,6 +87,7 @@ export interface PlayerView {
   blend: BlendView | null; // まぎれろ！のとき
   bomb: BombView | null;   // 爆弾まわしのとき
   relay: RelayView | null; // スタンプ伝言のとき
+  raid: RaidView | null;   // ダイスレイドのとき
 }
 
 export function viewFor(room: RoomState, id: string, now: number): PlayerView {
@@ -123,6 +127,7 @@ export function viewFor(room: RoomState, id: string, now: number): PlayerView {
     bombFuse: room.bombFuse,
     bombStyle: room.bombStyle,
     relayTime: room.relayTime,
+    raidMode: room.raidMode,
     code: room.code,
     hostId: room.hostId,
     me: id,
@@ -143,8 +148,8 @@ export function viewFor(room: RoomState, id: string, now: number): PlayerView {
     timeLeft: deadline ? Math.max(0, deadline - now) : null,
     myTopic: g?.assign[id] ?? null,
     myRank: g?.ranks[id] ?? null,
-    round: rl ? (rl.phase === 'work' ? rl.step : rl.show?.idx ?? 0) : bm ? bm.round : bd ? bd.round : bq ? bq.round : bl ? bl.round : h ? (h.phase === 'write' ? h.step : h.show?.idx ?? 0) : g?.round ?? f?.round ?? d?.round ?? 0,
-    rounds: rl ? (rl.phase === 'work' ? rl.steps : rl.books.length) : bm ? bm.rounds : bd ? bd.ring.length : bq ? totalRounds(bq) : bl ? bl.rounds : h ? (h.phase === 'write' ? h.steps : h.sheets.length) : g?.order.length ?? f?.rounds.length ?? d?.deck.length ?? 0,
+    round: room.game?.kind === 'raid' ? room.game.game.round : rl ? (rl.phase === 'work' ? rl.step : rl.show?.idx ?? 0) : bm ? bm.round : bd ? bd.round : bq ? bq.round : bl ? bl.round : h ? (h.phase === 'write' ? h.step : h.show?.idx ?? 0) : g?.round ?? f?.round ?? d?.round ?? 0,
+    rounds: room.game?.kind === 'raid' ? room.game.game.config.maxRounds : rl ? (rl.phase === 'work' ? rl.steps : rl.books.length) : bm ? bm.rounds : bd ? bd.ring.length : bq ? totalRounds(bq) : bl ? bl.rounds : h ? (h.phase === 'write' ? h.steps : h.sheets.length) : g?.order.length ?? f?.rounds.length ?? d?.deck.length ?? 0,
     target: g && tgt ? { id: tgt, name: nameOf(tgt), topic: g.assign[tgt] } : null,
     myGuess: g?.guesses[id] ?? null,
     reveal: g?.phase === 'reveal' ? g.reveal : null,
@@ -156,5 +161,6 @@ export function viewFor(room: RoomState, id: string, now: number): PlayerView {
     blend: bd ? blendView(bd, id, now) : null,
     bomb: bm ? bombView(bm, now) : null,
     relay: rl ? relayView(rl, id) : null,
+    raid: room.game?.kind === 'raid' ? raidView(room.game, id) : null,
   };
 }

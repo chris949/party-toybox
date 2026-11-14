@@ -12,6 +12,7 @@ import type { BouquetState } from '../modes/bouquet/rules';
 import type { BlendState } from '../modes/blend/rules';
 import type { BombState, BombStyle } from '../modes/bomb/rules';
 import type { RelayState } from '../modes/relay/rules';
+import type { RaidMode, RaidState } from '../modes/raid/rules';
 import type { Stamp } from '../modes/relay/stamps';
 
 export interface Player {
@@ -29,8 +30,11 @@ export interface Player {
 export const PICK_MODES = { random: '全部からランダム', each: '作成者ごとに1つずつ' } as const;
 export type PickMode = keyof typeof PICK_MODES;
 
-export const GAME_MODES = { tier: 'ティアリスト', five: 'セレクトファイブ', fate: '運命の二者択一', haiku: 'ハイカー575', bluff: 'ブラインドブラフ', bouquet: 'ワードブーケ', blend: 'まぎれろ！', bomb: '爆弾まわし', relay: 'スタンプ伝言' } as const;
+export const GAME_MODES = { tier: 'ティアリスト', five: 'セレクトファイブ', fate: '運命の二者択一', haiku: 'ハイカー575', bluff: 'ブラインドブラフ', bouquet: 'ワードブーケ', blend: 'まぎれろ！', bomb: '爆弾まわし', relay: 'スタンプ伝言', raid: 'ダイスレイド' } as const;
 export type GameMode = keyof typeof GAME_MODES;
+// まだ作っている途中のモード：ロビーの一覧・ホームのあそびかた・タイトル画面には出さない（動作確認の ?dev のときだけ、ロビーに出す）
+export const HIDDEN_MODES: readonly GameMode[] = ['raid'];
+export const PUBLIC_MODES = (Object.keys(GAME_MODES) as GameMode[]).filter(k => !HIDDEN_MODES.includes(k));
 
 // ホストだけが持つ部屋の状態
 export interface RoomState {
@@ -59,12 +63,13 @@ export interface RoomState {
   bombFuse: number;       // 爆弾まわしの、導火線の長さ（BOMB_FUSES の番号）
   bombStyle: BombStyle;   // 爆弾まわしの答え方（選択式／入力式）
   relayTime: number;      // スタンプ伝言の、絵を作る時間（秒）
+  raidMode: RaidMode;     // ダイスレイドの長さ（クイック／スタンダード）
   haikusBy: Record<string, string[]>; // ハイカー575 のお題（上の五文字）
   players: Player[];
   topicsBy: Record<string, Topic[]>;
   fivesBy: Record<string, FiveTopic[]>; // セレクトファイブのお題
   fatesBy: Record<string, FateQuestion[]>; // 運命の二者択一の問題
-  game: TierState | FiveState | FateState | HaikuState | BluffState | BouquetState | BlendState | BombState | RelayState | null; // null = ロビー
+  game: TierState | FiveState | FateState | HaikuState | BluffState | BouquetState | BlendState | BombState | RelayState | RaidState | null; // null = ロビー
 }
 
 // 状態を進める操作。from は操作した人（タイマーはホスト）
@@ -91,6 +96,8 @@ export type Action =
   | { t: 'bombStyle'; style: BombStyle }
   | { t: 'bombPick'; round: number; i: number }   // 爆弾まわし：自分のお題の選択肢を1つ選ぶ
   | { t: 'relayTime'; sec: number }
+  | { t: 'raidMode'; mode: RaidMode }
+  | { t: 'raidAct'; seq: number; action: unknown } // ダイスレイド：自分の番の操作（中身は、ルールの側で検査する）
   | { t: 'relayDraw'; step: number; stamps: Stamp[] } // スタンプ伝言：絵を出す
   | { t: 'relayGuess'; step: number; text: string }   // スタンプ伝言：言葉で答える
   | { t: 'toss'; round: number; to: string }      // 爆弾まわし：正解を当てたあと、爆弾を渡す

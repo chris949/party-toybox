@@ -1,7 +1,7 @@
 // ルーム：ロビーと、ゲーム中の画面の切り替え
 import { useState } from 'react';
 import { MAX_PLAYERS } from '../core/constants';
-import { GAME_MODES, type GameMode } from '../core/types';
+import { GAME_MODES, HIDDEN_MODES, type GameMode } from '../core/types';
 import { Guess, Ranking, Result, Reveal } from '../modes/tier/screens/Phases';
 import { Answer, FiveReveal } from '../modes/five/screens';
 import { charaOf } from '../modes/fate/charas';
@@ -12,6 +12,8 @@ import { BouquetLobby } from '../modes/bouquet/Lobby';
 import { BlendLobby } from '../modes/blend/Lobby';
 import { BombLobby } from '../modes/bomb/Lobby';
 import { RelayLobby } from '../modes/relay/Lobby';
+import { RaidLobby } from '../modes/raid/Lobby';
+import { RaidResult, RaidStage } from '../modes/raid/screens';
 import { RelayResult, RelayUnfold, RelayWork } from '../modes/relay/screens';
 import { BombResult, BombStage } from '../modes/bomb/screens';
 import { BlendResult, BlendStage } from '../modes/blend/screens';
@@ -22,7 +24,7 @@ import { FateResult, FateStage } from '../modes/fate/screens';
 import { HaikuRecite, HaikuResult, HaikuWrite } from '../modes/haiku/screens';
 import { Notice, TitleBar } from '../ui/common';
 import { HowTo } from './howto';
-import { addBot, isHost, leaveByUser, openRoomTopics, send, useStore, type Pub } from './store';
+import { addBot, DEV, isHost, leaveByUser, openRoomTopics, send, useStore, type Pub } from './store';
 
 export function Room() {
   const pub = useStore(s => s.pub)!;
@@ -55,6 +57,8 @@ export function Room() {
           : pub.phase === 'answer' ? <Answer pub={pub} />
           : pub.phase === 'question' || pub.phase === 'verdict' ? <FateStage pub={pub} />
           : pub.fate ? <FateResult pub={pub} />
+          : pub.phase === 'raid' ? <RaidStage pub={pub} />
+          : pub.raid ? <RaidResult pub={pub} />
           : pub.phase === 'work' ? <RelayWork pub={pub} />
           : pub.phase === 'unfold' ? <RelayUnfold pub={pub} />
           : pub.relay ? <RelayResult pub={pub} />
@@ -85,7 +89,7 @@ function Players({ pub }: { pub: Pub }) {
       <span key={p.id} className={`pl ${p.online ? '' : 'off'} ${p.id === pub.me ? 'me' : ''}`}>
         {p.id === pub.hostId && '👑'}{p.bot && '🤖'}{pub.phase === 'lobby' && pub.gameMode === 'fate' && charaOf(p.chara).face}{p.name}
         {pub.phase !== 'lobby' ? <span className="sc">{p.score}</span>
-          : <span className="muted small">{pub.gameMode === 'fate' ? `問題${p.fates + p.fives}` : pub.gameMode === 'haiku' ? `お題${p.haikus}` : pub.gameMode === 'bluff' || pub.gameMode === 'blend' || pub.gameMode === 'relay' ? '' : pub.gameMode === 'bomb' ? `お題${p.fives}` : pub.gameMode === 'bouquet' ? `お題${p.bouquets}` : `お題${pub.gameMode === 'five' ? p.fives : p.topics}`}</span>}
+          : <span className="muted small">{pub.gameMode === 'fate' ? `問題${p.fates + p.fives}` : pub.gameMode === 'haiku' ? `お題${p.haikus}` : pub.gameMode === 'bluff' || pub.gameMode === 'blend' || pub.gameMode === 'relay' || pub.gameMode === 'raid' ? '' : pub.gameMode === 'bomb' ? `お題${p.fives}` : pub.gameMode === 'bouquet' ? `お題${p.bouquets}` : `お題${pub.gameMode === 'five' ? p.fives : p.topics}`}</span>}
         {p.done === true ? '✅' : p.done === false ? '⏳' : ''}
         {pub.phase === 'lobby' && p.editing && <span className="small">✏️ 編集中</span>}
         {pub.phase === 'lobby' && isHost() && p.id !== pub.me && <button className="mini" style={{ padding: '0 6px' }} onClick={() => send({ t: 'kick', id: p.id })}>✕</button>}
@@ -107,6 +111,7 @@ function Lobby({ pub }: { pub: Pub }) {
   const blend = pub.gameMode === 'blend';
   const bomb = pub.gameMode === 'bomb';
   const relay = pub.gameMode === 'relay';
+  const raid = pub.gameMode === 'raid';
   return <div className="lobby-grid">
     <div className="lobby-left">
     <section className="card" style={{ textAlign: 'center' }}>
@@ -126,7 +131,7 @@ function Lobby({ pub }: { pub: Pub }) {
       {/* 部屋に入ったまま、持っていくお題を選び直したり編集したりできる */}
       <button className="wide small" style={{ marginTop: 10 }} onClick={openRoomTopics}>お題を選ぶ・編集する</button>
       {/* 人数が足りないとき用：CPU が動くモードを選んでいる間だけ、ホストが足せる */}
-      {host && (fate || haiku || bluff || bouquet || blend || bomb || relay) && <button className="wide small" style={{ marginTop: 8 }} disabled={pub.players.length >= MAX_PLAYERS} onClick={addBot}>＋ CPUを追加</button>}
+      {host && (fate || haiku || bluff || bouquet || blend || bomb || relay || raid) && <button className="wide small" style={{ marginTop: 8 }} disabled={pub.players.length >= MAX_PLAYERS} onClick={addBot}>＋ CPUを追加</button>}
       {host && pub.players.some(p => p.editing && p.id !== pub.me) && <p className="muted small" style={{ margin: '6px 0 0' }}>✏️ {pub.players.filter(p => p.editing && p.id !== pub.me).map(p => `${p.name}さん`).join('、')}がお題を編集中です</p>}
       {old.length > 0 && <Notice>⚠ ホスト（{hostVer}）と違う版の人がいます：{old.map(p => `${p.name}さん（${p.version}）`).join('、')}。ページを再読み込みしてもらってください</Notice>}
     </section>
@@ -134,13 +139,13 @@ function Lobby({ pub }: { pub: Pub }) {
     <section className="card lobby-mode">
       <h2>モード</h2>
       {host
-        ? <div className="seg wrap">{(Object.entries(GAME_MODES) as [GameMode, string][]).map(([k, label]) => (
+        ? <div className="seg wrap">{(Object.entries(GAME_MODES) as [GameMode, string][]).filter(([k]) => DEV || !HIDDEN_MODES.includes(k)).map(([k, label]) => (
             <button key={k} className={pub.gameMode === k ? 'on' : ''} onClick={() => send({ t: 'game', mode: k })}>{label}</button>
           ))}</div>
         : <p style={{ margin: 0, fontWeight: 800 }}>{GAME_MODES[pub.gameMode]}</p>}
       {/* 初めての人が、何をするゲームかを3つで分かるように（全員の画面に出る） */}
       <HowTo mode={pub.gameMode} />
-      {relay ? <RelayLobby pub={pub} host={host} /> : bomb ? <BombLobby pub={pub} host={host} /> : blend ? <BlendLobby pub={pub} host={host} /> : bouquet ? <BouquetLobby pub={pub} host={host} /> : bluff ? <BluffLobby pub={pub} host={host} /> : haiku ? <HaikuLobby pub={pub} host={host} /> : fate ? <FateLobby pub={pub} host={host} /> : <PickLobby pub={pub} host={host} />}
+      {raid ? <RaidLobby pub={pub} host={host} /> : relay ? <RelayLobby pub={pub} host={host} /> : bomb ? <BombLobby pub={pub} host={host} /> : blend ? <BlendLobby pub={pub} host={host} /> : bouquet ? <BouquetLobby pub={pub} host={host} /> : bluff ? <BluffLobby pub={pub} host={host} /> : haiku ? <HaikuLobby pub={pub} host={host} /> : fate ? <FateLobby pub={pub} host={host} /> : <PickLobby pub={pub} host={host} />}
       <div style={{ marginTop: 16 }}>
         {host ? <>
           <button className="primary wide" disabled={!!pub.startError} onClick={() => send({ t: 'start' })}>ゲーム開始</button>
