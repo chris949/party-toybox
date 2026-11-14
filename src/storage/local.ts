@@ -88,6 +88,10 @@ export const broughtBouquets = (list: StoredBouquet[]): string[] => list.filter(
 export const loadBouquetWords = (): string[] => sanitizeBouquetWords(local.get<unknown>('tlw-bouquet-words', []));
 export const saveBouquetWords = (words: string[]) => local.set('tlw-bouquet-words', words);
 
+// タイトル画面を最後に見た日（その日のうちは、もう出さない）
+export const loadTitleDay = (): string => String(local.get<unknown>('tlw-title-day', '') ?? '');
+export const markTitleDay = (day: string) => local.set('tlw-title-day', day);
+
 // その端末で遊んだことのあるモード（あそびかたに「はじめて」の印を出すため）
 export const loadPlayed = (): string[] => { const v = local.get<unknown>('tlw-played', []); return Array.isArray(v) ? v.map(String) : []; };
 export const markPlayed = (mode: string) => { const v = loadPlayed(); if (!v.includes(mode)) local.set('tlw-played', [...v, mode]); };

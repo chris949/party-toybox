@@ -265,3 +265,18 @@ textarea.topic-text[readonly] { background: #fff; }
   .home-play { margin: 0; }
   .howto-list { grid-template-columns: 1fr 1fr; gap: 0 16px; }
 }
+
+/* ===== タイトル画面（docs/spec.md の 3.0）。ホームの上に重ねて出す ===== */
+.title { position: fixed; inset: 0; z-index: 80; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 24px; cursor: pointer; text-align: center;
+  background: var(--bg) radial-gradient(var(--dot) 2px, transparent 2.5px) 0 0 / 22px 22px; }
+.title-bands { display: flex; gap: 6px; }
+.title-bands span { width: clamp(30px, 7vw, 54px); height: clamp(9px, 2vw, 14px); border-radius: 7px; border: 2px solid var(--ink); transform-origin: left; }
+.title-logo { display: grid; gap: 4px; margin: 6px 0 0; font-size: clamp(44px, 12vw, 104px); line-height: 1.05; font-weight: 900; color: #fff;
+  -webkit-text-stroke: clamp(7px, 1.6vw, 14px) var(--ink); paint-order: stroke fill; text-shadow: 0 clamp(4px, 1vw, 8px) 0 var(--ink); }
+.title-logo .w { color: var(--sun); }
+.title-logo i { display: inline-block; font-style: normal; }
+.title-sub { margin: 4px 0 0; font-size: clamp(15px, 2.6vw, 22px); font-weight: 800; color: var(--muted); }
+.title-games { display: flex; flex-wrap: wrap; justify-content: center; gap: clamp(6px, 1.6vw, 14px); max-width: 780px; margin-top: 14px; }
+.title-games span { display: grid; place-items: center; width: clamp(46px, 9vw, 68px); height: clamp(46px, 9vw, 68px); border-radius: 18px; background: #fff; border: 2.5px solid var(--ink); box-shadow: 0 4px 0 var(--ink); font-size: clamp(22px, 4.6vw, 34px); }
+.title-games b { display: block; font-weight: 400; }
+.title-tap { margin: 22px 0 0; font-size: 16px; font-weight: 900; }

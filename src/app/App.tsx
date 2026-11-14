@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
-import { MotionConfig, motion } from 'motion/react';
+import { useEffect, useState } from 'react';
+import { AnimatePresence, MotionConfig, motion } from 'motion/react';
 import { ConfirmDialog, ErrorBanner } from '../ui/common';
 import { Home, HowToScreen } from './Home';
+import { shouldShowTitle, Title } from './Title';
 import { Room } from './Room';
 import { useStore } from './store';
 import { Topics } from './Topics';
@@ -15,6 +16,8 @@ export function App() {
   const screen = useStore(s => s.screen);
   const pub = useStore(s => s.pub);
   const inRoom = screen === 'room' && pub;
+  // タイトル画面は、開いたときに一度だけ判断する（ホームの上に重ねて出し、消えるとホームが見える）
+  const [title, setTitle] = useState(shouldShowTitle);
   // 画面（フェーズ）が変わったときだけ入場の動きを付ける。同じ画面の更新では動かさない
   // 運命の二者択一は、出題から発表までキャラクターが同じ場所に居続けるので、1ゲームを通して同じ画面として扱う
   const key = !inRoom ? screen : pub.game === 'fate' && pub.phase !== 'result' ? `room-fate-${pub.gameNo}` : `room-${pub.phase}-${pub.round}`;
@@ -30,6 +33,7 @@ export function App() {
     <motion.div key={key} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
       {inRoom ? <Room /> : screen === 'topics' ? <Topics /> : screen === 'edit' ? <Edit /> : screen === 'editFive' ? <EditFive /> : screen === 'editFate' ? <EditFate /> : screen === 'sound' ? <SoundSettings /> : screen === 'howto' ? <HowToScreen /> : <Home />}
     </motion.div>
+    <AnimatePresence>{title && !inRoom && <Title key="title" onDone={() => setTitle(false)} />}</AnimatePresence>
     <ConfirmDialog />
     <ErrorBanner />
   </MotionConfig>;
