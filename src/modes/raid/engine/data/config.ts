@@ -9,7 +9,7 @@ export const MODES: Record<Mode, ModeConfig & { label: string }> = {
 export const ENEMIES: Record<EnemyKind, { name: string; icon: string; hp: number; atk: number; def: number; coins: number; speed: number }> = {
   slime: { name: 'スライム', icon: '🟢', hp: 9, atk: 4, def: 0, coins: 4, speed: 1 },
   goblin: { name: 'ゴブリン', icon: '👺', hp: 14, atk: 6, def: 1, coins: 7, speed: 2 },
-  orc: { name: 'オーク', icon: '👹', hp: 22, atk: 8, def: 2, coins: 11, speed: 1 },
+  orc: { name: 'コボルト', icon: '🐺', hp: 22, atk: 8, def: 2, coins: 11, speed: 1 },
 };
 
 export const BOSS = { name: '魔竜ヴォルグ', icon: '🐉', def: 1 };

@@ -31,6 +31,8 @@ interface SdSet {
   walk: SdFrame[];
   attack: SdFrame[];
   hit: SdFrame[];
+  /** 撃破のコマ（モンスターだけ。ない絵は、被弾の3コマ目を倒れた姿として使う） */
+  ko?: SdFrame[];
   fx?: SdFx;
 }
 
@@ -49,8 +51,8 @@ const SEQUENCE: Record<Motion, { frames: (s: SdSet) => SdFrame[]; fps: number; l
   idle: { frames: (s) => [s.idle[0], s.idle[1], s.idle[2], s.idle[1]], fps: 4, loop: true },
   walk: { frames: (s) => [s.walk[0], s.walk[1], s.walk[2], s.walk[1]], fps: 9, loop: true },
   attack: { frames: (s) => s.attack, fps: 6, loop: false },
-  hit: { frames: (s) => [s.hit[0], s.hit[1]], fps: 7, loop: false },
-  ko: { frames: (s) => [s.hit[2]], fps: 1, loop: false },
+  hit: { frames: (s) => (s.ko ? s.hit : [s.hit[0], s.hit[1]]), fps: 7, loop: false },
+  ko: { frames: (s) => s.ko ?? [s.hit[2]], fps: 6, loop: false },
 };
 
 export function motionFrames(key: SdKey, motion: Motion) {
@@ -62,7 +64,7 @@ export function motionFrames(key: SdKey, motion: Motion) {
 export function allSdFiles(): string[] {
   const files: string[] = [];
   for (const set of Object.values(SD)) {
-    for (const m of ['idle', 'walk', 'attack', 'hit'] as const) for (const f of set[m]) files.push(f.file);
+    for (const m of ['idle', 'walk', 'attack', 'hit', 'ko'] as const) for (const f of set[m] ?? []) files.push(f.file);
     if (set.fx) files.push(set.fx.file);
   }
   return files;
