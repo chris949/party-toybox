@@ -3,7 +3,7 @@ import { MAX_PLAYERS, NAME_MAX, MIN_PLAYERS_DEFAULT } from '../core/constants';
 import { ROOM_CODE_LEN } from '../net/protocol';
 import { motion } from 'motion/react';
 import { Logo, Notice, SoundButton, TitleBar, Version } from '../ui/common';
-import { GAME_MODES, type GameMode } from '../core/types';
+import { GAME_MODES, PUBLIC_MODES } from '../core/types';
 import { APP_VERSION, hostRoom, joinRoom, setName, setScreen, useStore } from './store';
 import { HowTo } from './howto';
 import { feedbackUrl } from './feedback';
@@ -90,7 +90,7 @@ export function HowToScreen() {
           <li>ゲームによっては、みんなが作った「お題」を使います。「お題の設定」で作って、持っていくものにチェックを入れてください（作らなくても、サンプルで遊べます）。</li>
         </ol>
       </section>
-      <div className="howto-list">{(Object.keys(GAME_MODES) as GameMode[]).map(k => (
+      <div className="howto-list">{PUBLIC_MODES.map(k => (
         <section className="card" key={k}><h2>{GAME_MODES[k]}</h2><HowTo mode={k} compact /></section>
       ))}</div>
     </>

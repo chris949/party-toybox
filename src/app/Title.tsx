@@ -1,7 +1,7 @@
 // タイトル画面（docs/spec.md の 3.0）。ホームの前に、短く見せる。じゃまにならないよう、出す場面をしぼり、放っておいても進む
 import { useEffect } from 'react';
 import { motion } from 'motion/react';
-import { GAME_MODES, type GameMode } from '../core/types';
+import { PUBLIC_MODES } from '../core/types';
 import { loadLastRoom, loadTitleDay, markTitleDay } from '../storage/local';
 import { TIER_COLORS } from '../ui/common';
 import { HOWTO } from './howto';
@@ -30,7 +30,7 @@ export function Title({ onDone }: { onDone(): void }) {
     window.addEventListener('keydown', key);
     return () => { clearTimeout(id); window.removeEventListener('keydown', key); };
   }, []);
-  const modes = Object.keys(GAME_MODES) as GameMode[];
+  const modes = PUBLIC_MODES;
   return (
     <motion.div className="title" role="button" tabIndex={0} aria-label="タイトル画面。タップすると、はじまります" onClick={onDone}
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, scale: 1.06 }} transition={{ duration: 0.3 }}>

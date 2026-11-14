@@ -76,7 +76,7 @@ party-toybox/
       random.ts / text.ts 乱数（テストで結果を固定できるよう、外から差し込む）／入力された文字を整える
     modes/
       index.ts            モードの一覧
-      tier/ five/ fate/ haiku/ bluff/ bouquet/ blend/ bomb/ relay/   ← モードごとのフォルダ（下の表）
+      tier/ five/ fate/ haiku/ bluff/ bouquet/ blend/ bomb/ relay/ raid/   ← モードごとのフォルダ（下の表）
     net/                  P2P 通信（host.ts：ホスト側と CPU の参加者／guest.ts：参加者側／protocol.ts：メッセージの形と検査）
     ui/                   共通の画面部品
     audio/                BGM・効果音（snes/ は内蔵のスーファミ風音源）

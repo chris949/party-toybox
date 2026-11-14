@@ -9,6 +9,8 @@ import type { BouquetView } from '../modes/bouquet/view';
 import type { BlendView } from '../modes/blend/view';
 import type { BombView } from '../modes/bomb/view';
 import type { RelayItem, RelayView } from '../modes/relay/view';
+import type { RaidView } from '../modes/raid/view';
+import { sanitizeRaidAction } from '../modes/raid/actions';
 import { sanitizeStamps } from '../modes/relay/stamps';
 import { BOUQUET_HANDS, DEFAULT_BOUQUET_HAND, BOUQUET_GOALS, BOUQUET_TIMES, DEFAULT_BOUQUET_TIME } from '../core/constants';
 import { DEFAULT_RELAY_TIME, RELAY_TEXT_MAX, RELAY_TIMES, BOMB_FUSES, BOMB_ROUNDS, DEFAULT_BOMB_FUSE, DEFAULT_BOMB_ROUNDS, BLEND_CROWDS, BLEND_TIMES, BLUFF_TIMES, DEFAULT_BLEND_CROWD, DEFAULT_BLEND_TIME, DEFAULT_BLUFF_TIME } from '../core/constants';
@@ -59,6 +61,8 @@ export function parseAction(m: any): Action | null {
     case 'phrase': return Number.isInteger(m.round) && Array.isArray(m.tokens) ? { t: 'phrase', round: m.round, tokens: m.tokens.slice(0, 16) } : null;
     case 'redraw': return Number.isInteger(m.round) ? { t: 'redraw', round: m.round } : null;
     case 'choose': return Number.isInteger(m.round) ? { t: 'choose', round: m.round, id: cleanId(m.id) } : null;
+    case 'raidMode': return m.mode === 'quick' || m.mode === 'standard' ? { t: 'raidMode', mode: m.mode } : null;
+    case 'raidAct': { const action = sanitizeRaidAction(m.action); return Number.isInteger(m.seq) && action ? { t: 'raidAct', seq: m.seq, action } : null; }
     case 'relayTime': return Number.isInteger(m.sec) ? { t: 'relayTime', sec: m.sec } : null;
     case 'relayDraw': return Number.isInteger(m.step) && Array.isArray(m.stamps) ? { t: 'relayDraw', step: m.step, stamps: sanitizeStamps(m.stamps) } : null;
     case 'relayGuess': return Number.isInteger(m.step) && typeof m.text === 'string' ? { t: 'relayGuess', step: m.step, text: m.text.slice(0, RELAY_TEXT_MAX * 2) } : null;
@@ -109,6 +113,7 @@ export function normalizeView(s: any): PlayerView {
     bouquetHand: (BOUQUET_HANDS as readonly number[]).includes(int(s.bouquetHand)) ? int(s.bouquetHand) : DEFAULT_BOUQUET_HAND,
     bouquetMix: s.bouquetMix !== false,
     bouquetGoal: (BOUQUET_GOALS as readonly number[]).includes(int(s.bouquetGoal)) ? int(s.bouquetGoal) : 0,
+    raidMode: s.raidMode === 'standard' ? 'standard' : 'quick',
     relayTime: (RELAY_TIMES as readonly number[]).includes(int(s.relayTime)) ? int(s.relayTime) : DEFAULT_RELAY_TIME,
     bombRounds: (BOMB_ROUNDS as readonly number[]).includes(int(s.bombRounds)) ? int(s.bombRounds) : DEFAULT_BOMB_ROUNDS,
     bombStyle: s.bombStyle === 'type' ? 'type' : 'tap',
@@ -147,6 +152,8 @@ export function normalizeView(s: any): PlayerView {
     blend: s.blend ? normalizeBlend(s.blend) : null,
     bomb: s.bomb ? normalizeBomb(s.bomb) : null,
     relay: s.relay ? normalizeRelay(s.relay) : null,
+    // ダイスレイドの中身は、入れ子が深いので、形だけ確かめてそのまま使う（ホストは、部屋を作った友人。docs/spec.md の 7.5）
+    raid: s.raid && typeof s.raid.game === 'object' && Array.isArray(s.raid.game?.players) ? s.raid as RaidView : null,
   };
 }
 
