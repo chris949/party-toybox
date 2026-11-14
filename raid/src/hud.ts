@@ -126,7 +126,7 @@ export class Hud {
     $('sys').innerHTML = `
       <span class="chip" title="KOされるたびに1減る。0で敗北">${'❤️'.repeat(Math.max(0, s.teamLife))}${'🖤'.repeat(Math.max(0, s.config.teamLife - s.teamLife))}</span>
       <span class="chip" title="チームで共有するダイス。自分の出目1個と交換できる（チームで1ラウンド1回）">チーム🎲${s.teamDie}${s.teamDieUsed ? '✓' : ''}</span>
-      <button id="speed" title="CPUの演出速度">⏩x${this.speed}</button>
+      <button id="speed" title="演出の速さ">⏩x${this.speed}</button>
       <button id="recenter" title="現在地に戻る（盤面はドラッグで動かせます。ホイールで拡大縮小）">📍</button>
       <button id="view" title="カメラ：キャラを追いかける／盤面全体">${this.scene.viewMode === 'follow' ? '🎯' : '🗺'}</button>
       <button id="mute" title="音のオン・オフ">${sound.muted ? '🔇' : '🔊'}</button>`;

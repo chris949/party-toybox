@@ -40,14 +40,18 @@ export function startError(room: RoomState): string | null {
 export function start(room: RoomState, ctx: Ctx): RaidState {
   const players = shuffle(online(room), ctx.random).slice(0, RAID_SEATS);
   room.players.forEach(p => { p.score = 0; });
-  // 席は4つ。人が座らない席は、CPU が埋める。職業は、席の順に割り当てる
+  // 席は4つ。人が座らない席は、CPU が埋める
   const seats = Array.from({ length: RAID_SEATS }, (_, i) => players[i]?.id ?? null);
+  // 職業：ロビーで選んだ人は、その職業（同じ職業が重なってもよい）。選んでいない人と CPU の席は、まだ誰も使っていない職業から順に
+  const picked = seats.map(id => (id && room.raidClassBy[id]) || null);
+  const free = CLASS_IDS.filter(c => !picked.includes(c));
+  const classes = picked.map((c, i) => c ?? free.shift() ?? CLASS_IDS[i % CLASS_IDS.length]);
   const game = createGame({
     seed: Math.floor(ctx.random() * 2 ** 31),
     mode: room.raidMode,
     players: seats.map((_, i) => {
       const p = players[i];
-      return { name: p ? p.name : `CPU${i + 1}`, classId: CLASS_IDS[i % CLASS_IDS.length], isCpu: !p || !!p.bot };
+      return { name: p ? p.name : `CPU${i + 1}`, classId: classes[i], isCpu: !p || !!p.bot };
     }),
   });
   return { kind: 'raid', phase: 'raid', seats, names: Object.fromEntries(players.map(p => [p.id, p.name])), game, events: [], seq: 0, actAt: ctx.now };

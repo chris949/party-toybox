@@ -53,6 +53,26 @@ describe('ダイスレイド：席', () => {
     r.g.seats.forEach((id, seat) => expect(r.g.game.players[seat].isCpu).toBe(id == null));
     expect(new Set(r.g.game.players.map(p => p.classId)).size).toBe(RAID_SEATS);
   });
+  it('職業：ロビーで選んだ人は、その職業。選んでいない人と CPU の席は、まだ誰も使っていない職業', () => {
+    const t = testRoom(Array.from({ length: 3 }, () => [custom('軽いお題')]));
+    t.host({ t: 'game', mode: 'raid' });
+    t.act(t.ids[0], { t: 'raidClass', classId: 'archer' });
+    t.act(t.ids[1], { t: 'raidClass', classId: 'archer' }); // 同じ職業を選んでもよい
+    t.act(t.ids[2], { t: 'raidClass', classId: 'ninja' as never }); // 知らない職業は、選ばなかったことになる
+    expect(viewFor(t.room, t.ids[0], t.ctx.now).players.map(p => p.raidClass)).toEqual(['archer', 'archer', null]);
+    t.host({ t: 'start' });
+    const g = t.room.game as RaidState;
+    const classOf = (id: string | null) => g.game.players[g.seats.indexOf(id)].classId;
+    expect(classOf(t.ids[0])).toBe('archer');
+    expect(classOf(t.ids[1])).toBe('archer');
+    const rest = [classOf(t.ids[2]), classOf(null)];
+    expect(rest).not.toContain('archer');
+    expect(new Set(rest).size).toBe(2);
+    // ゲームが始まったあとは、変えられない
+    const before = t.room;
+    t.act(t.ids[0], { t: 'raidClass', classId: 'mage' });
+    expect(t.room).toBe(before);
+  });
   it('5人以上では、始められない。長さは、ホストだけが変えられる', () => {
     const t = testRoom(Array.from({ length: 5 }, () => [custom('軽いお題')]));
     t.host({ t: 'game', mode: 'raid' });

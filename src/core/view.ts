@@ -36,6 +36,7 @@ export interface PlayerSummary {
   haikus: number;   // ハイカー575 のお題の数
   bouquets: number; // ワードブーケのお題の数
   bouquetWords: number; // ワードブーケの、持ち寄りの言葉の数
+  raidClass: string | null; // ダイスレイドで選んだ職業（選んでいなければ null）
   chara: number;    // キャラクターの番号
   editing: boolean; // ロビーでお題を編集中か
   bot: boolean;     // CPU の参加者か
@@ -134,7 +135,7 @@ export function viewFor(room: RoomState, id: string, now: number): PlayerView {
     players: room.players.map(p => ({
       id: p.id, name: p.name, score: p.score, online: p.online, version: p.version,
       topics: room.topicsBy[p.id]?.length ?? 0, fives: room.fivesBy[p.id]?.length ?? 0,
-      fates: room.fatesBy[p.id]?.length ?? 0, haikus: room.haikusBy[p.id]?.length ?? 0, bouquets: room.bouquetsBy[p.id]?.length ?? 0, bouquetWords: room.bouquetWordsBy[p.id]?.length ?? 0, chara: p.chara, editing: !!p.editing, bot: !!p.bot,
+      fates: room.fatesBy[p.id]?.length ?? 0, haikus: room.haikusBy[p.id]?.length ?? 0, bouquets: room.bouquetsBy[p.id]?.length ?? 0, bouquetWords: room.bouquetWordsBy[p.id]?.length ?? 0, raidClass: room.raidClassBy[p.id] ?? null, chara: p.chara, editing: !!p.editing, bot: !!p.bot,
       done: rl ? (rl.phase === 'work' && rl.ring.includes(p.id) ? p.id in rl.drafts : null)
         : bm ? null
         : bd ? (bd.phase === 'hide' && p.id !== bd.hiderId && p.online ? p.id in bd.guesses : null)

@@ -41,8 +41,8 @@ export function Title({ onDone }: { onDone(): void }) {
         <span>{LETTERS_1.map((ch, i) => <motion.i key={i} {...pop(i)}>{ch}</motion.i>)}</span>
         <span className="w">{LETTERS_2.map((ch, i) => <motion.i key={i} {...pop(LETTERS_1.length + i)}>{ch}</motion.i>)}</span>
       </h1>
-      <motion.p className="title-sub" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1 }}>通話でわいわい、{modes.length}つのゲーム</motion.p>
-      {/* 9つのゲームの印が、順に飛び出して、ゆっくり弾む */}
+      <motion.p className="title-sub" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1 }}>通話でわいわい、{modes.length}種類のゲーム</motion.p>
+      {/* ゲームの印が、順に飛び出して、ゆっくり弾む */}
       <div className="title-games" aria-hidden>{modes.map((k, i) => (
         <motion.span key={k} initial={{ opacity: 0, y: 40, scale: 0 }} animate={{ opacity: 1, y: [40, -10, 0], scale: 1 }} transition={{ delay: 1.1 + i * 0.08, duration: 0.45 }}>
           <motion.b animate={{ y: [0, -8, 0] }} transition={{ delay: 1.8 + i * 0.12, duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}>{HOWTO[k].icon}</motion.b>

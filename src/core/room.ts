@@ -9,12 +9,13 @@ import { sanitizeFives } from '../modes/five/topics';
 import { sanitizeFates } from '../modes/fate/questions';
 import { HAIKU_STYLES, sanitizeHaikus } from '../modes/haiku/themes';
 import { sanitizeBouquets, sanitizeBouquetWords } from '../modes/bouquet/words';
+import { CLASS_IDS } from '../modes/raid/engine';
 import { DEFAULT_RAID_MODE, RAID_MODES, BOUQUET_HANDS, DEFAULT_BOUQUET_HAND, DEFAULT_RELAY_TIME, RELAY_TIMES, BOMB_FUSES, BOMB_ROUNDS, DEFAULT_BOMB_FUSE, DEFAULT_BOMB_ROUNDS, BLEND_CROWDS, BLEND_TIMES, DEFAULT_BLEND_CROWD, DEFAULT_BLEND_TIME, BOUQUET_GOALS, BOUQUET_TIMES, DEFAULT_BOUQUET_TIME, BLUFF_TIMES, DEFAULT_BLUFF_TIME, DEFAULT_HAIKU_TIME, HAIKU_TIMES } from './constants';
 
 const charaOf = (n: unknown) => Number.isInteger(n) && (n as number) >= 0 && (n as number) < CHARA_MAX ? n as number : null;
 
 export function createRoom(code: string, hostId: string, minPlayers: number): RoomState {
-  return { code, hostId, minPlayers, gameNo: 1, gameMode: 'tier', pickMode: 'random', timeLimit: DEFAULT_TIME_LIMIT, fateTime: DEFAULT_FATE_TIME, fateQuota: DEFAULT_FATE_QUOTA, fateLives: DEFAULT_FATE_LIVES, haikuStyle: 'theme', haikuTime: DEFAULT_HAIKU_TIME, bluffTime: DEFAULT_BLUFF_TIME, blendTime: DEFAULT_BLEND_TIME, blendCrowd: DEFAULT_BLEND_CROWD, bombRounds: DEFAULT_BOMB_ROUNDS, bombFuse: DEFAULT_BOMB_FUSE, bombStyle: 'tap', relayTime: DEFAULT_RELAY_TIME, raidMode: DEFAULT_RAID_MODE, bouquetTime: DEFAULT_BOUQUET_TIME, bouquetGoal: 0, bouquetsBy: {}, bouquetWordsBy: {}, bouquetHand: DEFAULT_BOUQUET_HAND, bouquetMix: true, haikusBy: {}, players: [], topicsBy: {}, fivesBy: {}, fatesBy: {}, game: null };
+  return { code, hostId, minPlayers, gameNo: 1, gameMode: 'tier', pickMode: 'random', timeLimit: DEFAULT_TIME_LIMIT, fateTime: DEFAULT_FATE_TIME, fateQuota: DEFAULT_FATE_QUOTA, fateLives: DEFAULT_FATE_LIVES, haikuStyle: 'theme', haikuTime: DEFAULT_HAIKU_TIME, bluffTime: DEFAULT_BLUFF_TIME, blendTime: DEFAULT_BLEND_TIME, blendCrowd: DEFAULT_BLEND_CROWD, bombRounds: DEFAULT_BOMB_ROUNDS, bombFuse: DEFAULT_BOMB_FUSE, bombStyle: 'tap', relayTime: DEFAULT_RELAY_TIME, raidMode: DEFAULT_RAID_MODE, raidClassBy: {}, bouquetTime: DEFAULT_BOUQUET_TIME, bouquetGoal: 0, bouquetsBy: {}, bouquetWordsBy: {}, bouquetHand: DEFAULT_BOUQUET_HAND, bouquetMix: true, haikusBy: {}, players: [], topicsBy: {}, fivesBy: {}, fatesBy: {}, game: null };
 }
 
 // 参加を受け付けるか。断るときはその理由
@@ -61,6 +62,7 @@ export function reduce(state: RoomState, a: ActionFrom, ctx: Ctx): RoomState {
         delete room.haikusBy[a.from];
         delete room.bouquetsBy[a.from];
         delete room.bouquetWordsBy[a.from];
+        delete room.raidClassBy[a.from];
       } else {
         p.online = false;
         modeOf(room.game).checkAdvance(room, room.game, ctx);
@@ -103,6 +105,12 @@ export function reduce(state: RoomState, a: ActionFrom, ctx: Ctx): RoomState {
       if (!isHost || room.game || !(BOUQUET_GOALS as readonly number[]).includes(a.n)) return state;
       room.bouquetGoal = a.n;
       return room;
+    case 'raidClass': {
+      // 職業は、ロビーにいる間、誰でも自分の分を選べる（同じ職業を選ぶ人がいてもよい）
+      if (room.game || !room.players.some(p => p.id === a.from) || !CLASS_IDS.includes(a.classId) || room.raidClassBy[a.from] === a.classId) return state;
+      room.raidClassBy[a.from] = a.classId;
+      return room;
+    }
     case 'raidMode':
       if (!isHost || room.game || !(RAID_MODES as readonly string[]).includes(a.mode)) return state;
       room.raidMode = a.mode;
