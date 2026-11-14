@@ -165,7 +165,8 @@ table.rank td, table.rank th { padding: 6px; border-bottom: 1px solid var(--line
 .sd-slot { position: absolute; inset: 0 0 6% 0; }
 .sd-fig { position: absolute; inset: 0; }
 .sd-fig.flip { transform: scaleX(-1); }
-.sd-fig img { position: absolute; filter: drop-shadow(0 6px 6px #000a); }
+/* コマ絵は、決めた幅で、縦横の比のまま出す（上の .bt-art img の「枠の高さに引き伸ばして、はみ出た分を切る」は、立ち絵用。コマ絵に掛かると、小さい絵ほど大きく引き伸ばされて、横や縦が切れる） */
+.bt-art .sd-fig img, .sd-fig img { position: absolute; height: auto; max-width: none; object-fit: fill; filter: drop-shadow(0 6px 6px #000a); }
 .fx-img { position: fixed; z-index: 9; pointer-events: none; filter: drop-shadow(0 0 10px #fff8); }
 .step-r { animation-name: stepR; animation-timing-function: ease-in-out; }
 .step-l { animation-name: stepL; animation-timing-function: ease-in-out; }
