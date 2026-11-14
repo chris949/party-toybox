@@ -16,6 +16,6 @@ export const ASSETS = {
 
 /** SDの表示サイズ（足元から頭までの高さ）。絵の大きさが変わっても見た目の大きさがそろう */
 export const SD_HEIGHT = {
-  board: { player: 72, slime: 44, goblin: 58, orc: 70, boss: 130 } as Record<string, number>,
-  battle: { player: 260, slime: 120, goblin: 180, orc: 220, boss: 300 } as Record<string, number>,
+  board: { player: 72, slime: 40, goblin: 60, orc: 62, boss: 140 } as Record<string, number>,
+  battle: { player: 260, slime: 110, goblin: 190, orc: 195, boss: 300 } as Record<string, number>,
 };
