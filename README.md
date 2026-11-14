@@ -35,6 +35,10 @@
 | 部屋・通信・見た目・音など、全ゲーム共通の仕様 | [docs/spec.md](docs/spec.md) |
 | コードの構成と方針 | [docs/architecture.md](docs/architecture.md) |
 | これからやること・やったこと | [docs/backlog.md](docs/backlog.md) |
-| 音の出典 | [docs/credits.md](docs/credits.md) |
+| 素材の出典、使っているライブラリとライセンス | [docs/credits.md](docs/credits.md) |
 
 意見や不具合は、ホームの「💬 意見・不具合を送る」か、[Issues](https://github.com/chris949/party-toybox/issues) へ。
+
+## ライセンス
+
+[MIT License](LICENSE)。このリポジトリのコード・文書・同梱のお題やキャラクターは、著作権表示を残せば、自由に使えます。使っているライブラリとフォントには、それぞれのライセンスがあります（[docs/credits.md](docs/credits.md)）。
