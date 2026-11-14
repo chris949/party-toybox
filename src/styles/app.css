@@ -231,3 +231,16 @@ textarea.topic-text[readonly] { background: #fff; }
 .bar .row { flex-shrink: 0; }
 .bar button { white-space: nowrap; }
 @media (max-width: 420px) { .bar h1 { font-size: 17px; white-space: nowrap; } }
+
+/* ===== お題の設定：モードの切り替え（docs/spec.md の 3.2）。スマホ幅は上にタブ、PC 幅は左に一覧 ===== */
+.topics-nav { margin-bottom: 12px; }
+.topics-nav button { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.navcount { min-width: 24px; padding: 0 6px; border-radius: 999px; background: var(--field); border: 1.5px solid var(--line); font-size: 12px; font-weight: 900; color: var(--muted); }
+.topics-nav button.on .navcount { background: #fff; color: var(--ink); border-color: var(--ink); }
+@media (min-width: 1000px) {
+  #app.wide:has(.topics-grid) { max-width: 1000px; }
+  .topics-grid { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 16px; align-items: start; }
+  .topics-nav { flex-direction: column; flex-wrap: nowrap; position: sticky; top: 12px; margin: 0; padding: 10px; border-radius: 18px; background: #fff; border: 2.5px solid var(--ink); box-shadow: 0 5px 0 var(--ink); }
+  .topics-nav button { flex: none; justify-content: space-between; text-align: left; min-height: 48px; }
+  .topics-main > :first-child { margin-top: 0; }
+}
