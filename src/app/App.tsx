@@ -23,6 +23,8 @@ export function App() {
   const scene: Scene | null = screen === 'sound' ? null : !inRoom || pub.phase === 'lobby' ? 'lobby'
     : pub.phase === 'recite' || pub.phase === 'show' || pub.phase === 'choose' || pub.phase === 'bloom' || pub.phase === 'found' || pub.phase === 'boom' || pub.phase === 'unfold' ? 'reveal' : pub.phase === 'reveal' || pub.phase === 'result' ? pub.phase : 'pick'; // 運命の二者択一は、出題も発表も同じ曲のまま（数秒ごとに曲が変わると落ち着かない）
   useEffect(() => { if (scene) Sound.setScene(scene); }, [scene]);
+  // 部屋の中は、PC 幅のときに横に広げる（ホームやお題の設定は、読みやすい幅のまま）
+  useEffect(() => { document.getElementById('app')?.classList.toggle('wide', !!inRoom); }, [inRoom]);
   // 端末で「動きを減らす」設定をしている人には、揺れや回転を出さない
   return <MotionConfig reducedMotion="user">
     <motion.div key={key} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>

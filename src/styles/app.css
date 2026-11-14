@@ -207,3 +207,27 @@ textarea.topic-text[readonly] { background: #fff; }
 .nowmode { display: grid; gap: 2px; margin: 0 0 10px; padding: 10px 12px; border-radius: 14px; background: #fff8e1; border: 2.5px solid var(--ink); }
 .nowmode span { font-size: 13px; color: var(--muted); font-weight: 700; }
 .nowtag { margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: var(--coral); color: #fff; font-size: 11px; font-weight: 900; vertical-align: middle; }
+
+/* ===== PC 幅（docs/spec.md の 3.4.2）。スマホ幅は、今までどおり上から1列 ===== */
+.pc-only { display: none; }
+@media (min-width: 1000px) {
+  .pc-only { display: revert; }
+  .sp-only { display: none !important; }
+  #app.wide { max-width: 1160px; padding-left: 24px; padding-right: 24px; }
+  /* ゲーム中：左にゲームの画面、右に参加者とあそびかた（スクロールしても、右は付いてくる） */
+  .room-grid:not(.lobby) { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
+  .room-main { grid-column: 1; grid-row: 1; min-width: 0; }
+  .room-side { grid-column: 2; grid-row: 1; position: sticky; top: 12px; }
+  .room-side .players { flex-direction: column; flex-wrap: nowrap; }
+  .room-side .players > * { justify-content: space-between; }
+  /* ロビー：左に部屋コードと参加者、右にモードと設定 */
+  .lobby-grid { display: grid; grid-template-columns: 380px minmax(0, 1fr); gap: 16px; align-items: start; }
+  .lobby-left { position: sticky; top: 12px; }
+  .lobby-mode .seg.wrap button { flex: 1 1 30%; }
+  /* 3Dの舞台：横に広がったぶん縦にも伸びるので、画面の高さに収まるところで止める（スクロールしないと下が見えない、を防ぐ） */
+  #app.wide .fstage3d { aspect-ratio: auto; height: min(590px, calc(100vh - 340px)); min-height: 360px; }
+}
+/* タイトルバー：ボタンが3つ並ぶと、スマホ幅でタイトルと「退出」が折り返していた。ボタンは折り返さず、タイトルの方を少し小さくする */
+.bar .row { flex-shrink: 0; }
+.bar button { white-space: nowrap; }
+@media (max-width: 420px) { .bar h1 { font-size: 17px; white-space: nowrap; } }
