@@ -13,6 +13,7 @@ import type { BlendState } from '../modes/blend/rules';
 import type { BombState, BombStyle } from '../modes/bomb/rules';
 import type { RelayState } from '../modes/relay/rules';
 import type { RaidMode, RaidState } from '../modes/raid/rules';
+import type { ClassId as RaidClass } from '../modes/raid/engine';
 import type { Stamp } from '../modes/relay/stamps';
 
 export interface Player {
@@ -33,7 +34,7 @@ export type PickMode = keyof typeof PICK_MODES;
 export const GAME_MODES = { tier: 'ティアリスト', five: 'セレクトファイブ', fate: '運命の二者択一', haiku: 'ハイカー575', bluff: 'ブラインドブラフ', bouquet: 'ワードブーケ', blend: 'まぎれろ！', bomb: '爆弾まわし', relay: 'スタンプ伝言', raid: 'ダイスレイド' } as const;
 export type GameMode = keyof typeof GAME_MODES;
 // まだ作っている途中のモード：ロビーの一覧・ホームのあそびかた・タイトル画面には出さない（動作確認の ?dev のときだけ、ロビーに出す）
-export const HIDDEN_MODES: readonly GameMode[] = ['raid'];
+export const HIDDEN_MODES: readonly GameMode[] = [];
 export const PUBLIC_MODES = (Object.keys(GAME_MODES) as GameMode[]).filter(k => !HIDDEN_MODES.includes(k));
 
 // ホストだけが持つ部屋の状態
@@ -64,6 +65,7 @@ export interface RoomState {
   bombStyle: BombStyle;   // 爆弾まわしの答え方（選択式／入力式）
   relayTime: number;      // スタンプ伝言の、絵を作る時間（秒）
   raidMode: RaidMode;     // ダイスレイドの長さ（クイック／スタンダード）
+  raidClassBy: Record<string, RaidClass>; // ダイスレイドで、各自が選んだ職業（選んでいない人は、空いている職業になる）
   haikusBy: Record<string, string[]>; // ハイカー575 のお題（上の五文字）
   players: Player[];
   topicsBy: Record<string, Topic[]>;
@@ -97,6 +99,7 @@ export type Action =
   | { t: 'bombPick'; round: number; i: number }   // 爆弾まわし：自分のお題の選択肢を1つ選ぶ
   | { t: 'relayTime'; sec: number }
   | { t: 'raidMode'; mode: RaidMode }
+  | { t: 'raidClass'; classId: RaidClass }       // ダイスレイド：ロビーで、自分の職業を選ぶ
   | { t: 'raidAct'; seq: number; action: unknown } // ダイスレイド：自分の番の操作（中身は、ルールの側で検査する）
   | { t: 'relayDraw'; step: number; stamps: Stamp[] } // スタンプ伝言：絵を出す
   | { t: 'relayGuess'; step: number; text: string }   // スタンプ伝言：言葉で答える

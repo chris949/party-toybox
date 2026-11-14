@@ -23,7 +23,7 @@ export function Home() {
     <>
       <div className="top-right"><Version /><SoundButton /></div>
       <Logo />
-      <p className="sub">通話でわいわい、9つのゲーム</p>
+      <p className="sub">通話でわいわい、{PUBLIC_MODES.length}種類のゲーム</p>
       <div className="home-grid">
         {/* 主役：名前を入れて、部屋を作るか、参加する */}
         <section className="card home-play">
@@ -57,7 +57,7 @@ export function Home() {
           </motion.button>
           <motion.button className="menu-item" {...item(1)} onClick={() => setScreen('howto')}>
             <span className="menu-icon" aria-hidden>📖</span>
-            <span className="menu-text"><b>あそびかた</b><small>9つのゲームのルールと、部屋の集まり方</small></span>
+            <span className="menu-text"><b>あそびかた</b><small>{PUBLIC_MODES.length}種類のゲームのルールと、部屋の集まり方</small></span>
             <span className="menu-go" aria-hidden>›</span>
           </motion.button>
           <motion.button className="menu-item" {...item(2)} onClick={() => setScreen('sound')}>

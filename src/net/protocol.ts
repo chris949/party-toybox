@@ -61,6 +61,7 @@ export function parseAction(m: any): Action | null {
     case 'phrase': return Number.isInteger(m.round) && Array.isArray(m.tokens) ? { t: 'phrase', round: m.round, tokens: m.tokens.slice(0, 16) } : null;
     case 'redraw': return Number.isInteger(m.round) ? { t: 'redraw', round: m.round } : null;
     case 'choose': return Number.isInteger(m.round) ? { t: 'choose', round: m.round, id: cleanId(m.id) } : null;
+    case 'raidClass': return typeof m.classId === 'string' ? { t: 'raidClass', classId: m.classId as never } : null; // 知らない職業は、ルールの側で捨てる
     case 'raidMode': return m.mode === 'quick' || m.mode === 'standard' ? { t: 'raidMode', mode: m.mode } : null;
     case 'raidAct': { const action = sanitizeRaidAction(m.action); return Number.isInteger(m.seq) && action ? { t: 'raidAct', seq: m.seq, action } : null; }
     case 'relayTime': return Number.isInteger(m.sec) ? { t: 'relayTime', sec: m.sec } : null;
@@ -128,7 +129,7 @@ export function normalizeView(s: any): PlayerView {
     me: str(s.me),
     players: (Array.isArray(s.players) ? s.players : []).map((p: any) => ({
       id: str(p.id), name: str(p.name), score: int(p.score), online: p.online !== false, version: str(p.version),
-      topics: int(p.topics), fives: int(p.fives), fates: int(p.fates), haikus: int(p.haikus), bouquets: int(p.bouquets), bouquetWords: int(p.bouquetWords), chara: Math.max(0, int(p.chara)), editing: p.editing === true, bot: p.bot === true, done: p.done === true ? true : p.done === false ? false : null,
+      topics: int(p.topics), fives: int(p.fives), fates: int(p.fates), haikus: int(p.haikus), bouquets: int(p.bouquets), bouquetWords: int(p.bouquetWords), raidClass: typeof p.raidClass === 'string' ? p.raidClass : null, chara: Math.max(0, int(p.chara)), editing: p.editing === true, bot: p.bot === true, done: p.done === true ? true : p.done === false ? false : null,
     })),
     startError: s.startError == null ? null : str(s.startError),
     timeLeft: s.timeLeft == null ? null : int(s.timeLeft),
