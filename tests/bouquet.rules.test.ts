@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { BOUQUET_HANDS, BOUQUET_WORD_MAX, BOUQUET_WORDS_PER_PLAYER, BOUQUET_MAX_ROUNDS, DEFAULT_BOUQUET_TIME, MAX_PLAYERS, PICK_GRACE_MS } from '../src/core/constants';
+import { BOUQUET_ALL_HANDS, DEFAULT_BOUQUET_ALL_HAND, BOUQUET_HANDS, BOUQUET_WORD_MAX, BOUQUET_WORDS_PER_PLAYER, BOUQUET_MAX_ROUNDS, DEFAULT_BOUQUET_TIME, MAX_PLAYERS, PICK_GRACE_MS } from '../src/core/constants';
 import { nextTimer } from '../src/core/room';
 import { seeded } from '../src/core/random';
 import { viewFor } from '../src/core/view';
 import type { BouquetState } from '../src/modes/bouquet/rules';
-import { ALL_WORDS, dealHand, HAND_SIZE, OWN_CHANCE, PARTICLES, particleToken, PHRASE_MAX, SAMPLE_BOUQUETS, sanitizeBouquets, sanitizeBouquetWords, toPhrase, WORD_COUNT } from '../src/modes/bouquet/words';
+import { ALL_WORDS, dealHand, HAND_SIZE, OWN_CHANCE, particleLimit, PARTICLES, particleToken, PHRASE_MAX, SAMPLE_BOUQUETS, sanitizeBouquets, sanitizeBouquetWords, toPhrase, WORD_COUNT } from '../src/modes/bouquet/words';
 import { samples, testRoom } from './helpers';
 
 // ゲーム開始の手前まで。themes[i] は i 番目の人が持ってくるお題
@@ -23,6 +23,57 @@ function bouquetRoom(themes: string[][], opts: { seed?: number } = {}) {
   };
 }
 const none = (n: number): string[][] => Array.from({ length: n }, () => []);
+
+describe('並べ方「ぜんぶ使う」', () => {
+  const hand = ['君', '味噌汁', '愛してる', '世界一', '筋肉'];
+  it('手札をすべて使わないと、文にならない。つなぐ言葉は、手札の枚数より1つ少ない数まで', () => {
+    expect(particleLimit(5)).toBe(4);
+    expect(toPhrase([0, 1, 2, 3], hand, true)).toBeNull();                 // 1枚足りない
+    expect(toPhrase([4, 3, 2, 1, 0], hand, true)).toBe('筋肉世界一愛してる味噌汁君');
+    const p = particleToken(0);
+    expect(toPhrase([0, p, 1, p, 2, p, 3, p, 4], hand, true)).toBe('君は味噌汁は愛してるは世界一は筋肉'); // 同じ助詞を何度使ってもよい
+    expect(toPhrase([0, p, 1, p, 2, p, 3, p, 4, p], hand, true)).toBeNull(); // 助詞が1つ多い
+    expect(toPhrase([0, 0, 1, 2, 3, 4], hand, true)).toBeNull();           // 同じカードは2回使えない
+    // 「自由に並べる」では、いままでどおり
+    expect(toPhrase([0, 1], hand)).toBe('君味噌汁');
+    // 7枚なら、カード7＋助詞6で13個（「自由に並べる」の上限12個より多くても、並べられる）
+    const seven = [...hand, '銀河', '今すぐ'];
+    expect(toPhrase([0, p, 1, p, 2, p, 3, p, 4, p, 5, p, 6], seven, true)).not.toBeNull();
+  });
+  it('言葉は、種類の割合をそろえずに配る。持ってきた言葉の扱いは、同じ', () => {
+    for (const size of BOUQUET_ALL_HANDS) {
+      const h = dealHand(seeded(size * 13), size, [], true, true);
+      expect(h).toHaveLength(size);
+      expect(new Set(h).size).toBe(size);
+      expect(h.every(w => ALL_WORDS.includes(w))).toBe(true);
+    }
+    const own = ['たこ焼き', '課長', 'うどん', 'ねむい', '無敵', '全力', '推し活'];
+    expect(dealHand(seeded(7), 5, own, false, true).every(w => own.includes(w))).toBe(true); // 持ち寄りだけ
+    const random = seeded(20261116);
+    for (let i = 0; i < 200; i++) expect(dealHand(random, 5, own, true, true).filter(w => own.includes(w)).length).toBeLessThanOrEqual(2); // 混ぜる：半分まで
+  });
+  it('設定は、ホストだけが、決まった値に変えられる。ゲームでは、少ない枚数が配られ、全部使った文だけ通る', () => {
+    const t = testRoom([samples(), samples(), samples()]);
+    t.act(t.ids[1], { t: 'bouquetAll', on: true });
+    t.host({ t: 'bouquetAllHand', n: 8 });
+    expect([t.room.bouquetAll, t.room.bouquetAllHand]).toEqual([false, DEFAULT_BOUQUET_ALL_HAND]);
+    t.host({ t: 'bouquetAll', on: true });
+    t.host({ t: 'bouquetAllHand', n: 4 });
+    expect(viewFor(t.room, t.ids[0], t.ctx.now)).toMatchObject({ bouquetAll: true, bouquetAllHand: 4 });
+    t.host({ t: 'game', mode: 'bouquet' });
+    t.host({ t: 'start' });
+    const g = () => t.room.game as BouquetState;
+    const id = Object.keys(g().hands)[0];
+    expect(g().hands[id]).toHaveLength(4);
+    expect(viewFor(t.room, id, t.ctx.now).bouquet!.all).toBe(true);
+    t.act(id, { t: 'phrase', round: 0, tokens: [0, 1, 2] });
+    expect(g().phrases[id]).toBeUndefined();
+    t.act(id, { t: 'redraw', round: 0 });
+    expect(g().hands[id]).toHaveLength(4);
+    t.act(id, { t: 'phrase', round: 0, tokens: [3, particleToken(1), 2, 1, 0] });
+    expect(g().phrases[id]).toBe(`${g().hands[id][3]}が${g().hands[id][2]}${g().hands[id][1]}${g().hands[id][0]}`);
+  });
+});
 
 describe('手札の枚数と、言葉の持ち寄り', () => {
   const own = ['筋肉', 'たこ焼き', '月曜日', '無敵', 'ねむい', '課長', '銀河', 'うどん', '奇跡', '全力', '推し', '布団'];

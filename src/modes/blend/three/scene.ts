@@ -13,8 +13,11 @@ export interface BlendStageState {
   tick: number;
   star: [number, number] | null;
   stars: number;
-  mark: number | null;    // 矢印を出す番号（かくれている本人には自分、発表では全員に答え）
-  pick: number | null;    // 自分が選んでいる番号
+  mark: number | null;    // 矢印を出す番号（かくれている本人には自分、さがす人には狙っている1体、発表では全員に答え）
+  pick: number | null;    // 自分が狙っている番号（足元に赤い輪）
+  down: number[];         // 撃たれて倒れた番号
+  shots: number;          // これまでに撃たれた数（増えたら、撃たれた演出を出す）
+  lastShot: number | null; // 最後に撃たれた番号
   found: boolean;         // 発表
   name: string;           // 発表で出す、かくれた人の名前
   canMove: boolean;       // 床をタップして動かせる（かくれている本人）
@@ -22,7 +25,7 @@ export interface BlendStageState {
 }
 export interface BlendHandlers { onFloor(x: number, z: number): void; onPick(i: number): void }
 
-interface Actor { chara: Chara3D; shadow: THREE.Mesh; x: number; z: number; fromX: number; fromZ: number; toX: number; toZ: number; t: number; face: number; phase: number; walk: number }
+interface Actor { chara: Chara3D; shadow: THREE.Mesh; x: number; z: number; fromX: number; fromZ: number; toX: number; toZ: number; t: number; face: number; phase: number; walk: number; fall: number }
 
 const BLOB = new THREE.CircleGeometry(0.5, 20);
 const BLOB_MAT = new THREE.MeshBasicMaterial({ color: '#1f2d3d', transparent: true, opacity: 0.2, depthWrite: false });
@@ -47,6 +50,8 @@ export class BlendScene {
   private star = new THREE.Group();
   private burst: THREE.Mesh;       // ほしが取られた瞬間の輪
   private burstAt = -10;
+  private bang: THREE.Mesh;        // 撃たれた瞬間の輪
+  private bangAt = -10;
   private pickRing: THREE.Mesh;    // 自分が選んでいる1体の足元
   private tap: THREE.Mesh;         // かくれる人がタップした場所（本人にしか出ない）
   private tapAt = -10;
@@ -94,8 +99,9 @@ export class BlendScene {
     this.tap = flat(new THREE.Mesh(new THREE.RingGeometry(0.2, 0.28, 24), new THREE.MeshBasicMaterial({ color: INK, transparent: true, depthWrite: false })), 0.045);
     this.arrow = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.36, 4), new THREE.MeshBasicMaterial({ color: '#ff6f6f', depthTest: false }));
     this.arrow.rotation.x = Math.PI; this.arrow.renderOrder = 11;
-    for (const o of [this.burst, this.pickRing, this.tap, this.arrow]) o.visible = false;
-    this.scene.add(this.star, this.burst, this.pickRing, this.tap, this.arrow);
+    this.bang = flat(new THREE.Mesh(new THREE.RingGeometry(0.42, 0.62, 32), new THREE.MeshBasicMaterial({ color: '#ff5252', transparent: true, depthWrite: false })), 0.05);
+    for (const o of [this.burst, this.bang, this.pickRing, this.tap, this.arrow]) o.visible = false;
+    this.scene.add(this.star, this.burst, this.bang, this.pickRing, this.tap, this.arrow);
 
     canvas.addEventListener('pointerdown', this.onPointer);
     this.ro = new ResizeObserver(() => this.resize());
@@ -116,9 +122,9 @@ export class BlendScene {
         const shadow = flat(new THREE.Mesh(BLOB, BLOB_MAT), 0.012);
         this.scene.add(chara.root, shadow);
         const x = st.pos[i * 2] / 100, z = st.pos[i * 2 + 1] / 100;
-        this.actors.push({ chara, shadow, x, z, fromX: x, fromZ: z, toX: x, toZ: z, t: 1, face: 0, phase: i * 1.7, walk: 0 });
+        this.actors.push({ chara, shadow, x, z, fromX: x, fromZ: z, toX: x, toZ: z, t: 1, face: 0, phase: i * 1.7, walk: 0, fall: st.down.includes(i) ? 1 : 0 });
       }
-      this.burstAt = this.tapAt = -10;
+      this.burstAt = this.bangAt = this.tapAt = -10;
     } else if (prev.tick !== st.tick) {
       this.actors.forEach((a, i) => {
         a.fromX = a.x; a.fromZ = a.z; a.toX = st.pos[i * 2] / 100; a.toZ = st.pos[i * 2 + 1] / 100; a.t = 0;
@@ -128,6 +134,12 @@ export class BlendScene {
     if (prev?.key === st.key && prev.star && st.stars > prev.stars) {
       this.burst.position.x = prev.star[0] / 100; this.burst.position.z = prev.star[1] / 100;
       this.burstAt = this.now;
+    }
+    // 撃たれた：その1体の場所から、赤い輪が広がる
+    const shot = st.lastShot != null ? this.actors[st.lastShot] : undefined;
+    if (prev?.key === st.key && st.shots > prev.shots && shot) {
+      this.bang.position.x = shot.x; this.bang.position.z = shot.z;
+      this.bangAt = this.now;
     }
     if (st.star) { this.star.position.x = st.star[0] / 100; this.star.position.z = st.star[1] / 100; }
     this.star.visible = !!st.star;
@@ -159,6 +171,7 @@ export class BlendScene {
     let best = -1, bestD = 0.8;
     const c = new THREE.Vector3();
     this.actors.forEach((a, i) => {
+      if (st.down.includes(i)) return; // 倒れた1体は、狙えない
       const dist = ray.ray.distanceToPoint(c.set(a.x, 0.75, a.z));
       if (dist < bestD) { bestD = dist; best = i; }
     });
@@ -206,14 +219,21 @@ export class BlendScene {
         a.face += turn * (1 - Math.exp(-dt * 12));
       }
       const human = st.found && st.mark === i;
+      const down = st.down.includes(i);
+      a.fall += ((down ? 1 : 0) - a.fall) * (still ? 1 : 1 - Math.exp(-dt * 9));
+      if (down) a.walk = 0;
       let y = still ? 0 : Math.abs(Math.sin(now * 9 + a.phase)) * 0.16 * a.walk; // 歩いている間は、小さく跳ねる
       if (human && !still && since < 1.6) y = Math.abs(Math.sin(since * Math.PI * 2.5)) * 0.7;  // 見つかった：大きく跳ねる
       const squash = still ? 0 : Math.sin(now * 3 + a.phase) * 0.02;
       const root = a.chara.root;
       root.position.set(a.x, y, a.z);
       root.rotation.y = human ? 0 : a.face;
+      // 倒れる：画面の横へ、ころんと寝る（向いている方に関係なく、同じ向きに倒す）
+      root.rotation.order = 'ZYX';
+      root.rotation.z = a.fall * Math.PI / 2;
+      if (a.fall > 0.01) root.position.y += a.fall * 0.45;
       root.scale.set(0.8 * (1 - squash), 0.8 * (1 + squash * 2), 0.8 * (1 - squash));
-      a.chara.setFace(human && since < 1.6 ? 'shock' : 'normal');
+      a.chara.setFace((human && since < 1.6) || down ? 'shock' : 'normal');
       a.shadow.position.x = a.x; a.shadow.position.z = a.z;
       a.shadow.scale.setScalar(Math.max(0.5, 1 - y * 0.5) * 0.85);
     });
@@ -223,6 +243,9 @@ export class BlendScene {
     const b = now - this.burstAt;
     this.burst.visible = b < 0.7;
     if (this.burst.visible) { const k = 1 + b * 5; this.burst.scale.set(k, k, 1); (this.burst.material as THREE.MeshBasicMaterial).opacity = 1 - b / 0.7; }
+    const bg = now - this.bangAt;
+    this.bang.visible = bg < 0.5;
+    if (this.bang.visible) { const k = 1 + bg * 4; this.bang.scale.set(k, k, 1); (this.bang.material as THREE.MeshBasicMaterial).opacity = 1 - bg / 0.5; }
     const tp = now - this.tapAt;
     this.tap.visible = tp < 0.5;
     if (this.tap.visible) { const k = 1 + tp * 2; this.tap.scale.set(k, k, 1); (this.tap.material as THREE.MeshBasicMaterial).opacity = 0.6 * (1 - tp / 0.5); }

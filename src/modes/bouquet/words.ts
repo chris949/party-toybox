@@ -49,10 +49,12 @@ export const HAND_SIZE = HAND.nouns + HAND.phrases + HAND.mods; // 初期値の�
 // 混ぜるとき、持ってきた言葉は1語ごとに OWN_CHANCE の割合で手札に入る（上限は手札の半分）。
 // 「必ず入れる」だと、持ち寄りが1語だけのときに、その言葉が全員の手札に毎回入ってしまうため
 export const OWN_CHANCE = 1 / 3;
-export function dealHand(random: Random, size = HAND_SIZE, own: readonly string[] = [], mix = true): string[] {
+// free = プリセットの分を、種類の割合をそろえずに、完全にランダムで配る（並べ方「ぜんぶ使う」。14.3a）
+export function dealHand(random: Random, size = HAND_SIZE, own: readonly string[] = [], mix = true, free = false): string[] {
   const pool = shuffle([...new Set(own)], random);
   const mine = mix ? pool.filter(() => random() < OWN_CHANCE).slice(0, Math.floor(size / 2)) : pool.slice(0, size);
   const rest = size - mine.length;
+  if (free) return [...mine, ...shuffle(ALL_WORDS.filter(w => !own.includes(w)), random).slice(0, rest)];
   const nouns = Math.round(rest * HAND.nouns / HAND_SIZE), phrases = Math.round(rest * HAND.phrases / HAND_SIZE), mods = rest - nouns - phrases;
   // プリセットの分からは、持ってきた言葉と同じものを外す（手札の中で重ならないように。割合もくずれない）
   const from = (list: readonly string[], n: number) => shuffle(list.filter(w => !own.includes(w)), random).slice(0, Math.max(0, n));
@@ -66,13 +68,17 @@ export function sanitizeBouquetWords(list: unknown): string[] {
 
 // 助詞など：手札と別に、何度でも使える（助詞が足りずに文にならない、という不満を防ぐ）
 export const PARTICLES = ['は', 'が', 'を', 'に', 'の', 'と', 'で', 'も', 'へ', 'から', 'より', 'まで', 'や', 'か', 'ね', 'よ', 'な', 'って', '、', '！', '？', '…'] as const;
-export const PHRASE_MAX = 12; // 1つの文に並べられる数（カードと助詞を合わせて）
+export const PHRASE_MAX = 12; // 1つの文に並べられる数（カードと助詞を合わせて）。「自由に並べる」のとき
+// 並べ方「ぜんぶ使う」（14.3a）：つなぐ言葉は、手札の枚数より1つ少ない数まで
+export const particleLimit = (handSize: number) => Math.max(0, handSize - 1);
 
 // 並べたもの：0以上 = 手札の番号、負の数 = 助詞（-1 が PARTICLES[0]）
 export const particleToken = (i: number) => -(i + 1);
 // 並べたものが正しい形か（手札は1枚1回まで・少なくとも1枚は手札を使う）。正しければ、つないだ文を返す
-export function toPhrase(tokens: unknown, hand: readonly string[]): string | null {
-  if (!Array.isArray(tokens) || tokens.length < 1 || tokens.length > PHRASE_MAX || !tokens.every(Number.isInteger)) return null;
+// all = 並べ方「ぜんぶ使う」：手札をすべて使い、つなぐ言葉は決まった数まで
+export function toPhrase(tokens: unknown, hand: readonly string[], all = false): string | null {
+  const max = all ? hand.length + particleLimit(hand.length) : PHRASE_MAX;
+  if (!Array.isArray(tokens) || tokens.length < 1 || tokens.length > max || !tokens.every(Number.isInteger)) return null;
   const used = new Set<number>();
   const parts: string[] = [];
   for (const t of tokens as number[]) {
@@ -86,6 +92,7 @@ export function toPhrase(tokens: unknown, hand: readonly string[]): string | nul
       parts.push(p);
     }
   }
+  if (all && (used.size !== hand.length || tokens.length - used.size > particleLimit(hand.length))) return null;
   return used.size ? parts.join('') : null;
 }
 

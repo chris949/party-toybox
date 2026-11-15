@@ -9,7 +9,7 @@ import type { PlayerView } from '../core/view';
 import { startGuest, type GuestOptions, type GuestSession } from '../net/guest';
 import { startHost, type HostSession } from '../net/host';
 import { ROOM_CODE_LEN } from '../net/protocol';
-import { PHRASE_MAX } from '../modes/bouquet/words';
+import { particleLimit, PHRASE_MAX } from '../modes/bouquet/words';
 import type { Stamp } from '../modes/relay/stamps';
 import {
   broughtFates, broughtFives, broughtBouquets, broughtHaikus, broughtTopics, loadBouquets, saveBouquets, loadBouquetWords, saveBouquetWords, markPlayed, type StoredBouquet, loadChara, loadFates, loadHaikus, saveHaikus, type StoredHaiku, loadFives, loadLastRoom, loadName, loadTopics, myId, myKey,
@@ -337,12 +337,14 @@ export function submitRelay() {
 // 並べている途中の文は、ラウンドごと・手札ごとに持つ（引き直したら、並べていた分は消える）
 export const bouquetKey = (pub: Pub) => `bq-${pub.gameNo}-${pub.bouquet?.round}-${pub.bouquet?.redrawn ? 1 : 0}`;
 const draftOf = (pub: Pub) => { const d = get().bouquetDraft; return d.key === bouquetKey(pub) ? d.tokens : []; };
-// カードや助詞を、文の最後に足す（手札は1枚1回まで・合わせて12個まで）
+// カードや助詞を、文の最後に足す（手札は1枚1回まで・合わせて12個まで。「ぜんぶ使う」のときは、助詞が決まった数まで）
 export function addToken(t: number) {
   const { pub } = get();
   if (!pub?.bouquet?.hand || pub.bouquet.myPhrase != null) return;
   const tokens = draftOf(pub);
-  if (tokens.length >= PHRASE_MAX || (t >= 0 && tokens.includes(t))) return;
+  const n = pub.bouquet.hand.length;
+  if (pub.bouquet.all ? t < 0 && tokens.filter(x => x < 0).length >= particleLimit(n) : tokens.length >= PHRASE_MAX) return;
+  if (t >= 0 && tokens.includes(t)) return;
   set({ bouquetDraft: { key: bouquetKey(pub), tokens: [...tokens, t] } });
 }
 // 並べたものを1つ外す

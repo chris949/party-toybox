@@ -36,10 +36,11 @@ export function playStateSounds(prev: PlayerView | null, next: PlayerView) {
     else if (next.phase === 'result') Sound.play('fanfare');
     return;
   }
-  // まぎれろ！：始まりでポロン、ほしが取られたらポン、発表でファンファーレ（位置は1秒に何度も届くので、変わり目だけ鳴らす）
+  // まぎれろ！：始まりでポロン、ほしが取られたらポン、撃たれたらドン、発表でファンファーレ（位置は1秒に何度も届くので、変わり目だけ鳴らす）
   if (next.blend) {
     if (turn(prev) === turn(next)) {
       if (prev?.blend && next.blend.stars > prev.blend.stars) Sound.play('pop');
+      if (prev?.blend && next.blend.shots.length > prev.blend.shots.length) Sound.play('fall');
       return;
     }
     if (next.phase === 'hide') Sound.play('start');

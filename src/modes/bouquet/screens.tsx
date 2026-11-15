@@ -4,7 +4,7 @@ import { motion } from 'motion/react';
 import { addToken, bouquetKey, clearTokens, isHost, removeToken, send, submitPhrase, useStore, type Pub } from '../../app/store';
 import { Standings } from '../../ui/common';
 import { Timer, useDeadline, Waiting } from '../tier/screens/parts';
-import { PARTICLES, particleToken, PHRASE_MAX } from './words';
+import { PARTICLES, particleLimit, particleToken, PHRASE_MAX } from './words';
 
 const NONE: number[] = []; // 何も並べていないとき（毎回同じ配列を返して、画面の作り直しが止まらなくなるのを防ぐ）
 const pop = { initial: { scale: 0.6, opacity: 0 }, animate: { scale: 1, opacity: 1 }, transition: { type: 'spring' as const, stiffness: 500, damping: 18 } };
@@ -29,14 +29,19 @@ export function BouquetCompose({ pub }: { pub: Pub }) {
   const hand = b.hand;
   const composing = !!hand && b.myPhrase == null;
   const locked = !!pending || sec === 0;
-  const full = tokens.length >= PHRASE_MAX;
+  // 並べ方「ぜんぶ使う」（14.3a）：カードをすべて使う。つなぐ言葉は、決まった数まで
+  const all = b.all && !!hand;
+  const cards = tokens.filter(t => t >= 0).length, joints = tokens.length - cards;
+  const jointMax = all ? particleLimit(hand!.length) : Infinity;
+  const full = all ? false : tokens.length >= PHRASE_MAX;
+  const ready = all ? cards === hand!.length : cards > 0;
   const word = (t: number) => t >= 0 ? hand?.[t] ?? '' : PARTICLES[-t - 1];
   return (
     <section className="card">
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <span className="status">{roundLabel(pub)}</span>{composing && <Timer sec={sec} limit={pub.timeLimit} />}
       </div>
-      <Head pub={pub} sub={composing ? '言葉のカードを並べて、お題に合うひとことを作ってください' : undefined} />
+      <Head pub={pub} sub={composing ? all ? '配られたカードを「ぜんぶ使って」、お題に合うひとことを作ってください' : '言葉のカードを並べて、お題に合うひとことを作ってください' : undefined} />
       {composing ? <>
         {/* 並べた文：タップすると外れる */}
         <div className={`wline ${tokens.length ? '' : 'empty'}`} aria-label="並べた文">
@@ -44,18 +49,18 @@ export function BouquetCompose({ pub }: { pub: Pub }) {
             <button key={i} className={`wchip ${t >= 0 ? 'card' : 'joint'}`} disabled={locked} onClick={() => removeToken(i)} aria-label={`${word(t)} を外す`}>{word(t)}</button>
           )) : <span className="muted small">下のカードをタップして並べます（並べたものをタップすると外れます）</span>}
         </div>
-        <div className="muted small wlabel">言葉のカード（1枚1回）</div>
+        <div className="muted small wlabel">{all ? <>言葉のカード（<b className={ready ? '' : 'wleft'}>{ready ? 'ぜんぶ使いました' : `あと${hand!.length - cards}枚、使ってください`}</b>）</> : '言葉のカード（1枚1回）'}</div>
         <div className="wpool">{hand!.map((w, i) => (
           <button key={i} className="wchip card" disabled={locked || full || tokens.includes(i)} onClick={() => addToken(i)}>{w}</button>
         ))}</div>
-        <div className="muted small wlabel">つなぐ言葉（何度でも）</div>
+        <div className="muted small wlabel">{all ? `つなぐ言葉（あと${jointMax - joints}つ）` : 'つなぐ言葉（何度でも）'}</div>
         <div className="wpool">{PARTICLES.map((p, i) => (
-          <button key={p} className="wchip joint" disabled={locked || full} onClick={() => addToken(particleToken(i))}>{p}</button>
+          <button key={p} className="wchip joint" disabled={locked || full || joints >= jointMax} onClick={() => addToken(particleToken(i))}>{p}</button>
         ))}</div>
         <div className="row wrap" style={{ marginTop: 12 }}>
           <button disabled={locked || !tokens.length} onClick={clearTokens}>ぜんぶ外す</button>
           <button disabled={locked || b.redrawn} onClick={() => send({ t: 'redraw', round: b.round })}>{b.redrawn ? '引き直し済み' : '引き直す（1回）'}</button>
-          <button className="primary" style={{ flex: 1 }} disabled={locked || !tokens.some(t => t >= 0)} onClick={submitPhrase}>{pending ? '送信中…' : 'これで提出'}</button>
+          <button className="primary" style={{ flex: 1 }} disabled={locked || !ready} onClick={submitPhrase}>{pending ? '送信中…' : all && !ready ? `あと${hand!.length - cards}枚` : 'これで提出'}</button>
         </div>
       </> : b.myPhrase != null ? <>
         <h2>あなたのひとこと</h2>

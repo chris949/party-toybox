@@ -12,8 +12,8 @@ import type { RelayItem, RelayView } from '../modes/relay/view';
 import type { RaidView } from '../modes/raid/view';
 import { sanitizeRaidAction } from '../modes/raid/actions';
 import { sanitizeStamps } from '../modes/relay/stamps';
-import { BOUQUET_HANDS, DEFAULT_BOUQUET_HAND, BOUQUET_GOALS, BOUQUET_TIMES, DEFAULT_BOUQUET_TIME } from '../core/constants';
-import { DEFAULT_RELAY_TIME, RELAY_TEXT_MAX, RELAY_TIMES, BOMB_FUSES, BOMB_ROUNDS, DEFAULT_BOMB_FUSE, DEFAULT_BOMB_ROUNDS, BLEND_CROWDS, BLEND_TIMES, BLUFF_TIMES, DEFAULT_BLEND_CROWD, DEFAULT_BLEND_TIME, DEFAULT_BLUFF_TIME } from '../core/constants';
+import { BOUQUET_ALL_HANDS, DEFAULT_BOUQUET_ALL_HAND, BOUQUET_HANDS, DEFAULT_BOUQUET_HAND, BOUQUET_GOALS, BOUQUET_TIMES, DEFAULT_BOUQUET_TIME } from '../core/constants';
+import { DEFAULT_RELAY_TIME, RELAY_TEXT_MAX, RELAY_TIMES, BOMB_FUSES, BOMB_ROUNDS, DEFAULT_BOMB_FUSE, DEFAULT_BOMB_ROUNDS, BLEND_AMMOS, DEFAULT_BLEND_AMMO, BLEND_CROWDS, BLEND_TIMES, BLUFF_TIMES, DEFAULT_BLEND_CROWD, DEFAULT_BLEND_TIME, DEFAULT_BLUFF_TIME } from '../core/constants';
 import { DEFAULT_HAIKU_TIME, HAIKU_TIMES } from '../core/constants';
 import type { Action } from '../core/types';
 import type { PlayerView } from '../core/view';
@@ -57,6 +57,8 @@ export function parseAction(m: any): Action | null {
     case 'bouquetTime': return Number.isInteger(m.sec) ? { t: 'bouquetTime', sec: m.sec } : null;
     case 'bouquetHand': return Number.isInteger(m.n) ? { t: 'bouquetHand', n: m.n } : null;
     case 'bouquetMix': return typeof m.on === 'boolean' ? { t: 'bouquetMix', on: m.on } : null;
+    case 'bouquetAll': return typeof m.on === 'boolean' ? { t: 'bouquetAll', on: m.on } : null;
+    case 'bouquetAllHand': return Number.isInteger(m.n) ? { t: 'bouquetAllHand', n: m.n } : null;
     case 'bouquetGoal': return Number.isInteger(m.n) ? { t: 'bouquetGoal', n: m.n } : null;
     case 'phrase': return Number.isInteger(m.round) && Array.isArray(m.tokens) ? { t: 'phrase', round: m.round, tokens: m.tokens.slice(0, 16) } : null;
     case 'redraw': return Number.isInteger(m.round) ? { t: 'redraw', round: m.round } : null;
@@ -74,10 +76,11 @@ export function parseAction(m: any): Action | null {
     case 'bombStyle': return m.style === 'tap' || m.style === 'type' ? { t: 'bombStyle', style: m.style } : null;
     case 'blendTime': return Number.isInteger(m.sec) ? { t: 'blendTime', sec: m.sec } : null;
     case 'blendCrowd': return Number.isInteger(m.n) ? { t: 'blendCrowd', n: m.n } : null;
+    case 'blendAmmo': return Number.isInteger(m.n) ? { t: 'blendAmmo', n: m.n } : null;
     // まぎれろ！：行き先は、ホストのルールが舞台の中に収める。tick はホストのタイマーだけが出すので、参加者からは受け取らない
     case 'go': return Number.isInteger(m.round) && Number.isFinite(m.x) && Number.isFinite(m.z) ? { t: 'go', round: m.round, x: m.x, z: m.z } : null;
     case 'grab': return Number.isInteger(m.round) ? { t: 'grab', round: m.round } : null;
-    case 'suspect': return Number.isInteger(m.round) && Number.isInteger(m.i) ? { t: 'suspect', round: m.round, i: m.i } : null;
+    case 'shoot': return Number.isInteger(m.round) && Number.isInteger(m.i) ? { t: 'shoot', round: m.round, i: m.i } : null;
     case 'bluffTime': return Number.isInteger(m.sec) ? { t: 'bluffTime', sec: m.sec } : null;
     case 'bet': return Number.isInteger(m.round) && typeof m.go === 'boolean' ? { t: 'bet', round: m.round, go: m.go } : null;
     case 'haikuTime': return Number.isInteger(m.sec) ? { t: 'haikuTime', sec: m.sec } : null;
@@ -113,6 +116,8 @@ export function normalizeView(s: any): PlayerView {
     bouquetTime: (BOUQUET_TIMES as readonly number[]).includes(int(s.bouquetTime)) ? int(s.bouquetTime) : DEFAULT_BOUQUET_TIME,
     bouquetHand: (BOUQUET_HANDS as readonly number[]).includes(int(s.bouquetHand)) ? int(s.bouquetHand) : DEFAULT_BOUQUET_HAND,
     bouquetMix: s.bouquetMix !== false,
+    bouquetAll: s.bouquetAll === true,
+    bouquetAllHand: (BOUQUET_ALL_HANDS as readonly number[]).includes(int(s.bouquetAllHand)) ? int(s.bouquetAllHand) : DEFAULT_BOUQUET_ALL_HAND,
     bouquetGoal: (BOUQUET_GOALS as readonly number[]).includes(int(s.bouquetGoal)) ? int(s.bouquetGoal) : 0,
     raidMode: s.raidMode === 'standard' ? 'standard' : 'quick',
     relayTime: (RELAY_TIMES as readonly number[]).includes(int(s.relayTime)) ? int(s.relayTime) : DEFAULT_RELAY_TIME,
@@ -121,6 +126,7 @@ export function normalizeView(s: any): PlayerView {
     bombFuse: int(s.bombFuse) >= 0 && int(s.bombFuse) < BOMB_FUSES.length ? int(s.bombFuse) : DEFAULT_BOMB_FUSE,
     blendTime: (BLEND_TIMES as readonly number[]).includes(int(s.blendTime)) ? int(s.blendTime) : DEFAULT_BLEND_TIME,
     blendCrowd: (BLEND_CROWDS as readonly number[]).includes(int(s.blendCrowd)) ? int(s.blendCrowd) : DEFAULT_BLEND_CROWD,
+    blendAmmo: (BLEND_AMMOS as readonly number[]).includes(int(s.blendAmmo)) ? int(s.blendAmmo) : DEFAULT_BLEND_AMMO,
     bluffTime: (BLUFF_TIMES as readonly number[]).includes(int(s.bluffTime)) ? int(s.bluffTime) : DEFAULT_BLUFF_TIME,
     haikuStyle: s.haikuStyle === 'free' ? 'free' : 'theme',
     haikuTime: (HAIKU_TIMES as readonly number[]).includes(int(s.haikuTime)) ? int(s.haikuTime) : DEFAULT_HAIKU_TIME,
@@ -201,8 +207,12 @@ function normalizeBlend(b: any): BlendView {
     pos: Array.isArray(b.pos) ? b.pos.slice(0, 64).map(int) : [],
     tick: int(b.tick), ready: !!b.ready, me: nint(b.me),
     star: Array.isArray(b.star) && b.star.length === 2 ? [int(b.star[0]), int(b.star[1])] : null,
-    stars: int(b.stars), goal: int(b.goal), canGrab: !!b.canGrab, myGuess: nint(b.myGuess), guessed: int(b.guessed),
-    guesses: Array.isArray(b.guesses) ? b.guesses.map((x: any) => ({ id: str(x.id), name: str(x.name), i: nint(x.i), ok: !!x.ok })) : null,
+    stars: int(b.stars), goal: int(b.goal), canGrab: !!b.canGrab,
+    ammo: Math.max(0, int(b.ammo)), ammoMax: Math.max(0, int(b.ammoMax)), loaded: Math.max(0, int(b.loaded)),
+    down: Array.isArray(b.down) ? b.down.slice(0, 64).map(int) : [],
+    shots: Array.isArray(b.shots) ? b.shots.slice(0, 64).map((x: any) => ({ id: str(x.id), name: str(x.name), i: int(x.i), hit: !!x.hit })) : [],
+    seekers: Array.isArray(b.seekers) ? b.seekers.slice(0, 16).map((x: any) => ({ id: str(x.id), name: str(x.name), ammo: Math.max(0, int(x.ammo)) })) : [],
+    end: (['hit', 'stars', 'empty', 'time'] as const).find(e => e === b.end) ?? null,
     gained: b.gained && typeof b.gained === 'object' ? Object.fromEntries(Object.entries(b.gained).map(([k, v]) => [k, int(v)])) : null,
     void: !!b.void,
   };
@@ -215,7 +225,7 @@ function normalizeBouquet(b: any): BouquetView {
     round: int(b.round), rounds: int(b.rounds), goal: int(b.goal),
     parentId: str(b.parentId), parentName: str(b.parentName), theme: str(b.theme), themeBy: str(b.themeBy),
     hand: Array.isArray(b.hand) ? b.hand.map(str) : null,
-    redrawn: !!b.redrawn,
+    redrawn: !!b.redrawn, all: !!b.all,
     myPhrase: b.myPhrase == null ? null : str(b.myPhrase),
     phrases: Array.isArray(b.phrases) ? b.phrases.map((p: any) => ({ id: str(p.id), name: str(p.name), text: str(p.text) })) : null,
     winner: b.winner == null ? null : str(b.winner),

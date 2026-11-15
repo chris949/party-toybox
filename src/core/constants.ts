@@ -48,6 +48,8 @@ export const BOUQUET_TIMES = [45, 60, 90] as const;  // 文を作る時間（秒
 export const DEFAULT_BOUQUET_TIME = 60;
 export const BOUQUET_GOALS = [0, 3, 5] as const;     // 終わり方：0 = 全員が親を1回、3・5 = その点を先取
 export const BOUQUET_HANDS = [10, 14, 20, 30] as const; // 手札の枚数。ホストがロビーで選ぶ
+export const BOUQUET_ALL_HANDS = [4, 5, 6, 7] as const; // 並べ方が「ぜんぶ使う」のときの、手札の枚数（全部並べるので、少なくする）
+export const DEFAULT_BOUQUET_ALL_HAND = 5;
 export const DEFAULT_BOUQUET_HAND = 14;
 export const BOUQUET_WORD_MAX = 12;                  // 持ち寄りの言葉の長さの上限
 export const BOUQUET_WORDS_PER_PLAYER = 60;          // 1人が持っていける言葉の数
@@ -59,12 +61,15 @@ export const DEFAULT_BLEND_TIME = 45;
 export const BLEND_CROWDS = [8, 12, 16] as const;   // 舞台にいるキャラクターの数（かくれる人の1体を含む）
 export const DEFAULT_BLEND_CROWD = 12;
 export const BLEND_STARS = 3;                       // かくれる人が集める「ほし」の数。集めきれないと、かくれた人の点は0
-export const BLEND_FIND = 2;                        // 当てた人がもらう点
+export const BLEND_AMMOS = [1, 2, 3] as const;      // さがす人1人あたりの弾の数。ホストがロビーで選ぶ
+export const DEFAULT_BLEND_AMMO = 1;
+export const BLEND_FIND = 3;                        // 当てた人がもらう点（当たった時点で終わるので、もらえるのは1人だけ）
 export const BLEND_READY_MS = 3000;                 // 始まる前に、全員が止まっている時間（かくれる人が、自分のキャラクターを見つける時間）
 export const BLEND_TICK_MS = 200;                   // 位置を進めて、全員に送る間隔
 export const BLEND_W = 12, BLEND_D = 7;             // 舞台の広さ（横・奥行き）。真ん中が 0
 export const BLEND_SPEED = 2.4;                     // 歩く速さ（1秒に進む長さ）。人もCPUも同じ
-export const BLEND_STAR_R = 0.6;                    // ほしに「乗っている」とみなす近さ
+export const BLEND_STAR_R = 1.05;                   // ほしに「乗っている」とみなす近さ（BLEND_GAP より広くする。真ん中に誰かがいても、となりで乗れるように）
+export const BLEND_GAP = 0.85;                      // キャラクターどうしが、これより近づかない（体が重なって、狙いづらくなるのを防ぐ）
 
 // 爆弾まわし（src/modes/bomb/README.md の16章）
 export const BOMB_ROUNDS = [3, 5, 8] as const;      // 爆発の回数（＝ラウンド数）。ホストがロビーで選ぶ

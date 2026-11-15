@@ -13,6 +13,7 @@ export interface BouquetState {
   names: Record<string, string>;     // 開始時の名前
   round: number;
   goal: number;                      // 0 = 全員が親を1回。1以上 = その点を先に取った人が出たら終わり
+  all: boolean;                      // 並べ方「ぜんぶ使う」（14.3a）
   parentId: string;
   theme: string;                     // お題
   themeBy: string;                   // お題を持ってきた人の名前（サンプルなら「サンプル」）
@@ -30,7 +31,8 @@ const isOnline = (room: RoomState, id: string) => !!room.players.find(p => p.id 
 export const composers = (room: RoomState, g: BouquetState) => online(room).filter(p => p.id in g.hands);
 
 // 手札を1人ぶん配る：みんなが持ってきた言葉を1つにまとめ、ロビーの設定（枚数・混ぜるか）に合わせる
-const hand = (room: RoomState, ctx: Ctx) => dealHand(ctx.random, room.bouquetHand, online(room).flatMap(p => room.bouquetWordsBy[p.id] ?? []), room.bouquetMix);
+// 並べ方が「ぜんぶ使う」のときは、少ない枚数を、種類の割合をそろえずに配る
+const hand = (room: RoomState, ctx: Ctx) => dealHand(ctx.random, room.bouquetAll ? room.bouquetAllHand : room.bouquetHand, online(room).flatMap(p => room.bouquetWordsBy[p.id] ?? []), room.bouquetMix, room.bouquetAll);
 
 export function startError(room: RoomState): string | null {
   const n = online(room).length;
@@ -63,7 +65,7 @@ export function start(room: RoomState, ctx: Ctx): BouquetState {
   room.players.forEach(p => { p.score = 0; });
   const g: BouquetState = {
     kind: 'bouquet', phase: 'compose', ring: players.map(p => p.id), names: Object.fromEntries(players.map(p => [p.id, p.name])),
-    round: 0, goal: room.bouquetGoal, parentId: '', theme: '', themeBy: '', used: [], hands: {}, redrawn: {}, phrases: {}, winner: null, deadline: 0,
+    round: 0, goal: room.bouquetGoal, all: room.bouquetAll, parentId: '', theme: '', themeBy: '', used: [], hands: {}, redrawn: {}, phrases: {}, winner: null, deadline: 0,
   };
   deal(room, g, ctx);
   return g;
@@ -91,7 +93,7 @@ export function reduce(room: RoomState, g: BouquetState, a: ActionFrom, ctx: Ctx
     case 'phrase': {
       const hand = g.hands[a.from];
       if (g.phase !== 'compose' || a.round !== g.round || !hand || a.from in g.phrases) return false;
-      const text = toPhrase(a.tokens, hand);
+      const text = toPhrase(a.tokens, hand, g.all);
       if (!text) return false;
       g.phrases[a.from] = text;
       checkAdvance(room, g, ctx);

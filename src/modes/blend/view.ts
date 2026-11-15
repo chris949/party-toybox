@@ -1,6 +1,6 @@
 // まぎれろ！で各参加者に見せてよい情報。どれが人かは、かくれている本人にだけ送る（ほかの人には、発表まで送らない）
 import { BLEND_STARS } from '../../core/constants';
-import { onStar, type BlendState } from './rules';
+import { onStar, type BlendEnd, type BlendState } from './rules';
 
 export interface BlendView {
   round: number;
@@ -16,14 +16,18 @@ export interface BlendView {
   stars: number;
   goal: number;
   canGrab: boolean;       // かくれている本人が、ほしに乗っている
-  myGuess: number | null;
-  guessed: number;        // 選んでいる人の数
-  guesses: { id: string; name: string; i: number | null; ok: boolean }[] | null; // 発表のとき
+  ammo: number;           // 自分の残りの弾（かくれている本人は0）
+  ammoMax: number;        // 1人あたりの弾の数
+  loaded: number;         // 弾が残っている、さがす人の数
+  down: number[];         // 撃たれて倒れた番号（全員に見える）
+  shots: { id: string; name: string; i: number; hit: boolean }[]; // 撃った記録（全員に見える）
+  seekers: { id: string; name: string; ammo: number }[];          // さがす人と、残りの弾
+  end: BlendEnd | null;   // 終わり方（発表のとき）
   gained: Record<string, number> | null;
   void: boolean;
 }
 
-export function blendView(g: BlendState, id: string, now: number): BlendView {
+export function blendView(g: BlendState, id: string, now: number, ammoMax: number): BlendView {
   const found = g.phase !== 'hide';
   const mine = id === g.hiderId;
   return {
@@ -37,9 +41,12 @@ export function blendView(g: BlendState, id: string, now: number): BlendView {
     star: g.star ? [Math.round(g.star.x * 100), Math.round(g.star.z * 100)] : null,
     stars: g.stars, goal: BLEND_STARS,
     canGrab: mine && g.phase === 'hide' && onStar(g, g.mobs[g.me]),
-    myGuess: g.guesses[id] ?? null,
-    guessed: Object.keys(g.guesses).length,
-    guesses: found ? g.ring.filter(pid => pid !== g.hiderId).map(pid => ({ id: pid, name: g.names[pid] ?? '???', i: g.guesses[pid] ?? null, ok: g.guesses[pid] === g.me })) : null,
+    ammo: g.ammo[id] ?? 0, ammoMax,
+    loaded: Object.values(g.ammo).filter(n => n > 0).length,
+    down: g.down,
+    shots: g.shots.map(s => ({ id: s.by, name: g.names[s.by] ?? '???', i: s.i, hit: s.hit })),
+    seekers: g.ring.filter(pid => pid !== g.hiderId).map(pid => ({ id: pid, name: g.names[pid] ?? '???', ammo: g.ammo[pid] ?? 0 })),
+    end: found ? g.end : null,
     gained: found ? g.gained : null,
     void: g.void,
   };
