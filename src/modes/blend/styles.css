@@ -6,7 +6,12 @@
 .mstars .on { color: #ffb020; }
 .mstars .small { margin-left: 6px; font-weight: 700; }
 .mgrab { margin-top: 10px; }
-.mpick { margin: 10px 0 0; font-weight: 800; }
+.mshoot { margin-top: 10px; }
+.mpick { margin: 10px 0 0; font-weight: 800; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+/* 残りの弾（使った分は、うすく） */
+.mammo { display: inline-flex; gap: 4px; }
+.mammo i { width: 9px; height: 20px; border-radius: 5px 5px 2px 2px; border: 2px solid var(--ink); background: var(--field); opacity: .35; }
+.mammo i.on { background: #ffc83d; opacity: 1; }
 .mresult { margin: 12px 0 8px; font-weight: 800; }
 .mguess { display: flex; flex-wrap: wrap; gap: 6px; }
 .mguess span { padding: 4px 10px; border-radius: 999px; border: 2px solid var(--line); background: var(--field); font-weight: 800; font-size: 14px; }

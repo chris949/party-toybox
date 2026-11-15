@@ -60,8 +60,11 @@ export interface PlayerView {
   bouquetGoal: number;    // ワードブーケの終わり方
   bouquetHand: number;    // ワードブーケの、手札の枚数
   bouquetMix: boolean;    // ワードブーケの言葉：プリセットと混ぜるか
+  bouquetAll: boolean;    // ワードブーケの並べ方：配られたカードをぜんぶ使うか
+  bouquetAllHand: number; // 「ぜんぶ使う」のときの、手札の枚数
   blendTime: number;      // まぎれろ！の、かくれる時間（秒）
   blendCrowd: number;     // まぎれろ！の、舞台にいるキャラクターの数
+  blendAmmo: number;      // まぎれろ！の、さがす人1人あたりの弾の数
   bombRounds: number;     // 爆弾まわしの、爆発の回数
   bombFuse: number;       // 爆弾まわしの、導火線の長さ（番号）
   bombStyle: BombStyle;   // 爆弾まわしの答え方
@@ -122,8 +125,11 @@ export function viewFor(room: RoomState, id: string, now: number): PlayerView {
     bouquetGoal: room.bouquetGoal,
     bouquetHand: room.bouquetHand,
     bouquetMix: room.bouquetMix,
+    bouquetAll: room.bouquetAll,
+    bouquetAllHand: room.bouquetAllHand,
     blendTime: room.blendTime,
     blendCrowd: room.blendCrowd,
+    blendAmmo: room.blendAmmo,
     bombRounds: room.bombRounds,
     bombFuse: room.bombFuse,
     bombStyle: room.bombStyle,
@@ -138,7 +144,7 @@ export function viewFor(room: RoomState, id: string, now: number): PlayerView {
       fates: room.fatesBy[p.id]?.length ?? 0, haikus: room.haikusBy[p.id]?.length ?? 0, bouquets: room.bouquetsBy[p.id]?.length ?? 0, bouquetWords: room.bouquetWordsBy[p.id]?.length ?? 0, raidClass: room.raidClassBy[p.id] ?? null, chara: p.chara, editing: !!p.editing, bot: !!p.bot,
       done: rl ? (rl.phase === 'work' && rl.ring.includes(p.id) ? p.id in rl.drafts : null)
         : bm ? null
-        : bd ? (bd.phase === 'hide' && p.id !== bd.hiderId && p.online ? p.id in bd.guesses : null)
+        : bd ? (bd.phase === 'hide' && p.id !== bd.hiderId && p.online ? !(bd.ammo[p.id] > 0) : null)
         : bq ? (bq.phase === 'compose' && p.id in bq.hands ? p.id in bq.phrases : null)
         : bl ? (bl.phase === 'talk' && p.id in bl.cards ? p.id in bl.bets : null)
         : h ? (h.phase === 'write' ? (h.ring.includes(p.id) ? p.id in h.drafts : null) : h.show?.rating && p.id !== hOwner ? p.id in currentSheet(h)!.ratings : null)
@@ -159,7 +165,7 @@ export function viewFor(room: RoomState, id: string, now: number): PlayerView {
     haiku: h ? haikuView(h, id) : null,
     bluff: bl ? bluffView(bl, id) : null,
     bouquet: bq ? bouquetView(bq, id) : null,
-    blend: bd ? blendView(bd, id, now) : null,
+    blend: bd ? blendView(bd, id, now, room.blendAmmo) : null,
     bomb: bm ? bombView(bm, now) : null,
     relay: rl ? relayView(rl, id) : null,
     raid: room.game?.kind === 'raid' ? raidView(room.game, id) : null,

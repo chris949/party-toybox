@@ -58,8 +58,11 @@ export interface RoomState {
   bouquetWordsBy: Record<string, string[]>; // ワードブーケの、持ち寄りの言葉
   bouquetHand: number;    // ワードブーケの、手札の枚数
   bouquetMix: boolean;    // ワードブーケの言葉：true = プリセットと混ぜる／false = 持ち寄りだけ
+  bouquetAll: boolean;    // ワードブーケの並べ方：true = 配られたカードをぜんぶ使う／false = 自由に並べる
+  bouquetAllHand: number; // 「ぜんぶ使う」のときの、手札の枚数
   blendTime: number;      // まぎれろ！の、かくれる時間（秒）
   blendCrowd: number;     // まぎれろ！の、舞台にいるキャラクターの数
+  blendAmmo: number;      // まぎれろ！の、さがす人1人あたりの弾の数
   bombRounds: number;     // 爆弾まわしの、爆発の回数
   bombFuse: number;       // 爆弾まわしの、導火線の長さ（BOMB_FUSES の番号）
   bombStyle: BombStyle;   // 爆弾まわしの答え方（選択式／入力式）
@@ -91,8 +94,11 @@ export type Action =
   | { t: 'bouquetGoal'; n: number }
   | { t: 'bouquetHand'; n: number }
   | { t: 'bouquetMix'; on: boolean }
+  | { t: 'bouquetAll'; on: boolean }
+  | { t: 'bouquetAllHand'; n: number }
   | { t: 'blendTime'; sec: number }
   | { t: 'blendCrowd'; n: number }
+  | { t: 'blendAmmo'; n: number }
   | { t: 'bombRounds'; n: number }
   | { t: 'bombFuse'; n: number }
   | { t: 'bombStyle'; style: BombStyle }
@@ -107,7 +113,7 @@ export type Action =
   | { t: 'tick' }                                  // まぎれろ！：位置を進める／爆弾まわし：導火線を進める（ホストのタイマーが出す）
   | { t: 'go'; round: number; x: number; z: number } // まぎれろ！：かくれる人の行き先
   | { t: 'grab'; round: number }                   // まぎれろ！：ほしを取る
-  | { t: 'suspect'; round: number; i: number }     // まぎれろ！：「これが人だ」と選ぶ
+  | { t: 'shoot'; round: number; i: number }       // まぎれろ！：「これが人だ」と撃つ
   | { t: 'phrase'; round: number; tokens: number[] } // ワードブーケ：並べた文を提出する（0以上 = 手札の番号、負の数 = 助詞）
   | { t: 'redraw'; round: number }                    // ワードブーケ：手札を引き直す
   | { t: 'choose'; round: number; id: string }        // ワードブーケ：親が、いちばん刺さったものを選ぶ

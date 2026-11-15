@@ -1,5 +1,5 @@
 // まぎれろ！のルール（このフォルダの README.md の15章）。画面・通信・ブラウザの機能は使わない（時刻と乱数は ctx で受け取る）
-import { BLEND_D, BLEND_FIND, BLEND_READY_MS, BLEND_SPEED, BLEND_STAR_R, BLEND_STARS, BLEND_TICK_MS, BLEND_W, CHARA_COUNT } from '../../core/constants';
+import { BLEND_D, BLEND_FIND, BLEND_GAP, BLEND_READY_MS, BLEND_SPEED, BLEND_STAR_R, BLEND_STARS, BLEND_TICK_MS, BLEND_W, CHARA_COUNT } from '../../core/constants';
 import { shuffle } from '../../core/random';
 import type { ActionFrom, Ctx, RoomState, Timer } from '../../core/types';
 
@@ -11,6 +11,10 @@ export interface Mob {
   tx: number; tz: number; // 向かっている場所
   wait: number;           // 着いてから、次に動き出すまでの時間（ミリ秒）。CPU だけが使う
 }
+
+export interface Shot { by: string; i: number; hit: boolean }
+// 終わり方：hit = さがす人が当てた／stars = ほしを集めきった／empty = 全員が弾を使いきった／time = 時間切れ（引き分け）
+export type BlendEnd = 'hit' | 'stars' | 'empty' | 'time';
 
 export interface BlendState {
   kind: 'blend';
@@ -26,7 +30,10 @@ export interface BlendState {
   star: { x: number; z: number } | null;
   starAt: number;                  // 次のほしが出る時刻
   stars: number;                   // 集めたほしの数
-  guesses: Record<string, number>; // さがす人が「これだ」と選んでいる番号（時間内は変えられる）
+  ammo: Record<string, number>;    // さがす人の、残りの弾
+  down: number[];                  // 撃たれて倒れた番号（人ではなかった1体。もう動かず、撃てない）
+  shots: Shot[];                   // 撃った記録（順に）
+  end: BlendEnd | null;            // このラウンドの終わり方
   startAt: number;                 // 動き出す時刻（それまでは全員止まっている）
   deadline: number;
   lastTick: number;
@@ -58,14 +65,20 @@ function deal(room: RoomState, g: BlendState, ctx: Ctx) {
   g.hiderId = hider;
   g.auto = !!room.players.find(p => p.id === hider)?.bot;
   g.chara = Math.floor(ctx.random() * CHARA_COUNT);
-  g.mobs = Array.from({ length: room.blendCrowd }, () => {
-    const p = spot(ctx);
-    return { x: p.x, z: p.z, tx: p.x, tz: p.z, wait: ctx.random() * 2000 };
-  });
+  g.mobs = [];
+  for (let i = 0; i < room.blendCrowd; i++) {
+    // ほかの1体と重ならない場所に置く（見つからなければ、最後の候補に置く）
+    let p = spot(ctx);
+    for (let n = 0; n < 30 && g.mobs.some(m => Math.hypot(m.x - p.x, m.z - p.z) < BLEND_GAP); n++) p = spot(ctx);
+    g.mobs.push({ x: p.x, z: p.z, tx: p.x, tz: p.z, wait: ctx.random() * 2000 });
+  }
   g.me = Math.floor(ctx.random() * g.mobs.length);
   g.star = null;
   g.stars = 0;
-  g.guesses = {};
+  g.ammo = Object.fromEntries(g.ring.filter(id => id !== hider).map(id => [id, room.blendAmmo]));
+  g.down = [];
+  g.shots = [];
+  g.end = null;
   g.void = false;
   g.gained = {};
   g.phase = 'hide';
@@ -81,16 +94,17 @@ export function start(room: RoomState, ctx: Ctx): BlendState {
   room.players.forEach(p => { p.score = 0; });
   const g: BlendState = {
     kind: 'blend', phase: 'hide', ring: players.map(p => p.id), names: Object.fromEntries(players.map(p => [p.id, p.name])),
-    round: 0, hiderId: '', auto: false, chara: 0, mobs: [], me: 0, star: null, starAt: 0, stars: 0, guesses: {},
+    round: 0, hiderId: '', auto: false, chara: 0, mobs: [], me: 0, star: null, starAt: 0, stars: 0, ammo: {}, down: [], shots: [], end: null,
     startAt: 0, deadline: 0, lastTick: 0, tick: 0, void: false, gained: {},
   };
   deal(room, g, ctx);
   return g;
 }
 
-// 発表へ：当てた人に点。かくれた人は、ほしを集めきっていれば、だませた人数ぶんの点
-function toFound(room: RoomState, g: BlendState) {
+// 発表へ：当てた人に点。かくれた人は、逃げ切っていれば（ほしを集めきった／全員が弾を使いきった）、さがす人の人数ぶんの点
+function toFound(room: RoomState, g: BlendState, end: BlendEnd) {
   g.phase = 'found';
+  g.end = end;
   g.deadline = 0;
   g.star = null;
   g.gained = {};
@@ -101,26 +115,29 @@ function toFound(room: RoomState, g: BlendState) {
     p.score += n;
     g.gained[id] = n;
   };
-  let fooled = 0;
-  for (const p of seekers(room, g)) {
-    if (g.guesses[p.id] === g.me) add(p.id, BLEND_FIND); else fooled++;
-  }
-  if (g.stars >= BLEND_STARS) add(g.hiderId, fooled);
+  if (end === 'hit') add(g.shots[g.shots.length - 1].by, BLEND_FIND);
+  else if (end === 'stars' || end === 'empty') add(g.hiderId, seekers(room, g).length);
 }
+// さがす人の全員が、弾を使いきった（さがす人がいないときは、数えない）
+const allEmpty = (room: RoomState, g: BlendState) => {
+  const s = seekers(room, g);
+  return s.length > 0 && s.every(p => !(g.ammo[p.id] > 0));
+};
 
 // ほしを取る（人はボタンで、CPU の参加者は乗ったらすぐ）。集めきったら、その場で発表へ
-// （集めたあとは、さがす人に手がかりが増えないので、残りの時間を待たせない。さがす人は、集めきられる前に選んでおく必要がある）
+// （集めたあとは、さがす人に手がかりが増えないので、残りの時間を待たせない。さがす人は、集めきられる前に撃つ必要がある）
 function grab(room: RoomState, g: BlendState, now: number) {
   g.stars++;
   g.star = null;
   g.starAt = now + 1500;
-  if (g.stars >= BLEND_STARS) toFound(room, g);
+  if (g.stars >= BLEND_STARS) toFound(room, g, 'stars');
 }
 
-// CPU の次の行き先：ときどき、ほしの上へ行く（ほしのまわりに人だかりを作って、かくれる人がまぎれられるようにする）
-function wander(g: BlendState, m: Mob, ctx: Ctx, starRate: number) {
+// CPU の次の行き先：ときどき、ほしのあたりへ行く（ほしのまわりに人だかりを作って、かくれる人がまぎれられるようにする）
+// spread = ほしの輪に対する、行き先の広がり。CPU の群れは、輪の外まで広げる（輪の中をふさいで、かくれる人が乗れなくならないように）
+function wander(g: BlendState, m: Mob, ctx: Ctx, starRate: number, spread: number) {
   if (g.star && ctx.random() < starRate) {
-    const a = ctx.random() * Math.PI * 2, r = ctx.random() * BLEND_STAR_R * 0.75;
+    const a = ctx.random() * Math.PI * 2, r = ctx.random() * BLEND_STAR_R * spread;
     m.tx = clamp(g.star.x + Math.cos(a) * r, HX);
     m.tz = clamp(g.star.z + Math.sin(a) * r, HZ);
   } else {
@@ -138,26 +155,58 @@ function advance(room: RoomState, g: BlendState, ctx: Ctx) {
   if (ctx.now < g.startAt) return;
   if (!g.star && g.stars < BLEND_STARS && ctx.now >= g.starAt) g.star = spot(ctx);
   const step = BLEND_SPEED * dt / 1000;
+  const from = g.mobs.map(m => ({ x: m.x, z: m.z }));
+  const standing = g.mobs.map(m => Math.hypot(m.tx - m.x, m.tz - m.z) <= 1e-6);
+  const walking = standing.map(s => !s); // この回に、行き先へ歩いた1体
+  const isDown = g.mobs.map((_, i) => g.down.includes(i)); // 倒れた1体は、もう動かない
   g.mobs.forEach((m, i) => {
+    if (isDown[i]) return;
     const human = i === g.me && !g.auto;
-    const d = Math.hypot(m.tx - m.x, m.tz - m.z);
-    if (d <= step) {
-      m.x = m.tx; m.z = m.tz;
+    if (standing[i]) {
       if (human) return;
       m.wait -= dt;
-      if (m.wait <= 0) wander(g, m, ctx, i === g.me ? 0.7 : 0.3);
-    } else {
-      m.x += (m.tx - m.x) / d * step;
-      m.z += (m.tz - m.z) / d * step;
+      if (m.wait <= 0) { i === g.me ? wander(g, m, ctx, 0.7, 0.75) : wander(g, m, ctx, 0.2, 1.6); standing[i] = false; } // 次の行き先を決めた
     }
   });
+  // 歩く → 体が重ならないように押し離す（15.5）を、小分けにしてくり返す（1回で大きく動かすと、向かい合った2体がすれ違ってしまう）
+  // 人が動かす1体も、CPU の1体も、同じ決まり。立っている1体は、歩いてきた1体に場所をゆずる形になる（かたまって動けなくなるのを防ぐ）
+  const SUB = 4, sub = step / SUB;
+  for (let n = 0; n < SUB; n++) {
+    g.mobs.forEach((m, i) => {
+      if (isDown[i] || standing[i]) return; // 立っている1体は、押されるだけ
+      const d = Math.hypot(m.tx - m.x, m.tz - m.z);
+      if (d <= sub) { m.x = m.tx; m.z = m.tz; } else { m.x += (m.tx - m.x) / d * sub; m.z += (m.tz - m.z) / d * sub; }
+    });
+    for (let pass = 0; pass < 2; pass++) for (let i = 0; i < g.mobs.length; i++) for (let j = i + 1; j < g.mobs.length; j++) {
+      const a = g.mobs[i], b = g.mobs[j];
+      if (isDown[i] && isDown[j]) continue;
+      let dx = b.x - a.x, dz = b.z - a.z, gap = Math.hypot(dx, dz);
+      if (gap >= BLEND_GAP) continue;
+      if (gap < 1e-6) { dx = Math.cos(i * 2.4 + j); dz = Math.sin(i * 2.4 + j); gap = 1; } // ぴったり重なったら、決まった向きへ離す
+      const push = (BLEND_GAP - Math.hypot(b.x - a.x, b.z - a.z)) / gap;
+      const ka = isDown[i] ? 0 : isDown[j] ? 1 : 0.5, kb = isDown[j] ? 0 : isDown[i] ? 1 : 0.5; // 倒れた1体は動かさない
+      a.x -= dx * push * ka; a.z -= dz * push * ka;
+      b.x += dx * push * kb; b.z += dz * push * kb;
+    }
+  }
+  g.mobs.forEach((m, i) => {
+    if (isDown[i]) return;
+    // 押されても、1回に進める長さは超えない（速さの違いで、人だと分からないように）。舞台の外にも出ない
+    const moved = Math.hypot(m.x - from[i].x, m.z - from[i].z);
+    if (moved > step) { m.x = from[i].x + (m.x - from[i].x) / moved * step; m.z = from[i].z + (m.z - from[i].z) / moved * step; }
+    m.x = clamp(m.x, HX); m.z = clamp(m.z, HZ);
+    // 立っていて押された1体は、押された先に立つ。歩いていて、ほとんど進めなかった1体は、その場で止まる（その場で震え続けないように）
+    if (standing[i] || (walking[i] && Math.hypot(m.x - from[i].x, m.z - from[i].z) < step * 0.25)) { m.tx = m.x; m.tz = m.z; }
+  });
   if (g.auto && onStar(g, g.mobs[g.me])) grab(room, g, ctx.now);
-  if (g.phase === 'hide' && ctx.now >= g.deadline) toFound(room, g);
+  if (g.phase === 'hide' && ctx.now >= g.deadline) toFound(room, g, 'time');
 }
 
-// かくれる人がいなくなったら、その回は流す（点なし）
+// かくれる人がいなくなったら、その回は流す（点なし）。弾の残っている人が抜けて、全員が弾切れになったら、逃げ切り
 export function checkAdvance(room: RoomState, g: BlendState, _ctx: Ctx) {
-  if (g.phase === 'hide' && !isOnline(room, g.hiderId)) { g.void = true; toFound(room, g); }
+  if (g.phase !== 'hide') return;
+  if (!isOnline(room, g.hiderId)) { g.void = true; toFound(room, g, 'time'); }
+  else if (g.shots.length && allEmpty(room, g)) toFound(room, g, 'empty');
 }
 
 export function reduce(room: RoomState, g: BlendState, a: ActionFrom, ctx: Ctx): boolean {
@@ -178,14 +227,23 @@ export function reduce(room: RoomState, g: BlendState, a: ActionFrom, ctx: Ctx):
       if (g.phase !== 'hide' || a.round !== g.round || a.from !== g.hiderId || !onStar(g, g.mobs[g.me])) return false;
       grab(room, g, ctx.now);
       return true;
-    case 'suspect':
-      if (g.phase !== 'hide' || a.round !== g.round || a.from === g.hiderId || !isOnline(room, a.from)) return false;
-      if (!Number.isInteger(a.i) || a.i < 0 || a.i >= g.mobs.length || g.guesses[a.from] === a.i) return false;
-      g.guesses[a.from] = a.i;
+    case 'shoot': {
+      // さがす人が撃つ：当たれば、その場で発表へ。外れたら、その1体は倒れる
+      if (g.phase !== 'hide' || a.round !== g.round || a.from === g.hiderId || !isOnline(room, a.from) || ctx.now < g.startAt) return false;
+      if (!(g.ammo[a.from] > 0) || !Number.isInteger(a.i) || a.i < 0 || a.i >= g.mobs.length || g.down.includes(a.i)) return false;
+      g.ammo[a.from]--;
+      const hit = a.i === g.me;
+      g.shots.push({ by: a.from, i: a.i, hit });
+      if (hit) toFound(room, g, 'hit');
+      else {
+        g.down.push(a.i);
+        if (allEmpty(room, g)) toFound(room, g, 'empty');
+      }
       return true;
+    }
     case 'force':
       if (!isHost || g.phase !== 'hide') return false;
-      toFound(room, g);
+      toFound(room, g, 'time');
       return true;
     case 'next':
       if (!isHost || g.phase !== 'found') return false;

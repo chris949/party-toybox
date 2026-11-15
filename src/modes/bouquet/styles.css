@@ -4,6 +4,7 @@
   border: 2.5px dashed var(--line); border-radius: 14px; background: #fffdf4; }
 .wline:not(.empty) { border-style: solid; border-color: var(--ink); }
 .wlabel { margin: 10px 0 4px; font-weight: 700; }
+.wlabel .wleft { color: var(--coral, #e5484d); }
 .wpool { display: flex; flex-wrap: wrap; gap: 6px; }
 /* 言葉のカード（白）と、つなぐ言葉（水色・小さめ） */
 .wchip { min-height: 40px; padding: 4px 12px; border-radius: 12px; font-size: 15px; font-weight: 800; border-width: 2px; box-shadow: 0 2px 0 var(--ink); }

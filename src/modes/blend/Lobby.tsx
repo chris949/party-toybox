@@ -1,5 +1,5 @@
-// まぎれろ！のロビーの設定：かくれる時間と、舞台にいるキャラクターの数（このフォルダの README.md の 15.2）
-import { BLEND_CROWDS, BLEND_STARS, BLEND_TIMES } from '../../core/constants';
+// まぎれろ！のロビーの設定：かくれる時間・舞台にいるキャラクターの数・弾の数（このフォルダの README.md の 15.2）
+import { BLEND_AMMOS, BLEND_CROWDS, BLEND_FIND, BLEND_STARS, BLEND_TIMES } from '../../core/constants';
 import { send, type Pub } from '../../app/store';
 
 export function BlendLobby({ pub, host }: { pub: Pub; host: boolean }) {
@@ -10,7 +10,7 @@ export function BlendLobby({ pub, host }: { pub: Pub; host: boolean }) {
           <button key={sec} className={pub.blendTime === sec ? 'on' : ''} onClick={() => send({ t: 'blendTime', sec })}>{sec}秒</button>
         ))}</div>
       : <p style={{ margin: 0, fontWeight: 800 }}>{pub.blendTime}秒</p>}
-    <p className="muted small" style={{ margin: '6px 0 0' }}>かくれる人は、この時間のうちに、ほしを{BLEND_STARS}つ集めます。集めきったら、その場で発表です。全員が1回ずつかくれたら終わりです</p>
+    <p className="muted small" style={{ margin: '6px 0 0' }}>かくれる人は、この時間のうちに、ほしを{BLEND_STARS}つ集めます。集めきったら、逃げ切りです。全員が1回ずつかくれたら終わりです</p>
     <h2 style={{ marginTop: 16 }}>キャラクターの数</h2>
     {host
       ? <div className="seg">{BLEND_CROWDS.map(n => (
@@ -18,5 +18,12 @@ export function BlendLobby({ pub, host }: { pub: Pub; host: boolean }) {
         ))}</div>
       : <p style={{ margin: 0, fontWeight: 800 }}>{pub.blendCrowd}体</p>}
     <p className="muted small" style={{ margin: '6px 0 0' }}>多いほど、かくれやすくなります。スマホでは少なめが見やすいです</p>
+    <h2 style={{ marginTop: 16 }}>弾の数</h2>
+    {host
+      ? <div className="seg">{BLEND_AMMOS.map(n => (
+          <button key={n} className={pub.blendAmmo === n ? 'on' : ''} onClick={() => send({ t: 'blendAmmo', n })}>{n}発</button>
+        ))}</div>
+      : <p style={{ margin: 0, fontWeight: 800 }}>{pub.blendAmmo}発</p>}
+    <p className="muted small" style={{ margin: '6px 0 0' }}>さがす人1人あたりの数です。当てたら、その場で終わり（当てた人に +{BLEND_FIND}点）。外すと、弾が減ります。全員が使いきったら、かくれる人の逃げ切りです。2〜3人で遊ぶときは、増やすと当てやすくなります</p>
   </>;
 }

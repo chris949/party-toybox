@@ -11,6 +11,7 @@ export interface BouquetView {
   themeBy: string;
   hand: string[] | null; // 自分の手札（親や、途中から見ている人は null）
   redrawn: boolean;      // 手札を引き直したか
+  all: boolean;          // 並べ方「ぜんぶ使う」
   myPhrase: string | null;
   phrases: { id: string; name: string; text: string }[] | null; // 出そろってから：作った人の名前と一緒に
   winner: string | null; // 親が選んだ人（発表から）
@@ -24,6 +25,7 @@ export function bouquetView(g: BouquetState, id: string): BouquetView {
     theme: g.theme, themeBy: g.themeBy,
     hand: g.phase === 'compose' ? g.hands[id] ?? null : null,
     redrawn: !!g.redrawn[id],
+    all: g.all,
     myPhrase: g.phrases[id] ?? null,
     phrases: open ? g.ring.filter(pid => pid in g.phrases).map(pid => ({ id: pid, name: g.names[pid] ?? '???', text: g.phrases[pid] })) : null,
     winner: g.phase === 'bloom' ? g.winner : null,

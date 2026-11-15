@@ -10,12 +10,12 @@ import { sanitizeFates } from '../modes/fate/questions';
 import { HAIKU_STYLES, sanitizeHaikus } from '../modes/haiku/themes';
 import { sanitizeBouquets, sanitizeBouquetWords } from '../modes/bouquet/words';
 import { CLASS_IDS } from '../modes/raid/engine';
-import { DEFAULT_RAID_MODE, RAID_MODES, BOUQUET_HANDS, DEFAULT_BOUQUET_HAND, DEFAULT_RELAY_TIME, RELAY_TIMES, BOMB_FUSES, BOMB_ROUNDS, DEFAULT_BOMB_FUSE, DEFAULT_BOMB_ROUNDS, BLEND_CROWDS, BLEND_TIMES, DEFAULT_BLEND_CROWD, DEFAULT_BLEND_TIME, BOUQUET_GOALS, BOUQUET_TIMES, DEFAULT_BOUQUET_TIME, BLUFF_TIMES, DEFAULT_BLUFF_TIME, DEFAULT_HAIKU_TIME, HAIKU_TIMES } from './constants';
+import { DEFAULT_RAID_MODE, RAID_MODES, BOUQUET_ALL_HANDS, DEFAULT_BOUQUET_ALL_HAND, BOUQUET_HANDS, DEFAULT_BOUQUET_HAND, DEFAULT_RELAY_TIME, RELAY_TIMES, BOMB_FUSES, BOMB_ROUNDS, DEFAULT_BOMB_FUSE, DEFAULT_BOMB_ROUNDS, BLEND_AMMOS, DEFAULT_BLEND_AMMO, BLEND_CROWDS, BLEND_TIMES, DEFAULT_BLEND_CROWD, DEFAULT_BLEND_TIME, BOUQUET_GOALS, BOUQUET_TIMES, DEFAULT_BOUQUET_TIME, BLUFF_TIMES, DEFAULT_BLUFF_TIME, DEFAULT_HAIKU_TIME, HAIKU_TIMES } from './constants';
 
 const charaOf = (n: unknown) => Number.isInteger(n) && (n as number) >= 0 && (n as number) < CHARA_MAX ? n as number : null;
 
 export function createRoom(code: string, hostId: string, minPlayers: number): RoomState {
-  return { code, hostId, minPlayers, gameNo: 1, gameMode: 'tier', pickMode: 'random', timeLimit: DEFAULT_TIME_LIMIT, fateTime: DEFAULT_FATE_TIME, fateQuota: DEFAULT_FATE_QUOTA, fateLives: DEFAULT_FATE_LIVES, haikuStyle: 'theme', haikuTime: DEFAULT_HAIKU_TIME, bluffTime: DEFAULT_BLUFF_TIME, blendTime: DEFAULT_BLEND_TIME, blendCrowd: DEFAULT_BLEND_CROWD, bombRounds: DEFAULT_BOMB_ROUNDS, bombFuse: DEFAULT_BOMB_FUSE, bombStyle: 'tap', relayTime: DEFAULT_RELAY_TIME, raidMode: DEFAULT_RAID_MODE, raidClassBy: {}, bouquetTime: DEFAULT_BOUQUET_TIME, bouquetGoal: 0, bouquetsBy: {}, bouquetWordsBy: {}, bouquetHand: DEFAULT_BOUQUET_HAND, bouquetMix: true, haikusBy: {}, players: [], topicsBy: {}, fivesBy: {}, fatesBy: {}, game: null };
+  return { code, hostId, minPlayers, gameNo: 1, gameMode: 'tier', pickMode: 'random', timeLimit: DEFAULT_TIME_LIMIT, fateTime: DEFAULT_FATE_TIME, fateQuota: DEFAULT_FATE_QUOTA, fateLives: DEFAULT_FATE_LIVES, haikuStyle: 'theme', haikuTime: DEFAULT_HAIKU_TIME, bluffTime: DEFAULT_BLUFF_TIME, blendTime: DEFAULT_BLEND_TIME, blendCrowd: DEFAULT_BLEND_CROWD, blendAmmo: DEFAULT_BLEND_AMMO, bombRounds: DEFAULT_BOMB_ROUNDS, bombFuse: DEFAULT_BOMB_FUSE, bombStyle: 'tap', relayTime: DEFAULT_RELAY_TIME, raidMode: DEFAULT_RAID_MODE, raidClassBy: {}, bouquetTime: DEFAULT_BOUQUET_TIME, bouquetGoal: 0, bouquetsBy: {}, bouquetWordsBy: {}, bouquetHand: DEFAULT_BOUQUET_HAND, bouquetMix: true, bouquetAll: false, bouquetAllHand: DEFAULT_BOUQUET_ALL_HAND, haikusBy: {}, players: [], topicsBy: {}, fivesBy: {}, fatesBy: {}, game: null };
 }
 
 // 参加を受け付けるか。断るときはその理由
@@ -97,6 +97,14 @@ export function reduce(state: RoomState, a: ActionFrom, ctx: Ctx): RoomState {
       if (!isHost || room.game || !(BOUQUET_HANDS as readonly number[]).includes(a.n)) return state;
       room.bouquetHand = a.n;
       return room;
+    case 'bouquetAll':
+      if (!isHost || room.game || typeof a.on !== 'boolean' || room.bouquetAll === a.on) return state;
+      room.bouquetAll = a.on;
+      return room;
+    case 'bouquetAllHand':
+      if (!isHost || room.game || !(BOUQUET_ALL_HANDS as readonly number[]).includes(a.n)) return state;
+      room.bouquetAllHand = a.n;
+      return room;
     case 'bouquetMix':
       if (!isHost || room.game || typeof a.on !== 'boolean' || room.bouquetMix === a.on) return state;
       room.bouquetMix = a.on;
@@ -138,6 +146,10 @@ export function reduce(state: RoomState, a: ActionFrom, ctx: Ctx): RoomState {
     case 'blendCrowd':
       if (!isHost || room.game || !(BLEND_CROWDS as readonly number[]).includes(a.n)) return state;
       room.blendCrowd = a.n;
+      return room;
+    case 'blendAmmo':
+      if (!isHost || room.game || !(BLEND_AMMOS as readonly number[]).includes(a.n)) return state;
+      room.blendAmmo = a.n;
       return room;
     case 'bluffTime':
       if (!isHost || room.game || !(BLUFF_TIMES as readonly number[]).includes(a.sec)) return state;

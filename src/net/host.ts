@@ -93,12 +93,14 @@ export function startHost(o: HostOptions): void {
     }
     botTimers = bots.filter(b => b.id in g.hands).map(b => {
       // 手札から、ちがう2枚を選んで、あいだに助詞を入れる（手札の枚数や中身は、ロビーの設定で変わる）
+      // 並べ方が「ぜんぶ使う」のときは、全部をでたらめな順に並べて、あいだに助詞を入れる（数は、決まりの上限まで）
       const n = g.hands[b.id].length, first = rnd(n), second = (first + 1 + rnd(n - 1)) % n;
-      const tokens = [first, -(1 + rnd(8)), second];
+      const order = g.hands[b.id].map((_, i) => i).sort(() => Math.random() - 0.5);
+      const tokens = g.all ? order.flatMap((c, i) => i ? [-(1 + rnd(8)), c] : [c]) : [first, -(1 + rnd(8)), second];
       return setTimeout(() => dispatch(b.id, { t: 'phrase', round: g.round, tokens }), 3000 + Math.random() * 7000);
     });
   }
-  // まぎれろ！：さがす側の CPU は、時間のどこかで1体を選ぶ（4回に1回は当てる）。かくれる側の CPU は、ルールが動かす
+  // まぎれろ！：さがす側の CPU は、時間のどこかで撃つ（弾の数だけ。4回に1回は当てる）。かくれる側の CPU は、ルールが動かす
   function runBlendBots() {
     const g = room.game;
     const bots = botsNow();
@@ -108,10 +110,14 @@ export function startHost(o: HostOptions): void {
     botTurn = turn;
     botTimers.forEach(clearTimeout);
     const span = g.deadline - Date.now();
-    botTimers = bots.filter(b => b.id !== g.hiderId).map(b => {
-      const i = Math.random() < 0.25 ? g.me : Math.floor(Math.random() * g.mobs.length);
-      return setTimeout(() => dispatch(b.id, { t: 'suspect', round: g.round, i }), span * (0.3 + Math.random() * 0.65));
-    });
+    const round = g.round;
+    botTimers = bots.filter(b => b.id !== g.hiderId).flatMap(b => Array.from({ length: g.ammo[b.id] ?? 0 }, () => setTimeout(() => {
+      // 撃つときに、倒れていない1体から選ぶ
+      const now = room.game;
+      if (now?.kind !== 'blend' || now.phase !== 'hide' || now.round !== round) return;
+      const up = now.mobs.map((_, i) => i).filter(i => !now.down.includes(i));
+      dispatch(b.id, { t: 'shoot', round, i: Math.random() < 0.25 ? now.me : up[Math.floor(Math.random() * up.length)] });
+    }, span * (0.3 + Math.random() * 0.65))));
   }
   // 爆弾まわし：爆弾を持ったら、少し考えて選ぶ（7割で正解）。当てたら、ランダムな相手に渡す
   function runBombBots() {
