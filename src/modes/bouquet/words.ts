@@ -45,9 +45,13 @@ export const ALL_WORDS: readonly string[] = [...NOUNS, ...PHRASES, ...MODS];
 // 手札：プリセットの分は、名詞・言い回し・修飾を 6：5：3 の割合で配る（文になりやすいよう、種類を混ぜる）
 const HAND = { nouns: 6, phrases: 5, mods: 3 };
 export const HAND_SIZE = HAND.nouns + HAND.phrases + HAND.mods; // 初期値の枚数
-// own = みんなが持ってきた言葉。mix = プリセットと混ぜる（持ち寄りは半分まで）／false = 持ち寄りだけ（足りない分はプリセット）
+// own = みんなが持ってきた言葉。mix = プリセットと混ぜる／false = 持ち寄りだけ（足りない分はプリセット）
+// 混ぜるとき、持ってきた言葉は1語ごとに OWN_CHANCE の割合で手札に入る（上限は手札の半分）。
+// 「必ず入れる」だと、持ち寄りが1語だけのときに、その言葉が全員の手札に毎回入ってしまうため
+export const OWN_CHANCE = 1 / 3;
 export function dealHand(random: Random, size = HAND_SIZE, own: readonly string[] = [], mix = true): string[] {
-  const mine = shuffle([...new Set(own)], random).slice(0, mix ? Math.floor(size / 2) : size);
+  const pool = shuffle([...new Set(own)], random);
+  const mine = mix ? pool.filter(() => random() < OWN_CHANCE).slice(0, Math.floor(size / 2)) : pool.slice(0, size);
   const rest = size - mine.length;
   const nouns = Math.round(rest * HAND.nouns / HAND_SIZE), phrases = Math.round(rest * HAND.phrases / HAND_SIZE), mods = rest - nouns - phrases;
   // プリセットの分からは、持ってきた言葉と同じものを外す（手札の中で重ならないように。割合もくずれない）

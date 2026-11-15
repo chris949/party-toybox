@@ -4,7 +4,7 @@ import { nextTimer } from '../src/core/room';
 import { seeded } from '../src/core/random';
 import { viewFor } from '../src/core/view';
 import type { BouquetState } from '../src/modes/bouquet/rules';
-import { ALL_WORDS, dealHand, HAND_SIZE, PARTICLES, particleToken, PHRASE_MAX, SAMPLE_BOUQUETS, sanitizeBouquets, sanitizeBouquetWords, toPhrase, WORD_COUNT } from '../src/modes/bouquet/words';
+import { ALL_WORDS, dealHand, HAND_SIZE, OWN_CHANCE, PARTICLES, particleToken, PHRASE_MAX, SAMPLE_BOUQUETS, sanitizeBouquets, sanitizeBouquetWords, toPhrase, WORD_COUNT } from '../src/modes/bouquet/words';
 import { samples, testRoom } from './helpers';
 
 // ゲーム開始の手前まで。themes[i] は i 番目の人が持ってくるお題
@@ -35,14 +35,29 @@ describe('手札の枚数と、言葉の持ち寄り', () => {
     }
   });
   it('プリセットと混ぜる：持ってきた言葉は、手札の半分まで。残りはプリセット', () => {
+    const many = Array.from({ length: 120 }, (_, i) => `持ち寄り${i}`);
     for (const size of BOUQUET_HANDS) {
-      const h = dealHand(seeded(size), size, own, true);
-      expect(h).toHaveLength(size);
-      expect(new Set(h).size).toBe(size);
-      expect(h.filter(w => own.includes(w))).toHaveLength(Math.min(own.length, Math.floor(size / 2)));
+      for (let seed = 1; seed <= 30; seed++) {
+        const h = dealHand(seeded(seed * 31 + size), size, many, true);
+        expect(h).toHaveLength(size);
+        expect(new Set(h).size).toBe(size);
+        expect(h.filter(w => many.includes(w)).length).toBeLessThanOrEqual(Math.floor(size / 2));
+      }
     }
-    // 持ってきた言葉が少ないときは、あるだけ入る
-    expect(dealHand(seeded(3), 14, ['筋肉', '筋肉', '銀河'], true).filter(w => ['筋肉', '銀河'].includes(w))).toHaveLength(2);
+  });
+  it('プリセットと混ぜる：1語だけ持ってきても、毎回は出ない（3回に1回くらい）', () => {
+    const N = 3000;
+    const random = seeded(20261116); // 1つの乱数を使い続ける（小さい種は、最初の値が小さくかたよるため）
+    let seen = 0;
+    for (let i = 0; i < N; i++) if (dealHand(random, 14, ['たこ焼き', 'たこ焼き'], true).includes('たこ焼き')) seen++;
+    expect(seen / N).toBeGreaterThan(OWN_CHANCE - 0.05);
+    expect(seen / N).toBeLessThan(OWN_CHANCE + 0.05);
+    // 6語なら、手札に入るのは平均2枚くらい
+    const six = own.slice(0, 6).map(w => `${w}!`);
+    let total = 0;
+    for (let i = 0; i < N; i++) total += dealHand(random, 14, six, true).filter(w => six.includes(w)).length;
+    expect(total / N).toBeGreaterThan(1.7);
+    expect(total / N).toBeLessThan(2.3);
   });
   it('持ち寄りだけ：手札を持ってきた言葉で配る。足りない分は、プリセットで埋める', () => {
     expect(dealHand(seeded(1), 10, own, false).every(w => own.includes(w))).toBe(true);

@@ -28,7 +28,7 @@ export function BouquetLobby({ pub, host }: { pub: Pub; host: boolean }) {
         </div>
       : <p style={{ margin: 0, fontWeight: 800 }}>{pub.bouquetMix ? 'プリセットと混ぜる' : '持ち寄りだけ'}</p>}
     <p className="muted small" style={{ margin: '6px 0 0' }}>みんなが持ってきた言葉：{brought}語。{pub.bouquetMix
-      ? '手札の半分までを持ってきた言葉から、残りをプリセットから配ります'
+      ? '持ってきた言葉は、1語につき3回に1回くらい手札に入ります（手札の半分まで）。残りはプリセットから配ります'
       : '手札を、持ってきた言葉だけで配ります（足りない分は、プリセットで埋めます）'}。言葉は「お題を選ぶ・編集する」のワードブーケで足せます</p>
     <h2 style={{ marginTop: 16 }}>終わり方</h2>
     {host
