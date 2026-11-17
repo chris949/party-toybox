@@ -1,20 +1,25 @@
 // お題の設定の「AIに頼む」「貼り付けて取り込む」「書き出す」「サンプル集」（docs/spec.md の 3.3.1）
 import { useState } from 'react';
-import { aiPrompt, keyOf, parseFate, parseFive, parseTier, writeFate, writeFive, writeTier, type Parsed, type TextMode } from '../core/topicText';
+import { aiPrompt, keyOf, parseFate, parseFive, parseLines, parseTier, writeFate, writeFive, writeLines, writeTier, type LineItem, type Parsed, type TextMode } from '../core/topicText';
+import { BOUQUET_WORD_MAX, BOUQUET_WORDS_PER_PLAYER, TITLE_MAX } from '../core/constants';
+import { clean } from '../core/text';
+import { SAMPLE_HAIKUS, THEME_LEN, toTheme } from '../modes/haiku/themes';
+import { SAMPLE_BOUQUETS } from '../modes/bouquet/words';
 import { ALL_SAMPLE_TOPICS, pickCount, type Topic } from '../modes/tier/topics';
 import { SAMPLE_FIVES, type FiveTopic } from '../modes/five/topics';
 import { SAMPLE_FATES, type FateQuestion } from '../modes/fate/questions';
 import { newTopicId } from '../storage/local';
 import { Notice } from '../ui/common';
-import { updateFates, updateFives, updateTopics, useStore } from './store';
+import { updateBouquets, updateBouquetWords, updateFates, updateFives, updateHaikus, updateTopics, useStore } from './store';
 
 type Tool = 'ai' | 'paste' | 'export' | 'samples';
-type Item = Topic | FiveTopic | FateQuestion;
+type Item = Topic | FiveTopic | FateQuestion | LineItem;
 
 // モードごとの違い（読み書き・一覧の見せ方・ストックへの足し方）をまとめる
 interface Adapter<T extends Item> {
   quiz: boolean;
-  unit: string; // 「お題」か「問題」
+  unit: string; // 「お題」か「問題」か「言葉」
+  lines?: boolean; // 1行に1つの書き方（ハイカー575・ワードブーケ）
   parse(text: string): Parsed<T>;
   write(list: T[]): string;
   key(t: T): string;
@@ -57,7 +62,36 @@ const fate: Adapter<FateQuestion> = {
   samples: SAMPLE_FATES,
   copyToEdit: q => useStore.setState({ editingFate: { id: null, ...q }, screen: 'editFate', notice: '' }),
 };
-const ADAPTERS = { tier, five, fate } as Record<TextMode, Adapter<Item>>;
+// ハイカー575・ワードブーケは、お題が1行だけ。1行に1つの書き方で読み書きする
+const haiku: Adapter<LineItem> = {
+  quiz: false, unit: 'お題', lines: true,
+  parse: text => parseLines(text, toTheme, `ひらがな${THEME_LEN}文字ではありません`), write: writeLines, key: t => t.text,
+  label: t => t.text, detail: () => '',
+  stock: () => useStore.getState().haikus,
+  brought: () => useStore.getState().haikus.filter(t => t.bring),
+  add: list => updateHaikus(hs => [...hs, ...list.map(t => ({ id: newTopicId(), text: t.text, bring: true }))]),
+  samples: SAMPLE_HAIKUS.map(text => ({ text })),
+};
+const bouquet: Adapter<LineItem> = {
+  quiz: false, unit: 'お題', lines: true,
+  parse: text => parseLines(text, l => clean(l, TITLE_MAX) || null, '読み取れませんでした'), write: writeLines, key: t => t.text,
+  label: t => t.text, detail: () => '',
+  stock: () => useStore.getState().bouquets,
+  brought: () => useStore.getState().bouquets.filter(t => t.bring),
+  add: list => updateBouquets(bs => [...bs, ...list.map(t => ({ id: newTopicId(), text: t.text, bring: true }))]),
+  samples: SAMPLE_BOUQUETS.map(text => ({ text })),
+};
+// 言葉は、入れたものをすべて持っていく（「持っていく」のチェックがない）。1人が持っていける数までで止める
+const bouquetWords: Adapter<LineItem> = {
+  quiz: false, unit: '言葉', lines: true,
+  parse: text => parseLines(text, l => clean(l, BOUQUET_WORD_MAX) || null, '読み取れませんでした'), write: writeLines, key: t => t.text,
+  label: t => t.text, detail: () => '',
+  stock: () => useStore.getState().bouquetWords.map(text => ({ text })),
+  brought: () => useStore.getState().bouquetWords.map(text => ({ text })),
+  add: list => updateBouquetWords(ws => [...new Set([...ws, ...list.map(t => t.text)])].slice(0, BOUQUET_WORDS_PER_PLAYER)),
+  samples: [],
+};
+const ADAPTERS = { tier, five, fate, haiku, bouquet, bouquetWords } as Record<TextMode, Adapter<Item>>;
 
 // コピー。使えない環境（http のページなど）では、文字を選んで自分でコピーしてもらう
 function useCopy() {
@@ -67,21 +101,28 @@ function useCopy() {
   return { done, copy };
 }
 
-export function TopicTools({ mode }: { mode: TextMode }) {
+export function TopicTools({ mode: tab }: { mode: Exclude<TextMode, 'bouquetWords'> }) {
   const [tool, setTool] = useState<Tool | null>(null);
+  // ワードブーケは、「お題」と「言葉」のどちらを扱うかを選ぶ
+  const [words, setWords] = useState(false);
+  const mode: TextMode = tab === 'bouquet' && words ? 'bouquetWords' : tab;
   const a = ADAPTERS[mode];
   const btn = (k: Tool, label: string) => <button className={`small ${tool === k ? 'on' : ''}`} onClick={() => setTool(tool === k ? null : k)}>{label}</button>;
   return <>
+    {tab === 'bouquet' && <div className="seg" style={{ marginBottom: 8 }} role="group" aria-label="まとめて作るもの">
+      <button className={words ? '' : 'on'} onClick={() => setWords(false)}>お題をまとめて作る</button>
+      <button className={words ? 'on' : ''} onClick={() => { setWords(true); if (tool === 'samples') setTool(null); }}>言葉をまとめて作る</button>
+    </div>}
     <div className="tools">
       {btn('ai', '🤖 AIに頼む')}
       {btn('paste', '📥 取り込む')}
       {btn('export', '📤 書き出す')}
-      {btn('samples', '📚 サンプル集')}
+      {a.samples.length > 0 && btn('samples', '📚 サンプル集')}
     </div>
     {tool === 'ai' && <AiPanel mode={mode} a={a} />}
     {(tool === 'ai' || tool === 'paste') && <PastePanel key={mode} a={a} />}
-    {tool === 'export' && <ExportPanel a={a} />}
-    {tool === 'samples' && <SamplePanel a={a} />}
+    {tool === 'export' && <ExportPanel key={mode} a={a} />}
+    {tool === 'samples' && a.samples.length > 0 && <SamplePanel key={mode} a={a} />}
   </>;
 }
 
@@ -133,12 +174,12 @@ function PastePanel({ a }: { a: Adapter<Item> }) {
     <section className="card">
       <h2>貼り付けて取り込む</h2>
       <p className="muted small" style={{ margin: '0 0 8px' }}>AI の返事や、書き出した文字を貼り付けてください。</p>
-      <textarea className="topic-text" value={text} placeholder={a.quiz ? `# ${a.unit}\n○ 正解\n× ${a.unit === '問題' ? '不正解' : 'ダミー'}` : '# お題\n選択肢\n選択肢'}
+      <textarea className="topic-text" value={text} placeholder={a.lines ? `1行に1つ、${a.unit}を書きます` : a.quiz ? `# ${a.unit}\n○ 正解\n× ${a.unit === '問題' ? '不正解' : 'ダミー'}` : '# お題\n選択肢\n選択肢'}
         onChange={e => { setText(e.target.value); setRes(null); }} />
       <button className="wide" style={{ marginTop: 8 }} disabled={!text.trim()} onClick={read}>読み取る</button>
-      {added > 0 && <Notice>{added}件を追加しました（「持っていく」にチェックが入っています）</Notice>}
+      {added > 0 && <Notice>{added}件を追加しました{a.unit === '言葉' ? '' : '（「持っていく」にチェックが入っています）'}</Notice>}
       {res && <>
-        {res.ok.length === 0 && <p className="muted">取り込める{a.unit}が見つかりませんでした。「#」で始まる行に{a.unit}を書いてください。</p>}
+        {res.ok.length === 0 && <p className="muted">取り込める{a.unit}が見つかりませんでした。{a.lines ? `1行に1つ、${a.unit}を書いてください。` : `「#」で始まる行に${a.unit}を書いてください。`}</p>}
         {a.quiz && res.ok.length > 0 && <Notice>AI の答えは、間違っていることがあります。正解を確かめてから使ってね。取り込んだ{a.unit}は、あなたが作った{a.unit}として出ます。</Notice>}
         {res.ok.map((t, i) => {
           const dup = stockKeys.has(a.key(t));
@@ -147,7 +188,7 @@ function PastePanel({ a }: { a: Adapter<Item> }) {
               <label style={{ flexWrap: 'wrap' }}>
                 <input type="checkbox" checked={!off.has(i)} onChange={e => setOff(s => { const x = new Set(s); if (e.target.checked) x.delete(i); else x.add(i); return x; })} />
                 <b>{a.label(t)}</b>{dup && <span className="muted small">登録済み</span>}
-                <span className="muted small" style={{ flexBasis: '100%', paddingLeft: 28 }}>{a.detail(t)}</span>
+                {a.detail(t) && <span className="muted small" style={{ flexBasis: '100%', paddingLeft: 28 }}>{a.detail(t)}</span>}
               </label>
             </div>
           );
@@ -168,9 +209,9 @@ function ExportPanel({ a }: { a: Adapter<Item> }) {
   return (
     <section className="card">
       <h2>書き出す</h2>
-      {list.length === 0 ? <p className="muted">「持っていく」にチェックした{a.unit}がありません。</p> : <>
+      {list.length === 0 ? <p className="muted">{a.unit === '言葉' ? 'まだ言葉がありません。' : `「持っていく」にチェックした${a.unit}がありません。`}</p> : <>
         <p className="muted small" style={{ margin: '0 0 8px' }}>
-          「持っていく」にチェックした{a.unit}（{list.length}件）を文字にしました。別の端末や友だちに送って、「貼り付けて取り込む」で読み込めます。
+          {a.unit === '言葉' ? '入れてある言葉' : `「持っていく」にチェックした${a.unit}`}（{list.length}件）を文字にしました。別の端末や友だちに送って、「貼り付けて取り込む」で読み込めます。
         </p>
         <textarea className="topic-text" readOnly value={text} onFocus={e => e.target.select()} />
         <div className="row" style={{ marginTop: 8 }}>
@@ -184,25 +225,25 @@ function ExportPanel({ a }: { a: Adapter<Item> }) {
 }
 
 function SamplePanel({ a }: { a: Adapter<Item> }) {
-  const stock = useStore(s => s.topics); // ティアリストの「追加済み」を、追加した直後に出し直すため
-  const keys = new Set(a.copyToEdit ? [] : stock.map(t => a.key(t as Item)));
+  const [, redraw] = useState(0); // 「追加済み」を、追加した直後に出し直すため
+  const keys = new Set(a.copyToEdit ? [] : a.stock().map(a.key));
   return (
     <section className="card">
       <h2>サンプル集 <span className="muted small">{a.samples.length}件</span></h2>
       <p className="muted small" style={{ margin: '0 0 8px' }}>{a.copyToEdit
         ? `サンプルは、足りない分を自動で補うので、追加しなくても出ます。「コピーして編集」で、サンプルを元に自分の${a.unit}を作れます。`
-        : '「追加」で、お題ストックに入ります。'}</p>
+        : a.lines ? 'サンプルは、持っていくお題がないときに、自動で使われます。「追加」で、自分のお題ストックにも入れられます。' : '「追加」で、お題ストックに入ります。'}</p>
       {a.samples.map((t, i) => {
         const has = keys.has(a.key(t));
         return (
           <div className="topic" key={i}>
             <label style={{ flexWrap: 'wrap', cursor: 'default' }}>
               <b>{a.label(t)}</b>
-              <span className="muted small" style={{ flexBasis: '100%' }}>{a.detail(t)}</span>
+              {a.detail(t) && <span className="muted small" style={{ flexBasis: '100%' }}>{a.detail(t)}</span>}
             </label>
             {a.copyToEdit
               ? <button onClick={() => a.copyToEdit!(t)}>コピーして編集</button>
-              : <button disabled={has} onClick={() => a.add([t])}>{has ? '追加済み' : '追加'}</button>}
+              : <button disabled={has} onClick={() => { a.add([t]); redraw(n => n + 1); }}>{has ? '追加済み' : '追加'}</button>}
           </div>
         );
       })}

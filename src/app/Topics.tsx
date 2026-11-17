@@ -46,8 +46,8 @@ export function Topics() {
         </button>
       ))}</nav>
       <div className="topics-main">
-      {/* 取り込み・書き出しは、お題を作って持ち寄るモードにだけ置く（ハイカー575 は、その場でみんなが書く。ワードブーケは、お題が1行だけ） */}
-      {(tab === 'tier' || tab === 'five' || tab === 'fate') && <TopicTools key={tab} mode={tab} />}
+      {/* AIに頼む・取り込み・書き出しは、お題を作れるモードのすべてに置く（docs/spec.md の 3.3.1） */}
+      <TopicTools key={tab} mode={tab as 'tier' | 'five' | 'fate' | 'haiku' | 'bouquet'} />
       {tab === 'five' ? <FiveList /> : tab === 'fate' ? <FateList /> : tab === 'haiku' ? <HaikuList /> : tab === 'bouquet' ? <BouquetList /> : <TierList />}
       </div>
       </div>
