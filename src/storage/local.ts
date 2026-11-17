@@ -108,6 +108,11 @@ export const saveFateView = (m: FateViewMode) => local.set('tlw-fate-view', m);
 export const loadName = () => local.get('tlw-name', '');
 export const saveName = (name: string) => local.set('tlw-name', name);
 
+// PC 幅のタイトル・ホームの、3Dの背景の画質（docs/spec.md の 3.0a）。off = 出さない
+export type BackdropQuality = 'high' | 'mid' | 'low' | 'off';
+export const loadBackdrop = (): BackdropQuality => { const q = local.get<unknown>('tlw-backdrop', 'high'); return q === 'mid' || q === 'low' || q === 'off' ? q : 'high'; };
+export const saveBackdrop = (q: BackdropQuality) => local.set('tlw-backdrop', q);
+
 export type SoundMode = 'all' | 'se' | 'off';
 export const loadSoundMode = (): SoundMode => local.get<SoundMode>('tlw-sound', 'all');
 export const saveSoundMode = (m: SoundMode) => local.set('tlw-sound', m);

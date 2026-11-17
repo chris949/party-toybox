@@ -1,5 +1,5 @@
 // タイトル画面（docs/spec.md の 3.0）。ホームの前に、短く見せる。じゃまにならないよう、出す場面をしぼり、放っておいても進む
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { PUBLIC_MODES } from '../core/types';
 import { loadLastRoom, loadTitleDay, markTitleDay } from '../storage/local';
@@ -7,6 +7,7 @@ import { TIER_COLORS } from '../ui/common';
 import { HOWTO } from './howto';
 
 const AUTO_MS = 3200; // 何もしなくても、この時間でホームへ進む
+const HOLD_MAX_MS = 6000; // 3Dの背景を待つ時間の上限（PC 幅。読み込みが遅くても、ここで数え始める）
 const today = () => new Date().toDateString();
 
 // タイトル画面を出すか：招待リンクから来た人・切断から戻った人・その日に一度見た人・「動きを減らす」設定の人には出さない。
@@ -22,14 +23,21 @@ export function shouldShowTitle(): boolean {
 const LETTERS_1 = [...'パーティ'], LETTERS_2 = [...'トイボックス'];
 const pop = (i: number) => ({ initial: { opacity: 0, y: 30, scale: 0.4, rotate: -12 }, animate: { opacity: 1, y: 0, scale: 1, rotate: 0 }, transition: { delay: 0.15 + i * 0.07, type: 'spring' as const, stiffness: 420, damping: 16 } });
 
-export function Title({ onDone }: { onDone(): void }) {
+// hold = 3Dの背景の読み込みを待っている（PC 幅）。出てから時間を数える（背景を見せないまま、ホームへ進まないように）
+export function Title({ onDone, hold = false }: { onDone(): void; hold?: boolean }) {
+  const [waited, setWaited] = useState(false);
   useEffect(() => {
     markTitleDay(today());
-    const id = setTimeout(onDone, AUTO_MS);
+    const max = setTimeout(() => setWaited(true), HOLD_MAX_MS);
     const key = () => onDone();
     window.addEventListener('keydown', key);
-    return () => { clearTimeout(id); window.removeEventListener('keydown', key); };
+    return () => { clearTimeout(max); window.removeEventListener('keydown', key); };
   }, []);
+  useEffect(() => {
+    if (hold && !waited) return;
+    const id = setTimeout(onDone, AUTO_MS);
+    return () => clearTimeout(id);
+  }, [hold, waited]);
   const modes = PUBLIC_MODES;
   return (
     <motion.div className="title" role="button" tabIndex={0} aria-label="タイトル画面。タップすると、はじまります" onClick={onDone}

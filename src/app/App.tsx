@@ -3,6 +3,7 @@ import { AnimatePresence, MotionConfig, motion } from 'motion/react';
 import { ConfirmDialog, ErrorBanner } from '../ui/common';
 import { Home, HowToScreen } from './Home';
 import { shouldShowTitle, Title } from './Title';
+import { Backdrop } from './backdrop/Backdrop';
 import { Room } from './Room';
 import { useStore } from './store';
 import { Topics } from './Topics';
@@ -12,12 +13,16 @@ import { EditFate } from '../modes/fate/TopicsEditor';
 import { SoundSettings } from './SoundSettings';
 import { Sound, type Scene } from '../audio/sound';
 
+// 端末で「動きを減らす」設定をしている人には、3Dの背景を出さない
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
 export function App() {
   const screen = useStore(s => s.screen);
   const pub = useStore(s => s.pub);
   const inRoom = screen === 'room' && pub;
   // タイトル画面は、開いたときに一度だけ判断する（ホームの上に重ねて出し、消えるとホームが見える）
   const [title, setTitle] = useState(shouldShowTitle);
+  const [backdropReady, setBackdropReady] = useState(REDUCED); // 3Dの背景が出た（出さない場合も true）
   // 画面（フェーズ）が変わったときだけ入場の動きを付ける。同じ画面の更新では動かさない
   // 運命の二者択一は、出題から発表までキャラクターが同じ場所に居続けるので、1ゲームを通して同じ画面として扱う
   // ダイスレイドは、盤面のページを枠の中に開いたままにするので、1ゲームを通して同じ画面として扱う（作り直すと、盤面を読み込み直してしまう）
@@ -31,10 +36,12 @@ export function App() {
   useEffect(() => { document.getElementById('app')?.classList.toggle('wide', !!inRoom || screen === 'topics'); }, [inRoom, screen]);
   // 端末で「動きを減らす」設定をしている人には、揺れや回転を出さない
   return <MotionConfig reducedMotion="user">
-    <motion.div key={key} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+    {/* PC 幅のタイトルとホームの後ろに、3Dの背景（スマホ幅では、何も読み込まない） */}
+    {!inRoom && (screen === 'home' || title) && !REDUCED && <Backdrop sharp={title} onReady={() => setBackdropReady(true)} />}
+    <motion.div key={key} className={title && !inRoom ? 'screen under-title' : 'screen'} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
       {inRoom ? <Room /> : screen === 'topics' ? <Topics /> : screen === 'edit' ? <Edit /> : screen === 'editFive' ? <EditFive /> : screen === 'editFate' ? <EditFate /> : screen === 'sound' ? <SoundSettings /> : screen === 'howto' ? <HowToScreen /> : <Home />}
     </motion.div>
-    <AnimatePresence>{title && !inRoom && <Title key="title" onDone={() => setTitle(false)} />}</AnimatePresence>
+    <AnimatePresence>{title && !inRoom && <Title key="title" hold={!backdropReady} onDone={() => setTitle(false)} />}</AnimatePresence>
     <ConfirmDialog />
     <ErrorBanner />
   </MotionConfig>;

@@ -280,3 +280,38 @@ textarea.topic-text[readonly] { background: #fff; }
 .title-games span { display: grid; place-items: center; width: clamp(46px, 9vw, 68px); height: clamp(46px, 9vw, 68px); border-radius: 18px; background: #fff; border: 2.5px solid var(--ink); box-shadow: 0 4px 0 var(--ink); font-size: clamp(22px, 4.6vw, 34px); }
 .title-games b { display: block; font-weight: 400; }
 .title-tap { margin: 22px 0 0; font-size: 16px; font-weight: 900; }
+
+/* ===== PC 幅：タイトルとホームの後ろの、3Dの背景（docs/spec.md の 3.0a） ===== */
+/* z-index は -1：#app の中に置くので、0 だと、ロゴなどの「位置を指定していない要素」の上に重なってしまう */
+.backdrop { position: fixed; inset: 0; z-index: -1; opacity: 0; transition: opacity .6s; pointer-events: none; }
+.backdrop.ready { opacity: 1; }
+.backdrop canvas { display: block; width: 100%; height: 100%; transition: filter .5s; }
+/* ホームでは、手前の文字が読めるように、ぼかして、白をうすく重ねる（画質「低」は、ぼかしが重いので、白を濃くするだけ） */
+.backdrop.soft canvas { filter: blur(5px); transform: scale(1.03); }
+.backdrop.soft.q-low canvas { filter: none; transform: none; }
+.backdrop::after { content: ""; position: absolute; inset: 0; background: #eaf6ff; opacity: 0; transition: opacity .5s; }
+.backdrop.soft::after { opacity: .34; }
+.backdrop.soft.q-low::after { opacity: .55; }
+body.has-backdrop #app { position: relative; z-index: 1; }
+/* タイトルの地を透かして、3Dを見せる。その間、下のホームは隠す（透けて重なるため） */
+body.has-backdrop .title { background: linear-gradient(#ffffff00 55%, #ffffff66); }
+body.has-backdrop .screen.under-title { visibility: hidden; }
+/* 3Dのおもちゃを見せるので、ロゴを上に寄せて小さくし、ゲームの印の列は出さない（おもちゃが、その代わり） */
+body.has-backdrop .title { justify-content: flex-start; padding-top: 7vh; }
+body.has-backdrop .title-logo { font-size: clamp(44px, 6.4vw, 84px); }
+body.has-backdrop .title-games { display: none; }
+body.has-backdrop .title-tap { position: absolute; left: 0; right: 0; bottom: 5vh; }
+body.has-backdrop .title-sub { color: var(--ink); text-shadow: 0 0 10px #fff, 0 0 10px #fff; }
+body.has-backdrop .title-tap { text-shadow: 0 0 10px #fff, 0 0 10px #fff; }
+body.has-backdrop .home-play, body.has-backdrop .menu-item { background: #ffffffe6; backdrop-filter: blur(6px); }
+body.has-backdrop .sub { color: var(--ink); text-shadow: 0 0 8px #fff, 0 0 8px #fff; }
+/* 読み込みの進み具合 */
+.backdrop-load { position: fixed; left: 50%; bottom: 26px; z-index: 90; transform: translateX(-50%); display: grid; gap: 6px; justify-items: center; pointer-events: none; }
+.backdrop-bar { width: 220px; height: 12px; border-radius: 8px; border: 2.5px solid var(--ink); background: #fff; overflow: hidden; }
+.backdrop-bar span { display: block; height: 100%; background: var(--sun); transition: width .4s; }
+.backdrop-load small { font-weight: 800; color: var(--muted); }
+/* 画質の切り替え（ホームの左下） */
+.backdrop-quality { position: fixed; left: 16px; bottom: 14px; z-index: 2; display: flex; align-items: center; gap: 4px; padding: 4px 6px 4px 10px; border-radius: 999px; background: #ffffffd9; border: 2px solid var(--ink); }
+.backdrop-quality small { font-weight: 800; color: var(--muted); margin-right: 2px; }
+.backdrop-quality button { min-height: 0; padding: 3px 10px; border-radius: 999px; border: 0; box-shadow: none; background: transparent; font-size: 12px; font-weight: 800; }
+.backdrop-quality button.on { background: var(--ink); color: #fff; }
