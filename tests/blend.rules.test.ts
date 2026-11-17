@@ -219,6 +219,37 @@ describe('まぎれろ！：撃つ', () => {
   });
 });
 
+describe('まぎれろ！：狙う', () => {
+  it('狙っている場所は、全員に見える。かくれる人・弾切れの人は、狙えない。発表では消える', () => {
+    const r = blendRoom(4);
+    r.ready();
+    const hider = r.g.hiderId, [a, b] = r.seekerIds(), me = r.g.me;
+    r.act(a, { t: 'aim', round: r.g.round, x: 1.234, z: -2, on: true });
+    r.act(hider, { t: 'aim', round: r.g.round, x: 0, z: 0, on: true });
+    r.act(b, { t: 'aim', round: r.g.round + 1, x: 0, z: 0, on: true }); // 前後のラウンドの操作は効かない
+    r.act(a, { t: 'aim', round: r.g.round, x: 99, z: -99, on: true });   // 舞台の少し外までに収める
+    expect(r.g.aims).toEqual({ [a]: { x: BLEND_W / 2 + 1, z: -BLEND_D / 2 - 1 } });
+    r.act(a, { t: 'aim', round: r.g.round, x: 1.234, z: -2, on: true });
+    // かくれる人にも、ほかのさがす人にも、同じものが見える
+    for (const id of [hider, b]) expect(viewFor(r.room, id, r.ctx.now).blend!.seekers.find(s => s.id === a)!.aim).toEqual([123, -200]);
+    expect(viewFor(r.room, hider, r.ctx.now).blend!.seekers.find(s => s.id === b)!.aim).toBeNull();
+    // 狙うのをやめる
+    r.act(a, { t: 'aim', round: r.g.round, x: 0, z: 0, on: false });
+    expect(r.g.aims).toEqual({});
+    // 弾を使いきったら、レーザーは消えて、もう狙えない
+    r.act(a, { t: 'aim', round: r.g.round, x: 1, z: 1, on: true });
+    r.act(a, { t: 'shoot', round: r.g.round, i: (me + 1) % DEFAULT_BLEND_CROWD });
+    expect(r.g.aims[a]).toBeUndefined();
+    r.act(a, { t: 'aim', round: r.g.round, x: 1, z: 1, on: true });
+    expect(r.g.aims[a]).toBeUndefined();
+    // 発表では、狙いを見せない
+    r.act(b, { t: 'aim', round: r.g.round, x: 2, z: 2, on: true });
+    r.act(b, { t: 'shoot', round: r.g.round, i: me });
+    expect(r.g.phase).toBe('found');
+    expect(viewFor(r.room, hider, r.ctx.now).blend!.seekers.every(s => s.aim === null)).toBe(true);
+  });
+});
+
 describe('まぎれろ！：体が重ならない', () => {
   it('最初の位置も、動いている間も、決めた近さより近づかない（人が動かす1体も同じ）', () => {
     for (const seed of [3, 11, 29]) {

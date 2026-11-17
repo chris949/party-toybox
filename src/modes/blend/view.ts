@@ -21,7 +21,7 @@ export interface BlendView {
   loaded: number;         // 弾が残っている、さがす人の数
   down: number[];         // 撃たれて倒れた番号（全員に見える）
   shots: { id: string; name: string; i: number; hit: boolean }[]; // 撃った記録（全員に見える）
-  seekers: { id: string; name: string; ammo: number }[];          // さがす人と、残りの弾
+  seekers: { id: string; name: string; ammo: number; aim: [number, number] | null }[]; // さがす人と、残りの弾、狙っている場所（100倍の整数。全員に見せる）
   end: BlendEnd | null;   // 終わり方（発表のとき）
   gained: Record<string, number> | null;
   void: boolean;
@@ -45,7 +45,7 @@ export function blendView(g: BlendState, id: string, now: number, ammoMax: numbe
     loaded: Object.values(g.ammo).filter(n => n > 0).length,
     down: g.down,
     shots: g.shots.map(s => ({ id: s.by, name: g.names[s.by] ?? '???', i: s.i, hit: s.hit })),
-    seekers: g.ring.filter(pid => pid !== g.hiderId).map(pid => ({ id: pid, name: g.names[pid] ?? '???', ammo: g.ammo[pid] ?? 0 })),
+    seekers: g.ring.filter(pid => pid !== g.hiderId).map(pid => ({ id: pid, name: g.names[pid] ?? '???', ammo: g.ammo[pid] ?? 0, aim: !found && g.aims[pid] ? [Math.round(g.aims[pid].x * 100), Math.round(g.aims[pid].z * 100)] as [number, number] : null })),
     end: found ? g.end : null,
     gained: found ? g.gained : null,
     void: g.void,

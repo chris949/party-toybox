@@ -111,13 +111,30 @@ export function startHost(o: HostOptions): void {
     botTimers.forEach(clearTimeout);
     const span = g.deadline - Date.now();
     const round = g.round;
-    botTimers = bots.filter(b => b.id !== g.hiderId).flatMap(b => Array.from({ length: g.ammo[b.id] ?? 0 }, () => setTimeout(() => {
-      // 撃つときに、倒れていない1体から選ぶ
-      const now = room.game;
-      if (now?.kind !== 'blend' || now.phase !== 'hide' || now.round !== round) return;
-      const up = now.mobs.map((_, i) => i).filter(i => !now.down.includes(i));
-      dispatch(b.id, { t: 'shoot', round, i: Math.random() < 0.25 ? now.me : up[Math.floor(Math.random() * up.length)] });
-    }, span * (0.3 + Math.random() * 0.65))));
+    const live = () => { const now = room.game; return now?.kind === 'blend' && now.phase === 'hide' && now.round === round ? now : null; };
+    botTimers = bots.filter(b => b.id !== g.hiderId).flatMap(b => {
+      // レーザー：あちこちの1体へ、ふらふら移る。撃つ前の1秒ほどは、撃つ相手に合わせ続ける（撃たれる前に、気づけるように）
+      let look = -1, until = 0, locked = -1;
+      const wander = setInterval(() => {
+        const now = live();
+        if (!now || !(now.ammo[b.id] > 0)) return;
+        const up = now.mobs.map((_, i) => i).filter(i => !now.down.includes(i));
+        if (locked >= 0) look = locked;
+        else if (Date.now() > until || !up.includes(look)) { look = up[Math.floor(Math.random() * up.length)]; until = Date.now() + 1200 + Math.random() * 2500; }
+        const m = now.mobs[look];
+        if (m) dispatch(b.id, { t: 'aim', round, x: m.x + (Math.random() - 0.5) * 0.3, z: m.z + (Math.random() - 0.5) * 0.3, on: true });
+      }, 300);
+      const shots = Array.from({ length: g.ammo[b.id] ?? 0 }, () => setTimeout(() => {
+        // 撃つ相手を、倒れていない1体から決める（4回に1回は当てる）。1秒ほど狙ってから、撃つ
+        const now = live();
+        if (!now) return;
+        const up = now.mobs.map((_, i) => i).filter(i => !now.down.includes(i));
+        locked = Math.random() < 0.25 ? now.me : up[Math.floor(Math.random() * up.length)];
+        const fire = setTimeout(() => { const i = locked; locked = -1; if (live() && !live()!.down.includes(i)) dispatch(b.id, { t: 'shoot', round, i }); }, 1100);
+        botTimers.push(fire);
+      }, span * (0.3 + Math.random() * 0.6)));
+      return [wander as unknown as ReturnType<typeof setTimeout>, ...shots];
+    });
   }
   // 爆弾まわし：爆弾を持ったら、少し考えて選ぶ（7割で正解）。当てたら、ランダムな相手に渡す
   function runBombBots() {
@@ -201,6 +218,8 @@ export function startHost(o: HostOptions): void {
     const next = reduce(room, { ...a, from } as never, { now: Date.now(), random: Math.random });
     if (next === room) return;
     room = next;
+    // まぎれろ！の「狙っている場所」は、覚えるだけ。次に位置を配るとき（0.2秒ごと）に、まとめて配る（届くたびに全員へ配ると、通信が増えすぎる）
+    if (a.t === 'aim') return;
     broadcast();
     runBots();
     if (timer) clearTimeout(timer);

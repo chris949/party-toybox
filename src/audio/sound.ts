@@ -8,7 +8,7 @@ import { loadSoundMode, loadVolumes, saveSoundMode, saveVolumes, type SoundMode,
 
 export type Scene = 'lobby' | 'pick' | 'reveal' | 'result';
 export const SCENES: Record<Scene, string> = { lobby: 'ロビー・ホーム', pick: '並び替え（準備・予想）', reveal: '答え合わせ', result: '最終結果' };
-export type SfxName = 'click' | 'start' | 'pop' | 'tick' | 'drumroll' | 'fanfare' | 'perfect' | 'fall' | 'saved';
+export type SfxName = 'click' | 'start' | 'pop' | 'tick' | 'drumroll' | 'fanfare' | 'perfect' | 'fall' | 'saved' | 'shot' | 'boom';
 
 interface Track { url: string; format: string; label: string }
 
@@ -153,6 +153,17 @@ const SYNTH_SFX: Record<SfxName, (t: number) => void> = {
     noise(t, 0.12, 0.7, seGain, 400); tone(110, t, 0.15, 'square', 0.4);
     tone(1400, t + 0.5, 0.85, 'sine', 0.5).frequency.exponentialRampToValueAtTime(140, t + 1.3);
     tone(60, t + 1.35, 0.3, 'sine', 0.9); noise(t + 1.35, 0.18, 0.5, seGain, 150);
+  },
+  // レーザーを撃つ「ピシュン」
+  shot: t => {
+    tone(1800, t, 0.18, 'sawtooth', 0.45).frequency.exponentialRampToValueAtTime(220, t + 0.16);
+    noise(t, 0.06, 0.5, seGain, 3000);
+  },
+  // 爆発「ドカーン」：低い音が、長く尾を引く
+  boom: t => {
+    noise(t, 0.9, 1, seGain, 220); noise(t, 0.25, 0.8, seGain, 1200);
+    tone(90, t, 0.7, 'sine', 1).frequency.exponentialRampToValueAtTime(32, t + 0.6);
+    tone(180, t, 0.2, 'square', 0.35).frequency.exponentialRampToValueAtTime(60, t + 0.18);
   },
   // 床が開いたのに助かった「ガコン…ほっ」
   saved: t => {
