@@ -19,6 +19,7 @@ export interface BlendStageState {
   lastShot: number | null; // 最後に撃たれた番号
   lastShooter: string | null; // 最後に撃った人（その人の銃から、光の線を出す）
   lastHit: boolean;       // 最後の1発が、当たりだった（爆発させる）
+  says: { i: number; text: string }[]; // いま、しゃべっている1体と、そのセリフ
   found: boolean;         // 発表
   name: string;           // 発表で出す、かくれた人の名前
   canMove: boolean;       // 床をタップして動かせる（かくれている本人）
@@ -61,6 +62,8 @@ export class BlendScene {
   private burstAt = -10;
   private bang: THREE.Mesh;        // 撃たれた瞬間の輪
   private guns: GunObj[] = [];
+  // 吹き出し：しゃべっている1体の頭の上に出す。出るとき・消えるときに、ふわっと変わる
+  private talks = new Map<string, { sprite: THREE.Sprite; i: number; w: number; life: number; gone: number }>();
   // 撃ったときの演出：太い光の線・銃口の光・火の玉・飛び散るかけら・画面の揺れ
   private flash: THREE.Mesh;
   private flashAt = -10;
@@ -195,6 +198,7 @@ export class BlendScene {
     this.canvas.style.touchAction = st.canAim ? 'none' : 'manipulation'; // 狙っている間は、指で動かしても、ページを動かさない
     if (!st.canAim) { this.myAim = null; this.hover = -1; this.dragging = false; this.aimDirty = false; }
     this.syncGuns(st);
+    this.syncTalks(st);
     this.st = st;
   }
 
@@ -337,6 +341,7 @@ export class BlendScene {
 
     this.stepGuns(dt);
     this.stepFx(dt);
+    this.stepTalks(dt);
     // 自分の照準の下の1体に、赤い輪と ▼（さがす人）
     const aimed = st.canAim && this.hover >= 0 && !st.down.includes(this.hover) ? this.hover : null;
     const picked = aimed != null ? this.actors[aimed] : undefined;
@@ -351,6 +356,57 @@ export class BlendScene {
       this.arrow.rotation.y = now * 2;
       if (this.label) this.label.position.set(marked.x, top + 0.15, marked.z - 0.2);
     }
+  }
+
+  // 吹き出しを、届いたセリフに合わせる。新しいものは作り、なくなったものは、消え始める
+  private syncTalks(st: BlendStageState) {
+    const want = new Set(st.says.map(s => `${st.key}|${s.i}|${s.text}`));
+    for (const [k, t] of this.talks) if (!want.has(k) && t.gone < 0) t.gone = 0;
+    for (const s of st.says) {
+      const k = `${st.key}|${s.i}|${s.text}`;
+      if (this.talks.has(k) || !this.actors[s.i]) continue;
+      // 小さな白い札に、セリフを書く（文字の長さに合わせて、横に伸ばす）
+      const c = document.createElement('canvas'), g = c.getContext('2d')!;
+      const font = '800 34px "M PLUS Rounded 1c", "Hiragino Maru Gothic ProN", sans-serif';
+      g.font = font;
+      const w = Math.ceil(g.measureText(s.text).width) + 36, h = 68;
+      c.width = w; c.height = h;
+      g.font = font;
+      g.fillStyle = '#ffffff'; g.strokeStyle = INK; g.lineWidth = 4;
+      g.beginPath(); g.roundRect(3, 3, w - 6, 48, 22); g.fill(); g.stroke();
+      g.beginPath(); g.moveTo(w / 2 - 9, 50); g.lineTo(w / 2, 64); g.lineTo(w / 2 + 9, 50); g.closePath(); g.fill(); g.stroke();
+      g.fillRect(w / 2 - 8, 46, 16, 6); // しっぽの付け根の線を消す
+      g.fillStyle = INK; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(s.text, w / 2, 28);
+      const map = new THREE.CanvasTexture(c);
+      map.colorSpace = THREE.SRGBColorSpace;
+      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map, transparent: true, depthTest: false, depthWrite: false, opacity: 0 }));
+      sprite.renderOrder = 9;
+      this.scene.add(sprite);
+      this.talks.set(k, { sprite, i: s.i, w: w / h, life: 0, gone: -1 });
+    }
+  }
+  // 吹き出しを、しゃべっている1体に付いて行かせる。小さく、少し透かす（狙うじゃまにしない）
+  private stepTalks(dt: number) {
+    const small = this.canvas.clientWidth < 520 ? 0.72 : 0.62; // 小さい画面では、文字が読めるように、少し大きく
+    for (const [k, t] of this.talks) {
+      const a = this.actors[t.i];
+      t.life += dt;
+      if (t.gone >= 0) t.gone += dt;
+      if (!a || t.gone > 0.25) { this.dropTalk(k); continue; }
+      const show = Math.min(1, t.life / 0.18) * (t.gone >= 0 ? 1 - t.gone / 0.25 : 1);
+      t.sprite.material.opacity = 0.86 * show;
+      t.sprite.scale.set(small * t.w * (0.7 + 0.3 * show), small * (0.7 + 0.3 * show), 1);
+      t.sprite.position.set(a.x, a.chara.root.position.y + 2.2, a.z);
+    }
+  }
+  private dropTalk(k: string) {
+    const t = this.talks.get(k);
+    if (!t) return;
+    this.scene.remove(t.sprite);
+    t.sprite.material.map?.dispose();
+    t.sprite.material.dispose();
+    this.talks.delete(k);
   }
 
   // 撃った：銃から相手へ、太い光の線が走る。外れは、星のかけらが散る。当たりは、爆発して、画面が揺れる
@@ -433,6 +489,7 @@ export class BlendScene {
     const key = st.key + '|' + st.guns.map(g => g.id + g.name).join(',');
     if (key !== this.gunKey) {
       this.clearGuns();
+    for (const k of [...this.talks.keys()]) this.dropTalk(k);
       this.gunKey = key;
       const n = st.guns.length;
       st.guns.forEach((g, i) => {

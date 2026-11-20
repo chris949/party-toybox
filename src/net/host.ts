@@ -16,7 +16,7 @@ type Conn = DataConnection & { pid?: string; lastSeen: number };
 export interface HostSession { isHost: true; code: string; send(a: Action): void; addBot(): void; close(): void }
 
 export interface HostOptions {
-  id: string; key: string; name: string; topics: Topic[]; fives: FiveTopic[]; fates: FateQuestion[]; haikus: string[]; bouquets: string[]; bouquetWords: string[]; chara: number; version: string; minPlayers: number;
+  id: string; key: string; name: string; topics: Topic[]; fives: FiveTopic[]; fates: FateQuestion[]; haikus: string[]; bouquets: string[]; bouquetWords: string[]; blendLines: string[]; chara: number; version: string; minPlayers: number;
   bots?: number; // 最初から入れておく CPU の参加者の数（動作確認用。?dev&bots=9）
   onOpen(session: HostSession): void;
   onView(view: PlayerView): void;
@@ -245,7 +245,7 @@ export function startHost(o: HostOptions): void {
         else sendTo(c, { t: 'ping' });
       }
     }, HEARTBEAT_MS);
-    dispatch(o.id, { t: 'join', name: o.name, key: o.key, topics: o.topics, fives: o.fives, fates: o.fates, haikus: o.haikus, bouquets: o.bouquets, bouquetWords: o.bouquetWords, chara: o.chara, version: o.version });
+    dispatch(o.id, { t: 'join', name: o.name, key: o.key, topics: o.topics, fives: o.fives, fates: o.fates, haikus: o.haikus, bouquets: o.bouquets, bouquetWords: o.bouquetWords, blendLines: o.blendLines, chara: o.chara, version: o.version });
     for (let i = 0; i < Math.min(BOT_NAMES.length, o.bots ?? 0); i++) addBot();
     const session: HostSession = {
       isHost: true, code, addBot,
@@ -281,7 +281,7 @@ export function startHost(o: HostOptions): void {
         const old = conns[pid];
         if (old && old !== c) { delete conns[pid]; old.close(); }
         conns[pid] = c;
-        dispatch(pid, { t: 'join', name: m.name, key: m.key, topics: m.topics, fives: m.fives, fates: m.fates, haikus: m.haikus, bouquets: m.bouquets, bouquetWords: m.bouquetWords, chara: m.chara, version: m.version });
+        dispatch(pid, { t: 'join', name: m.name, key: m.key, topics: m.topics, fives: m.fives, fates: m.fates, haikus: m.haikus, bouquets: m.bouquets, bouquetWords: m.bouquetWords, blendLines: m.blendLines, chara: m.chara, version: m.version });
         return;
       }
       if (!c.pid || conns[c.pid] !== c || m?.t === 'pong') return;

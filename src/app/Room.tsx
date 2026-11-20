@@ -88,7 +88,7 @@ function Players({ pub }: { pub: Pub }) {
       <span key={p.id} className={`pl ${p.online ? '' : 'off'} ${p.id === pub.me ? 'me' : ''}`}>
         {p.id === pub.hostId && '👑'}{p.bot && '🤖'}{pub.phase === 'lobby' && pub.gameMode === 'fate' && charaOf(p.chara).face}{p.name}
         {pub.phase !== 'lobby' ? <span className="sc">{p.score}</span>
-          : <span className="muted small">{pub.gameMode === 'fate' ? `問題${p.fates + p.fives}` : pub.gameMode === 'haiku' ? `お題${p.haikus}` : pub.gameMode === 'bluff' || pub.gameMode === 'blend' || pub.gameMode === 'relay' || pub.gameMode === 'raid' ? '' : pub.gameMode === 'bomb' ? `お題${p.fives}` : pub.gameMode === 'bouquet' ? `お題${p.bouquets}` : `お題${pub.gameMode === 'five' ? p.fives : p.topics}`}</span>}
+          : <span className="muted small">{pub.gameMode === 'fate' ? `問題${p.fates + p.fives}` : pub.gameMode === 'haiku' ? `お題${p.haikus}` : pub.gameMode === 'blend' ? `セリフ${p.blendLines}` : pub.gameMode === 'bluff' || pub.gameMode === 'relay' || pub.gameMode === 'raid' ? '' : pub.gameMode === 'bomb' ? `お題${p.fives}` : pub.gameMode === 'bouquet' ? `お題${p.bouquets}` : `お題${pub.gameMode === 'five' ? p.fives : p.topics}`}</span>}
         {p.done === true ? '✅' : p.done === false ? '⏳' : ''}
         {pub.phase === 'lobby' && p.editing && <span className="small">✏️ 編集中</span>}
         {pub.phase === 'lobby' && isHost() && p.id !== pub.me && <button className="mini" style={{ padding: '0 6px' }} onClick={() => send({ t: 'kick', id: p.id })}>✕</button>}

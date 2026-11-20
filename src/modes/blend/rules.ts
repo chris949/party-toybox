@@ -1,7 +1,8 @@
 // まぎれろ！のルール（このフォルダの README.md の15章）。画面・通信・ブラウザの機能は使わない（時刻と乱数は ctx で受け取る）
-import { BLEND_D, BLEND_FIND, BLEND_GAP, BLEND_READY_MS, BLEND_SPEED, BLEND_STAR_R, BLEND_STARS, BLEND_TICK_MS, BLEND_W, CHARA_COUNT } from '../../core/constants';
+import { BLEND_D, BLEND_FIND, BLEND_GAP, BLEND_SAY_MAX, BLEND_SAY_MS, BLEND_READY_MS, BLEND_SPEED, BLEND_STAR_R, BLEND_STARS, BLEND_TICK_MS, BLEND_W, CHARA_COUNT } from '../../core/constants';
 import { shuffle } from '../../core/random';
 import type { ActionFrom, Ctx, RoomState, Timer } from '../../core/types';
+import { SAMPLE_LINES } from './lines';
 
 export type BlendPhase = 'hide' | 'found' | 'result';
 
@@ -32,6 +33,9 @@ export interface BlendState {
   stars: number;                   // 集めたほしの数
   ammo: Record<string, number>;    // さがす人の、残りの弾
   aims: Record<string, { x: number; z: number }>; // さがす人が狙っている場所（床の上。全員に見せる）
+  lines: string[];                 // みんなが持ってきたセリフ（15.10）
+  says: { i: number; text: string; until: number }[]; // いま、しゃべっている1体と、そのセリフ
+  sayAt: number;                   // 次に、誰かがしゃべる時刻
   down: number[];                  // 撃たれて倒れた番号（人ではなかった1体。もう動かず、撃てない）
   shots: Shot[];                   // 撃った記録（順に）
   end: BlendEnd | null;            // このラウンドの終わり方
@@ -78,6 +82,7 @@ function deal(room: RoomState, g: BlendState, ctx: Ctx) {
   g.stars = 0;
   g.ammo = Object.fromEntries(g.ring.filter(id => id !== hider).map(id => [id, room.blendAmmo]));
   g.aims = {};
+  g.says = [];
   g.down = [];
   g.shots = [];
   g.end = null;
@@ -86,6 +91,7 @@ function deal(room: RoomState, g: BlendState, ctx: Ctx) {
   g.phase = 'hide';
   g.startAt = ctx.now + BLEND_READY_MS;
   g.starAt = g.startAt + 1500;
+  g.sayAt = g.startAt + 800;
   g.deadline = g.startAt + room.blendTime * 1000;
   g.lastTick = ctx.now;
   g.tick = 0;
@@ -96,7 +102,7 @@ export function start(room: RoomState, ctx: Ctx): BlendState {
   room.players.forEach(p => { p.score = 0; });
   const g: BlendState = {
     kind: 'blend', phase: 'hide', ring: players.map(p => p.id), names: Object.fromEntries(players.map(p => [p.id, p.name])),
-    round: 0, hiderId: '', auto: false, chara: 0, mobs: [], me: 0, star: null, starAt: 0, stars: 0, ammo: {}, aims: {}, down: [], shots: [], end: null,
+    round: 0, hiderId: '', auto: false, chara: 0, mobs: [], me: 0, star: null, starAt: 0, stars: 0, ammo: {}, aims: {}, lines: [...new Set(online(room).flatMap(p => room.blendLinesBy[p.id] ?? []))], says: [], sayAt: 0, down: [], shots: [], end: null,
     startAt: 0, deadline: 0, lastTick: 0, tick: 0, void: false, gained: {},
   };
   deal(room, g, ctx);
@@ -107,6 +113,7 @@ export function start(room: RoomState, ctx: Ctx): BlendState {
 function toFound(room: RoomState, g: BlendState, end: BlendEnd) {
   g.phase = 'found';
   g.end = end;
+  g.says = [];
   g.deadline = 0;
   g.star = null;
   g.gained = {};
@@ -149,6 +156,20 @@ function wander(g: BlendState, m: Mob, ctx: Ctx, starRate: number, spread: numbe
   m.wait = 300 + ctx.random() * 2200;
 }
 
+// キャラクターが、ときどきひとことしゃべる（15.10）。誰がしゃべるかは、でたらめに決める。
+// 人が動かす1体も、ほかの1体も、同じ割合で選ぶ（しゃべり方で、人だと分からないように）
+function talk(g: BlendState, ctx: Ctx) {
+  g.says = g.says.filter(s => s.until > ctx.now && !g.down.includes(s.i));
+  if (ctx.now < g.sayAt) return;
+  g.sayAt = ctx.now + 900 + ctx.random() * 1500;
+  if (g.says.length >= BLEND_SAY_MAX) return;
+  const quiet = g.mobs.map((_, i) => i).filter(i => !g.down.includes(i) && !g.says.some(s => s.i === i));
+  if (!quiet.length) return;
+  // 持ってきたセリフがあれば、6割をそこから選ぶ。残りは、同梱のセリフ
+  const pool = g.lines.length && ctx.random() < 0.6 ? g.lines : SAMPLE_LINES;
+  g.says.push({ i: quiet[Math.floor(ctx.random() * quiet.length)], text: pool[Math.floor(ctx.random() * pool.length)], until: ctx.now + BLEND_SAY_MS });
+}
+
 // 時間を進める：全員を、行き先へ同じ速さで歩かせる
 function advance(room: RoomState, g: BlendState, ctx: Ctx) {
   const dt = Math.max(0, Math.min(1000, ctx.now - g.lastTick));
@@ -156,6 +177,7 @@ function advance(room: RoomState, g: BlendState, ctx: Ctx) {
   g.tick++;
   if (ctx.now < g.startAt) return;
   if (!g.star && g.stars < BLEND_STARS && ctx.now >= g.starAt) g.star = spot(ctx);
+  talk(g, ctx);
   const step = BLEND_SPEED * dt / 1000;
   const from = g.mobs.map(m => ({ x: m.x, z: m.z }));
   const standing = g.mobs.map(m => Math.hypot(m.tx - m.x, m.tz - m.z) <= 1e-6);

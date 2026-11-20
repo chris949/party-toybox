@@ -7,7 +7,7 @@ import { FIVE_DEFAULT_SIZE, fiveError, fiveKey, fitCounts, type FiveTopic } from
 import { fateError, fateKey, type FateQuestion } from '../modes/fate/questions';
 
 // bouquet = ワードブーケのお題、bouquetWords = ワードブーケの言葉
-export type TextMode = 'tier' | 'five' | 'fate' | 'haiku' | 'bouquet' | 'bouquetWords';
+export type TextMode = 'tier' | 'five' | 'fate' | 'haiku' | 'bouquet' | 'bouquetWords' | 'blendLines'; // blendLines = まぎれろ！のセリフ
 // 1行に1つのお題（ハイカー575・ワードブーケ）
 export interface LineItem { text: string }
 export interface Parsed<T> { ok: T[]; bad: { title: string; reason: string }[] }
@@ -175,6 +175,19 @@ ${about}
 味噌汁
 愛してる
 世界一
+${lines}`;
+  if (mode === 'blendLines') return `ゲームのキャラクターがしゃべる「ひとこと」を${n}個作ってください。
+${about}
+遊び方：同じ見た目のキャラクターが大勢うろうろしていて、1体だけ人が動かしています。それを当てるゲームです。キャラクターが、ときどき頭の上にひとことを出します。
+
+決まり：
+- 1つ14文字まで。短いひとり言や、つぶやき
+- ふつうのひとり言（例：ねむい…）と、あやしいひとこと（例：人じゃないよ）を混ぜる
+- 実在の人や作品の名前、人を傷つける言葉は使わない
+
+書き方（例）：
+ねむい…
+人じゃないよ
 ${lines}`;
   if (mode === 'tier') return `パーティーゲームの「お題」を${n}個作ってください。
 ${about}

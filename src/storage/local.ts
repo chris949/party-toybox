@@ -4,6 +4,7 @@ import { sanitizeFives, type FiveTopic } from '../modes/five/topics';
 import { sanitizeFates, type FateQuestion } from '../modes/fate/questions';
 import { toTheme } from '../modes/haiku/themes';
 import { sanitizeBouquets, sanitizeBouquetWords } from '../modes/bouquet/words';
+import { sanitizeBlendLines } from '../modes/blend/lines';
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -87,6 +88,9 @@ export const broughtBouquets = (list: StoredBouquet[]): string[] => list.filter(
 // ワードブーケの、持ち寄りの言葉（入れたものは、すべて持っていく）
 export const loadBouquetWords = (): string[] => sanitizeBouquetWords(local.get<unknown>('tlw-bouquet-words', []));
 export const saveBouquetWords = (words: string[]) => local.set('tlw-bouquet-words', words);
+// まぎれろ！の、持ち寄りのセリフ（入れたものを、すべて持っていく）
+export const loadBlendLines = (): string[] => sanitizeBlendLines(local.get<unknown>('tlw-blend-lines', []));
+export const saveBlendLines = (lines: string[]) => local.set('tlw-blend-lines', lines);
 
 // タイトル画面を最後に見た日（その日のうちは、もう出さない）
 export const loadTitleDay = (): string => String(local.get<unknown>('tlw-title-day', '') ?? '');
