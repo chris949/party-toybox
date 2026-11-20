@@ -6,6 +6,7 @@ import { FiveList } from '../modes/five/TopicsEditor';
 import { FateList } from '../modes/fate/TopicsEditor';
 import { HaikuList } from '../modes/haiku/TopicsEditor';
 import { BouquetList } from '../modes/bouquet/TopicsEditor';
+import { BlendLinesList } from '../modes/blend/TopicsEditor';
 import { GAME_MODES, type GameMode } from '../core/types';
 import { TopicTools } from './TopicTools';
 
@@ -16,8 +17,10 @@ export function Topics() {
   // モードごとの「持っていく数」（左の一覧に出す。どのモードに何を用意したかが、一目で分かるように）
   // （1つずつ取り出す。まとめて新しい入れ物で返すと、画面の作り直しが止まらなくなる）
   const tier = useStore(s => s.topics), five = useStore(s => s.fives), fate = useStore(s => s.fates), haiku = useStore(s => s.haikus), bouquet = useStore(s => s.bouquets);
+  const blendLines = useStore(s => s.blendLines);
   const brought = { tier, five, fate, haiku, bouquet };
-  const count = (k: GameMode) => (brought as Partial<Record<GameMode, { bring: boolean }[]>>)[k]?.filter(t => t.bring).length ?? 0;
+  // まぎれろ！のセリフは、入れたものをすべて持っていく
+  const count = (k: GameMode) => k === 'blend' ? blendLines.length : (brought as Partial<Record<GameMode, { bring: boolean }[]>>)[k]?.filter(t => t.bring).length ?? 0;
   // タブは、お題を作れるモードだけ（お題を使わないモードまで並べると、どれを編集しているのか分かりにくい）
   const tab = TOPIC_TABS.includes(saved) ? saved : 'tier';
   // 部屋から開いたとき：いま部屋で選ばれているモードと、そのモードが使うお題のタブ
@@ -34,6 +37,7 @@ export function Topics() {
         <span>{nowTab == null ? 'このモードは、自分で作るお題を使いません（下は、ほかのモード用のお題です）'
           : now === 'bomb' ? '爆弾まわしは、セレクトファイブのお題を使います'
           : now === 'fate' ? '運命の二者択一は、セレクトファイブのお題も問題として使います'
+          : now === 'blend' ? 'まぎれろ！は、キャラクターがしゃべるセリフだけ、持ち寄れます'
           : tab === nowTab ? 'このモードのお題を開いています' : `下で開いているのは「${GAME_MODES[tab]}」のお題です`}</span>
       </div>}
       {roomEdit && <p className="muted small" style={{ margin: '0 0 10px' }}>部屋に入ったまま編集しています。「部屋に戻る」を押すと、チェックを入れたお題が部屋に反映されます。</p>}
@@ -47,8 +51,8 @@ export function Topics() {
       ))}</nav>
       <div className="topics-main">
       {/* AIに頼む・取り込み・書き出しは、お題を作れるモードのすべてに置く（docs/spec.md の 3.3.1） */}
-      <TopicTools key={tab} mode={tab as 'tier' | 'five' | 'fate' | 'haiku' | 'bouquet'} />
-      {tab === 'five' ? <FiveList /> : tab === 'fate' ? <FateList /> : tab === 'haiku' ? <HaikuList /> : tab === 'bouquet' ? <BouquetList /> : <TierList />}
+      <TopicTools key={tab} mode={tab === 'blend' ? 'blendLines' : tab as 'tier' | 'five' | 'fate' | 'haiku' | 'bouquet'} />
+      {tab === 'five' ? <FiveList /> : tab === 'fate' ? <FateList /> : tab === 'haiku' ? <HaikuList /> : tab === 'bouquet' ? <BouquetList /> : tab === 'blend' ? <BlendLinesList /> : <TierList />}
       </div>
       </div>
     </>

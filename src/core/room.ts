@@ -9,13 +9,14 @@ import { sanitizeFives } from '../modes/five/topics';
 import { sanitizeFates } from '../modes/fate/questions';
 import { HAIKU_STYLES, sanitizeHaikus } from '../modes/haiku/themes';
 import { sanitizeBouquets, sanitizeBouquetWords } from '../modes/bouquet/words';
+import { sanitizeBlendLines } from '../modes/blend/lines';
 import { CLASS_IDS } from '../modes/raid/engine';
 import { DEFAULT_RAID_MODE, RAID_MODES, BOUQUET_ALL_HANDS, DEFAULT_BOUQUET_ALL_HAND, BOUQUET_HANDS, DEFAULT_BOUQUET_HAND, DEFAULT_RELAY_TIME, RELAY_TIMES, BOMB_FUSES, BOMB_ROUNDS, DEFAULT_BOMB_FUSE, DEFAULT_BOMB_ROUNDS, BLEND_AMMOS, DEFAULT_BLEND_AMMO, BLEND_CROWDS, BLEND_TIMES, DEFAULT_BLEND_CROWD, DEFAULT_BLEND_TIME, BOUQUET_GOALS, BOUQUET_TIMES, DEFAULT_BOUQUET_TIME, BLUFF_TIMES, DEFAULT_BLUFF_TIME, DEFAULT_HAIKU_TIME, HAIKU_TIMES } from './constants';
 
 const charaOf = (n: unknown) => Number.isInteger(n) && (n as number) >= 0 && (n as number) < CHARA_MAX ? n as number : null;
 
 export function createRoom(code: string, hostId: string, minPlayers: number): RoomState {
-  return { code, hostId, minPlayers, gameNo: 1, gameMode: 'tier', pickMode: 'random', timeLimit: DEFAULT_TIME_LIMIT, fateTime: DEFAULT_FATE_TIME, fateQuota: DEFAULT_FATE_QUOTA, fateLives: DEFAULT_FATE_LIVES, haikuStyle: 'theme', haikuTime: DEFAULT_HAIKU_TIME, bluffTime: DEFAULT_BLUFF_TIME, blendTime: DEFAULT_BLEND_TIME, blendCrowd: DEFAULT_BLEND_CROWD, blendAmmo: DEFAULT_BLEND_AMMO, bombRounds: DEFAULT_BOMB_ROUNDS, bombFuse: DEFAULT_BOMB_FUSE, bombStyle: 'tap', relayTime: DEFAULT_RELAY_TIME, raidMode: DEFAULT_RAID_MODE, raidClassBy: {}, bouquetTime: DEFAULT_BOUQUET_TIME, bouquetGoal: 0, bouquetsBy: {}, bouquetWordsBy: {}, bouquetHand: DEFAULT_BOUQUET_HAND, bouquetMix: true, bouquetAll: false, bouquetAllHand: DEFAULT_BOUQUET_ALL_HAND, haikusBy: {}, players: [], topicsBy: {}, fivesBy: {}, fatesBy: {}, game: null };
+  return { code, hostId, minPlayers, gameNo: 1, gameMode: 'tier', pickMode: 'random', timeLimit: DEFAULT_TIME_LIMIT, fateTime: DEFAULT_FATE_TIME, fateQuota: DEFAULT_FATE_QUOTA, fateLives: DEFAULT_FATE_LIVES, haikuStyle: 'theme', haikuTime: DEFAULT_HAIKU_TIME, bluffTime: DEFAULT_BLUFF_TIME, blendTime: DEFAULT_BLEND_TIME, blendCrowd: DEFAULT_BLEND_CROWD, blendAmmo: DEFAULT_BLEND_AMMO, bombRounds: DEFAULT_BOMB_ROUNDS, bombFuse: DEFAULT_BOMB_FUSE, bombStyle: 'tap', relayTime: DEFAULT_RELAY_TIME, raidMode: DEFAULT_RAID_MODE, raidClassBy: {}, bouquetTime: DEFAULT_BOUQUET_TIME, bouquetGoal: 0, bouquetsBy: {}, bouquetWordsBy: {}, blendLinesBy: {}, bouquetHand: DEFAULT_BOUQUET_HAND, bouquetMix: true, bouquetAll: false, bouquetAllHand: DEFAULT_BOUQUET_ALL_HAND, haikusBy: {}, players: [], topicsBy: {}, fivesBy: {}, fatesBy: {}, game: null };
 }
 
 // 参加を受け付けるか。断るときはその理由
@@ -49,6 +50,7 @@ export function reduce(state: RoomState, a: ActionFrom, ctx: Ctx): RoomState {
       p.chara = charaOf(a.chara) ?? p.chara;
       if (!room.game && (tps.length || fvs.length || fts.length || hks.length || bqs.length)) { room.topicsBy[a.from] = tps; room.fivesBy[a.from] = fvs; room.fatesBy[a.from] = fts; room.haikusBy[a.from] = hks; room.bouquetsBy[a.from] = bqs; }
       if (!room.game && a.bouquetWords) room.bouquetWordsBy[a.from] = sanitizeBouquetWords(a.bouquetWords);
+      if (!room.game && a.blendLines) room.blendLinesBy[a.from] = sanitizeBlendLines(a.blendLines);
       return room;
     }
     case 'leave': {
@@ -62,6 +64,7 @@ export function reduce(state: RoomState, a: ActionFrom, ctx: Ctx): RoomState {
         delete room.haikusBy[a.from];
         delete room.bouquetsBy[a.from];
         delete room.bouquetWordsBy[a.from];
+        delete room.blendLinesBy[a.from];
         delete room.raidClassBy[a.from];
       } else {
         p.online = false;
@@ -188,6 +191,7 @@ export function reduce(state: RoomState, a: ActionFrom, ctx: Ctx): RoomState {
       room.haikusBy[a.from] = sanitizeHaikus(a.haikus);
       room.bouquetsBy[a.from] = sanitizeBouquets(a.bouquets);
       room.bouquetWordsBy[a.from] = sanitizeBouquetWords(a.bouquetWords);
+      room.blendLinesBy[a.from] = sanitizeBlendLines(a.blendLines);
       return room;
     }
     case 'editing': {
@@ -210,6 +214,7 @@ export function reduce(state: RoomState, a: ActionFrom, ctx: Ctx): RoomState {
       room.haikusBy = Object.fromEntries(room.players.map(p => [p.id, room.haikusBy[p.id] ?? []]));
       room.bouquetsBy = Object.fromEntries(room.players.map(p => [p.id, room.bouquetsBy[p.id] ?? []]));
       room.bouquetWordsBy = Object.fromEntries(room.players.map(p => [p.id, room.bouquetWordsBy[p.id] ?? []]));
+      room.blendLinesBy = Object.fromEntries(room.players.map(p => [p.id, room.blendLinesBy[p.id] ?? []]));
       room.gameNo++;
       room.game = null;
       return room;

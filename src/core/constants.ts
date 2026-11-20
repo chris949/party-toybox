@@ -69,6 +69,10 @@ export const BLEND_TICK_MS = 200;                   // 位置を進めて、全�
 export const BLEND_W = 12, BLEND_D = 7;             // 舞台の広さ（横・奥行き）。真ん中が 0
 export const BLEND_SPEED = 2.4;                     // 歩く速さ（1秒に進む長さ）。人もCPUも同じ
 export const BLEND_STAR_R = 1.05;                   // ほしに「乗っている」とみなす近さ（BLEND_GAP より広くする。真ん中に誰かがいても、となりで乗れるように）
+export const BLEND_LINE_MAX = 14;                   // キャラクターのセリフの長さの上限
+export const BLEND_LINES_PER_PLAYER = 30;           // 1人が持っていけるセリフの数
+export const BLEND_SAY_MS = 2600;                   // 1つの吹き出しが出ている時間
+export const BLEND_SAY_MAX = 3;                     // 同時にしゃべる数の上限（狙撃のじゃまにしない）
 export const BLEND_AIM_MS = 200;                    // さがす人が、狙っている場所を送る間隔
 export const BLEND_GAP = 0.85;                      // キャラクターどうしが、これより近づかない（体が重なって、狙いづらくなるのを防ぐ）
 

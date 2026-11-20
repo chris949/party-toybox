@@ -23,6 +23,7 @@ export interface BlendView {
   shots: { id: string; name: string; i: number; hit: boolean }[]; // 撃った記録（全員に見える）
   seekers: { id: string; name: string; ammo: number; aim: [number, number] | null }[]; // さがす人と、残りの弾、狙っている場所（100倍の整数。全員に見せる）
   end: BlendEnd | null;   // 終わり方（発表のとき）
+  says: { i: number; text: string }[]; // いま、しゃべっている1体と、そのセリフ（全員に見える）
   gained: Record<string, number> | null;
   void: boolean;
 }
@@ -47,6 +48,7 @@ export function blendView(g: BlendState, id: string, now: number, ammoMax: numbe
     shots: g.shots.map(s => ({ id: s.by, name: g.names[s.by] ?? '???', i: s.i, hit: s.hit })),
     seekers: g.ring.filter(pid => pid !== g.hiderId).map(pid => ({ id: pid, name: g.names[pid] ?? '???', ammo: g.ammo[pid] ?? 0, aim: !found && g.aims[pid] ? [Math.round(g.aims[pid].x * 100), Math.round(g.aims[pid].z * 100)] as [number, number] : null })),
     end: found ? g.end : null,
+    says: found ? [] : g.says.map(s => ({ i: s.i, text: s.text })),
     gained: found ? g.gained : null,
     void: g.void,
   };

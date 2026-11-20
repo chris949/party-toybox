@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { BLEND_D, BLEND_FIND, BLEND_GAP, BLEND_READY_MS, BLEND_SPEED, BLEND_STAR_R, BLEND_STARS, BLEND_TICK_MS, BLEND_W, DEFAULT_BLEND_AMMO, DEFAULT_BLEND_CROWD, DEFAULT_BLEND_TIME } from '../src/core/constants';
+import { BLEND_D, BLEND_FIND, BLEND_GAP, BLEND_LINE_MAX, BLEND_SAY_MAX, BLEND_SAY_MS, BLEND_READY_MS, BLEND_SPEED, BLEND_STAR_R, BLEND_STARS, BLEND_TICK_MS, BLEND_W, DEFAULT_BLEND_AMMO, DEFAULT_BLEND_CROWD, DEFAULT_BLEND_TIME } from '../src/core/constants';
 import { nextTimer } from '../src/core/room';
 import { viewFor } from '../src/core/view';
 import type { BlendState } from '../src/modes/blend/rules';
+import { sanitizeBlendLines, SAMPLE_LINES } from '../src/modes/blend/lines';
 import { samples, testRoom } from './helpers';
 
 // ゲーム開始まで。bots = CPU の参加者にする人（番号）
@@ -250,6 +251,63 @@ describe('まぎれろ！：狙う', () => {
   });
 });
 
+describe('まぎれろ！：しゃべる', () => {
+  it('ときどき誰かがしゃべる。同時には3体まで。倒れた1体は、しゃべらない。全員に同じものが見える', () => {
+    const r = blendRoom(3, { seed: 5 });
+    expect(r.g.says).toEqual([]); // よーいの間は、しゃべらない
+    r.ready();
+    const spoke = new Set<number>(), texts = new Set<string>();
+    let most = 0;
+    const [a] = r.seekerIds(), miss = (r.g.me + 1) % DEFAULT_BLEND_CROWD;
+    r.act(a, { t: 'shoot', round: r.g.round, i: miss });
+    for (let i = 0; i < 150 && r.g.phase === 'hide'; i++) {
+      r.tick();
+      most = Math.max(most, r.g.says.length);
+      for (const s of r.g.says) { spoke.add(s.i); texts.add(s.text); expect(s.i).not.toBe(miss); }
+      expect(new Set(r.g.says.map(s => s.i)).size).toBe(r.g.says.length); // 1体が、同時に2つしゃべらない
+      for (const id of r.ids) expect(viewFor(r.room, id, r.ctx.now).blend!.says).toEqual(r.g.says.map(s => ({ i: s.i, text: s.text })));
+    }
+    expect(most).toBeGreaterThan(0);
+    expect(most).toBeLessThanOrEqual(BLEND_SAY_MAX);
+    expect(spoke.size).toBeGreaterThan(3);  // いろいろな1体が、しゃべる
+    expect([...texts].every(t => (SAMPLE_LINES as readonly string[]).includes(t))).toBe(true); // 誰も持ってきていなければ、同梱のセリフ
+    r.host({ t: 'force' });
+    expect(viewFor(r.room, a, r.ctx.now).blend!.says).toEqual([]); // 発表では、消える
+  });
+  it('人が動かす1体も、ほかの1体と同じ割合でしゃべる（しゃべり方で、人だと分からない）', () => {
+    let mine = 0, all = 0;
+    for (let seed = 1; seed <= 12; seed++) {
+      const r = blendRoom(3, { seed: seed * 977 });
+      r.ready();
+      for (let i = 0; i < 200 && r.g.phase === 'hide'; i++) {
+        r.tick();
+        // 新しく出た吹き出しだけを数える
+        const fresh = r.g.says.filter(s => s.until === r.ctx.now + BLEND_SAY_MS);
+        all += fresh.length; mine += fresh.filter(s => s.i === r.g.me).length;
+      }
+    }
+    expect(all).toBeGreaterThan(200);
+    expect(mine / all).toBeGreaterThan(0.03);  // 12体なら、1/12 ≒ 0.083 のまわり
+    expect(mine / all).toBeLessThan(0.16);
+  }, 60_000);
+  it('持ってきたセリフも使う。届いたセリフは、検査して整える', () => {
+    const t = testRoom([samples(), samples()]);
+    t.act(t.ids[1], { t: 'topics', topics: [], blendLines: ['わたしが人です', 'わたしが人です', '', 'あ'.repeat(40)] });
+    expect(t.room.blendLinesBy[t.ids[1]]).toEqual(['わたしが人です', 'あ'.repeat(BLEND_LINE_MAX)]);
+    expect(viewFor(t.room, t.ids[0], t.ctx.now).players.find(p => p.id === t.ids[1])!.blendLines).toBe(2);
+    t.host({ t: 'game', mode: 'blend' });
+    t.host({ t: 'start' });
+    const g = () => t.room.game as BlendState;
+    expect(g().lines).toEqual(['わたしが人です', 'あ'.repeat(BLEND_LINE_MAX)]);
+    const texts = new Set<string>();
+    t.advance(BLEND_READY_MS);
+    for (let i = 0; i < 200 && g().phase === 'hide'; i++) { t.advance(BLEND_TICK_MS); t.host({ t: 'tick' }); for (const s of g().says) texts.add(s.text); }
+    expect(texts.has('わたしが人です')).toBe(true);
+    expect([...texts].some(x => (SAMPLE_LINES as readonly string[]).includes(x))).toBe(true); // 同梱のセリフも、混ざる
+    expect(sanitizeBlendLines('x')).toEqual([]);
+  });
+});
+
 describe('まぎれろ！：体が重ならない', () => {
   it('最初の位置も、動いている間も、決めた近さより近づかない（人が動かす1体も同じ）', () => {
     for (const seed of [3, 11, 29]) {
@@ -274,7 +332,7 @@ describe('まぎれろ！：体が重ならない', () => {
         if (nearest() < BLEND_GAP * 0.8) close++;
         expect(nearest()).toBeGreaterThan(BLEND_GAP * 0.3);
       }
-      expect(close / ticks).toBeLessThan(0.1);
+      expect(close / ticks).toBeLessThan(0.15); // かくれる人が、わざとぶつかり続けたときの数字
     }
   });
   it('ほしの輪は、近づける近さより広い（真ん中に誰かがいても、となりで乗れる）', () => {

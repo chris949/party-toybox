@@ -28,7 +28,7 @@ export type HostMsg =
   | { t: 'ping' }
   | { t: 'error'; msg: string };
 
-export type JoinMsg = { t: 'join'; id: string; key: string; name: string; topics: unknown; fives?: unknown; fates?: unknown; haikus?: unknown; bouquets?: unknown; bouquetWords?: unknown; chara?: unknown; version: string };
+export type JoinMsg = { t: 'join'; id: string; key: string; name: string; topics: unknown; fives?: unknown; fates?: unknown; haikus?: unknown; bouquets?: unknown; bouquetWords?: unknown; blendLines?: unknown; chara?: unknown; version: string };
 export type GuestMsg = JoinMsg | { t: 'pong' } | Action;
 
 export const genCode = () => {
@@ -50,7 +50,7 @@ export function parseAction(m: any): Action | null {
     case 'five': return Array.isArray(m.picks) && Number.isInteger(m.round) ? { t: 'five', round: m.round, picks: m.picks.slice(0, 8), partial: !!m.partial } : null;
     case 'move': return m.side === 'L' || m.side === 'R' ? { t: 'move', side: m.side } : null;
     case 'chara': return Number.isInteger(m.n) ? { t: 'chara', n: m.n } : null;
-    case 'topics': return { t: 'topics', topics: m.topics, fives: m.fives, fates: m.fates, haikus: m.haikus, bouquets: m.bouquets, bouquetWords: m.bouquetWords }; // 中身はホストが検査して整える
+    case 'topics': return { t: 'topics', topics: m.topics, fives: m.fives, fates: m.fates, haikus: m.haikus, bouquets: m.bouquets, bouquetWords: m.bouquetWords, blendLines: m.blendLines }; // 中身はホストが検査して整える
     case 'editing': return { t: 'editing', on: !!m.on };
     case 'retract': return Number.isInteger(m.round) ? { t: 'retract', round: m.round } : null;
     case 'haikuStyle': return m.style === 'theme' || m.style === 'free' ? { t: 'haikuStyle', style: m.style } : null;
@@ -136,7 +136,7 @@ export function normalizeView(s: any): PlayerView {
     me: str(s.me),
     players: (Array.isArray(s.players) ? s.players : []).map((p: any) => ({
       id: str(p.id), name: str(p.name), score: int(p.score), online: p.online !== false, version: str(p.version),
-      topics: int(p.topics), fives: int(p.fives), fates: int(p.fates), haikus: int(p.haikus), bouquets: int(p.bouquets), bouquetWords: int(p.bouquetWords), raidClass: typeof p.raidClass === 'string' ? p.raidClass : null, chara: Math.max(0, int(p.chara)), editing: p.editing === true, bot: p.bot === true, done: p.done === true ? true : p.done === false ? false : null,
+      topics: int(p.topics), fives: int(p.fives), fates: int(p.fates), haikus: int(p.haikus), bouquets: int(p.bouquets), bouquetWords: int(p.bouquetWords), blendLines: int(p.blendLines), raidClass: typeof p.raidClass === 'string' ? p.raidClass : null, chara: Math.max(0, int(p.chara)), editing: p.editing === true, bot: p.bot === true, done: p.done === true ? true : p.done === false ? false : null,
     })),
     startError: s.startError == null ? null : str(s.startError),
     timeLeft: s.timeLeft == null ? null : int(s.timeLeft),
@@ -214,6 +214,7 @@ function normalizeBlend(b: any): BlendView {
     shots: Array.isArray(b.shots) ? b.shots.slice(0, 64).map((x: any) => ({ id: str(x.id), name: str(x.name), i: int(x.i), hit: !!x.hit })) : [],
     seekers: Array.isArray(b.seekers) ? b.seekers.slice(0, 16).map((x: any) => ({ id: str(x.id), name: str(x.name), ammo: Math.max(0, int(x.ammo)), aim: Array.isArray(x.aim) && x.aim.length === 2 ? [int(x.aim[0]), int(x.aim[1])] as [number, number] : null })) : [],
     end: (['hit', 'stars', 'empty', 'time'] as const).find(e => e === b.end) ?? null,
+    says: Array.isArray(b.says) ? b.says.slice(0, 8).map((x: any) => ({ i: int(x.i), text: str(x.text).slice(0, 20) })) : [],
     gained: b.gained && typeof b.gained === 'object' ? Object.fromEntries(Object.entries(b.gained).map(([k, v]) => [k, int(v)])) : null,
     void: !!b.void,
   };

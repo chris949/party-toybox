@@ -32,7 +32,7 @@ export function BlendStage({ pub }: { pub: Pub }) {
   const state = {
     key: roundKey, chara: b.chara, pos: b.pos, tick: b.tick, star: b.star, stars: b.stars,
     mark: found || hider ? b.me : null, found, name: b.hiderName,
-    down: b.down, shots: b.shots.length, lastShot: lastShot?.i ?? null, lastShooter: lastShot?.id ?? null, lastHit: !!lastShot?.hit,
+    down: b.down, shots: b.shots.length, lastShot: lastShot?.i ?? null, lastShooter: lastShot?.id ?? null, lastHit: !!lastShot?.hit, says: b.says,
     canMove: hider && !found && !b.ready, canAim, guns,
   };
   return <>
