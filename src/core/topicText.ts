@@ -6,7 +6,10 @@ import { pickCount, topicKey, type Topic } from '../modes/tier/topics';
 import { FIVE_DEFAULT_SIZE, fiveError, fiveKey, fitCounts, type FiveTopic } from '../modes/five/topics';
 import { fateError, fateKey, type FateQuestion } from '../modes/fate/questions';
 
-export type TextMode = 'tier' | 'five' | 'fate';
+// bouquet = ワードブーケのお題、bouquetWords = ワードブーケの言葉
+export type TextMode = 'tier' | 'five' | 'fate' | 'haiku' | 'bouquet' | 'bouquetWords';
+// 1行に1つのお題（ハイカー575・ワードブーケ）
+export interface LineItem { text: string }
 export interface Parsed<T> { ok: T[]; bad: { title: string; reason: string }[] }
 
 interface Block { title: string; lines: string[]; setting: { count?: number; dummy?: number | null } }
@@ -95,6 +98,25 @@ export function parseFate(text: string): Parsed<FateQuestion> {
 }
 
 // 書き出し。読み込むと同じお題に戻る（出題数の設定も含める）
+// 1行に1つのお題を読む（ハイカー575・ワードブーケ）。行の頭の記号・番号・「#」、かぎかっこ、コードの囲み、太字の記号は外す。
+// fix = 1行を、使える形に整える（使えなければ null）。reason = 使えなかったときに見せる理由
+export function parseLines(text: string, fix: (line: string) => string | null, reason: string): Parsed<LineItem> {
+  const ok: LineItem[] = [], bad: Parsed<LineItem>['bad'] = [], seen = new Set<string>();
+  for (const raw of text.split(/\r?\n/)) {
+    let line = raw.trim().replace(/\*\*/g, '');
+    if (!line || line.startsWith('```')) continue;
+    line = line.replace(/^#+\s*/, '').replace(BULLET, '').replace(HEAD_NO, '').trim().replace(/^[「『"“]+|[」』"”]+$/g, '').trim();
+    if (!line) continue;
+    const fixed = fix(line);
+    if (!fixed) { bad.push({ title: line.slice(0, 30), reason }); continue; }
+    if (seen.has(fixed)) continue;
+    seen.add(fixed);
+    ok.push({ text: fixed });
+  }
+  return { ok, bad };
+}
+export const writeLines = (list: LineItem[]) => list.map(t => t.text).join('\n');
+
 export const writeTier = (ts: Topic[]) =>
   ts.map(t => [`# ${t.title}`, ...t.options, `出題数 ${pickCount(t)}`].join('\n')).join('\n\n') + '\n';
 export const writeFive = (ts: FiveTopic[]) =>
@@ -112,6 +134,48 @@ export const keyOf = {
 export function aiPrompt(mode: TextMode, theme: string, n: number): string {
   const about = theme.trim() ? `テーマ：${theme.trim()}\n` : 'テーマ：おまかせ（いろいろなジャンルから）\n';
   const tail = '\n説明や前置きは書かず、上の書き方の文字だけを返してください。お題とお題の間は1行あけてください。';
+  const lines = '\n説明や前置きは書かず、1行に1つずつ、それだけを返してください。番号や記号は付けないでください。';
+  if (mode === 'haiku') return `五・七・五の「最初の5文字」を${n}個作ってください。
+${about}
+遊び方：最初の5文字だけが決まっていて、続きの「七・五」を、みんなで1文字ずつ書きつないで、一句を作ります。
+
+決まり：
+- ひらがなで、ちょうど5文字（小さい「っ」「ゃ」や「ー」も1文字に数える）
+- 続きを考えたくなる言葉にする（季節・場面・気持ち・食べもの など）
+- 「〜や」「〜の」「〜に」のように、後ろへ続けやすい形だと作りやすい
+
+書き方（例）：
+ふるいけや
+なつやすみ
+${lines}`;
+  if (mode === 'bouquet') return `大喜利の「お題」を${n}個作ってください。
+${about}
+遊び方：配られた言葉のカードを並べて、お題に合う「ひとこと」を作ります。親が、いちばん面白いものを選びます。
+
+決まり：
+- 「〜の言葉」「〜のひとこと」「〜のキャッチコピー」のように、短いひとことで答えられるお題にする
+- 場面がすぐ思い浮かぶもの。答えが1つに決まらないもの
+- 1つ30文字くらいまで
+
+書き方（例）：
+プロポーズの言葉
+遅刻の言い訳
+${lines}`;
+  if (mode === 'bouquetWords') return `言葉のカードに書く「言葉」を${n}個作ってください。
+${about}
+遊び方：配られた言葉のカードを並べて、ひとことを作ります。欲しい言葉がそろわないので、無理やりな文になって笑えます。
+
+決まり：
+- 名詞（例：味噌汁）、言い回し（例：愛してる）、修飾する言葉（例：世界一）を混ぜる
+- ふつうの言葉と、場違いな言葉を混ぜる（組み合わせで笑いが出るように）
+- 1つ12文字まで。「は」「が」などの助詞だけの言葉は要らない（別に用意してある）
+- 実在の人や作品の名前は使わない
+
+書き方（例）：
+味噌汁
+愛してる
+世界一
+${lines}`;
   if (mode === 'tier') return `パーティーゲームの「お題」を${n}個作ってください。
 ${about}
 遊び方：お題に対する選択肢を、各自が自分の好きな順に並べます。ほかの人がどう並べたかを当てて遊びます。

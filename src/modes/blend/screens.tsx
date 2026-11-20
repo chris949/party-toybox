@@ -1,9 +1,9 @@
 // まぎれろ！の画面：かくれる・さがす（3Dの舞台）、発表、最終結果（このフォルダの README.md の15章）
 import './styles.css';
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { isHost, send, type Pub } from '../../app/store';
 import { BLEND_FIND } from '../../core/constants';
-import { Standings } from '../../ui/common';
+import { Standings, TIER_COLORS } from '../../ui/common';
 import { Timer, useDeadline } from '../tier/screens/parts';
 
 const Stage3D = lazy(() => import('./three/Stage3D'));
@@ -16,24 +16,24 @@ export function BlendStage({ pub }: { pub: Pub }) {
   const hider = b.hiderId === pub.me;
   const seeking = !found && !hider;
   const last = b.round + 1 >= b.rounds;
-  // 狙い：自分の画面の中だけのもの（送らない）。「撃つ」を押して、はじめて送る
+  // 弾の残っている、さがす人は、照準を動かして撃てる
   const roundKey = `${pub.gameNo}-${b.round}`;
-  const [aimed, setAimed] = useState<{ key: string; i: number } | null>(null);
-  const aim = aimed && aimed.key === roundKey && !b.down.includes(aimed.i) ? aimed.i : null;
-  const canShoot = seeking && !b.ready && b.ammo > 0;
-  useEffect(() => { if (!canShoot) setAimed(null); }, [canShoot]);
+  const canAim = seeking && !b.ready && b.ammo > 0;
   const on = {
     onFloor: (x: number, z: number) => send({ t: 'go', round: b.round, x, z }),
-    onPick: (i: number) => setAimed({ key: roundKey, i }),
+    onAim: (x: number, z: number, aiming: boolean) => send({ t: 'aim', round: b.round, x, z, on: aiming }),
+    onShoot: (i: number) => send({ t: 'shoot', round: b.round, i }),
   };
-  const shoot = () => { if (aim != null) { send({ t: 'shoot', round: b.round, i: aim }); setAimed(null); } };
+  // さがす人の銃（舞台の手前に並べる。色は、並び順で決める）
+  const guns = b.seekers.map((s, i) => ({ id: s.id, name: s.name, color: TIER_COLORS[(i * 2) % TIER_COLORS.length], aim: s.aim, out: s.ammo <= 0, me: s.id === pub.me }));
   const hitBy = b.shots.find(s => s.hit);
   const hiderGain = b.gained?.[b.hiderId] ?? 0;
+  const lastShot = b.shots.length ? b.shots[b.shots.length - 1] : null;
   const state = {
     key: roundKey, chara: b.chara, pos: b.pos, tick: b.tick, star: b.star, stars: b.stars,
-    mark: found || hider ? b.me : aim, pick: found ? null : aim, found, name: b.hiderName,
-    down: b.down, shots: b.shots.length, lastShot: b.shots.length ? b.shots[b.shots.length - 1].i : null,
-    canMove: hider && !found && !b.ready, canPick: canShoot,
+    mark: found || hider ? b.me : null, found, name: b.hiderName,
+    down: b.down, shots: b.shots.length, lastShot: lastShot?.i ?? null, lastShooter: lastShot?.id ?? null, lastHit: !!lastShot?.hit,
+    canMove: hider && !found && !b.ready, canAim, guns,
   };
   return <>
     <section className="card mcard">
@@ -44,7 +44,7 @@ export function BlendStage({ pub }: { pub: Pub }) {
       <p className="mrole">{found
         ? b.void ? `${b.hiderName}さんがいなくなったので、この回は流れました` : `かくれていたのは ${b.hiderName}${hider ? '（あなた）' : 'さん'}！`
         : hider ? <>🕵️ <b>あなたがかくれる番</b>。▼ があなたです。床をタップして歩き、ほしを集めましょう</>
-        : <>🔎 <b className="who">{b.hiderName}</b>さんが、どれかを動かしています。あやしい1体をタップして狙い、「撃つ」！（ほしを3つ集められたら、逃げ切られます）</>}</p>
+        : <>🔎 <b className="who">{b.hiderName}</b>さんが、どれかを動かしています。レーザーをあやしい1体に合わせて、撃ちましょう（ほしを3つ集められたら、逃げ切られます）</>}</p>
       <div className="mstars" aria-label={`ほし ${b.stars} / ${b.goal}`}>
         {Array.from({ length: b.goal }, (_, i) => <span key={i} className={i < b.stars ? 'on' : ''}>★</span>)}
         <span className="muted small">{!found && b.ready ? 'よーい…' : b.stars >= b.goal ? '集めきった！' : `ほし ${b.stars} / ${b.goal}`}</span>
@@ -56,9 +56,7 @@ export function BlendStage({ pub }: { pub: Pub }) {
         {b.canGrab ? '★ ほしを取る' : 'ほしの上に乗ると、取れます'}
       </button>}
       {seeking && <>
-        <button className="primary wide mshoot" disabled={!canShoot || aim == null} onClick={shoot}>
-          {b.ammo <= 0 ? '弾切れ（見守りましょう）' : b.ready ? 'よーい…' : aim == null ? 'あやしい1体をタップして、狙う' : '🔫 ▼ の1体を撃つ'}
-        </button>
+        <p className="mhint">{b.ammo <= 0 ? '弾切れです。見守りましょう' : b.ready ? 'よーい…' : <><span className="pc-only">🔫 マウスで狙って、クリックで撃つ</span><span className="sp-only">🔫 押したまま動かして狙い、指を離すと撃つ</span></>}</p>
         <p className="mpick">のこりの弾 <span className="mammo" aria-label={`のこり ${b.ammo}発`}>{Array.from({ length: b.ammoMax }, (_, i) => <i key={i} className={i < b.ammo ? 'on' : ''} />)}</span>
           <span className="muted small">　弾が残っている人 {b.loaded}人</span></p>
       </>}

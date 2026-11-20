@@ -36,14 +36,15 @@ export function playStateSounds(prev: PlayerView | null, next: PlayerView) {
     else if (next.phase === 'result') Sound.play('fanfare');
     return;
   }
-  // まぎれろ！：始まりでポロン、ほしが取られたらポン、撃たれたらドン、発表でファンファーレ（位置は1秒に何度も届くので、変わり目だけ鳴らす）
+  // まぎれろ！：始まりでポロン、ほしが取られたらポン、撃ったらピシュン（外れはドスン、当たりは爆発）、発表でファンファーレ（位置は1秒に何度も届くので、変わり目だけ鳴らす）
   if (next.blend) {
     if (turn(prev) === turn(next)) {
       if (prev?.blend && next.blend.stars > prev.blend.stars) Sound.play('pop');
-      if (prev?.blend && next.blend.shots.length > prev.blend.shots.length) Sound.play('fall');
+      if (prev?.blend && next.blend.shots.length > prev.blend.shots.length) { Sound.play('shot'); Sound.play('pop', 0.12); }
       return;
     }
     if (next.phase === 'hide') Sound.play('start');
+    else if (next.phase === 'found' && next.blend.end === 'hit') { Sound.play('shot'); Sound.play('boom', 0.1); Sound.play('fanfare', 1.1); } // 当たり：撃つ音 → 爆発 → ファンファーレ
     else if (next.phase === 'found') Sound.play(next.blend.void ? 'pop' : 'fanfare');
     else if (next.phase === 'result') Sound.play('fanfare');
     return;

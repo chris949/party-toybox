@@ -1,6 +1,8 @@
 // お題の「1行に1つ」の読み書き（docs/spec.md の 3.3.1）
 import { describe, expect, it } from 'vitest';
-import { aiPrompt, parseFate, parseFive, parseTier, writeFate, writeFive, writeTier } from '../src/core/topicText';
+import { aiPrompt, parseFate, parseFive, parseLines, parseTier, writeFate, writeFive, writeLines, writeTier } from '../src/core/topicText';
+import { toTheme } from '../src/modes/haiku/themes';
+import { clean } from '../src/core/text';
 import { ALL_SAMPLE_TOPICS, type Topic } from '../src/modes/tier/topics';
 import { SAMPLE_FIVES } from '../src/modes/five/topics';
 import { SAMPLE_FATES } from '../src/modes/fate/questions';
@@ -57,5 +59,27 @@ describe('AI に頼む文面', () => {
     const p = aiPrompt('five', '日本の地理', 7);
     expect(p).toContain('7個'); expect(p).toContain('テーマ：日本の地理');
     expect(aiPrompt('tier', '', 5)).toContain('おまかせ');
+  });
+});
+
+describe('1行に1つのお題（ハイカー575・ワードブーケ）', () => {
+  it('行の頭の記号・番号・「#」・かぎかっこを外して読む。重なりは1つにまとめる', () => {
+    const r = parseLines('はい、作りました！\n```\n1. ふるいけや\n- 「なつやすみ」\n# ナツヤスミ\n**あさごはん**\n\nふるいけや\n```', toTheme, 'ひらがな5文字ではありません');
+    expect(r.ok.map(t => t.text)).toEqual(['ふるいけや', 'なつやすみ', 'あさごはん']); // カタカナは、ひらがなに直る
+    expect(r.bad).toEqual([{ title: 'はい、作りました！', reason: 'ひらがな5文字ではありません' }]);
+  });
+  it('ワードブーケ：長すぎる言葉は、決まった長さで切る。書き出したものを、そのまま読める', () => {
+    const fix = (l: string) => clean(l, 12) || null;
+    const r = parseLines('・味噌汁\n2) 愛してる\nあいうえおかきくけこさしすせそ', fix, '読み取れませんでした');
+    expect(r.ok.map(t => t.text)).toEqual(['味噌汁', '愛してる', 'あいうえおかきくけこさし']);
+    expect(parseLines(writeLines(r.ok), fix, '').ok).toEqual(r.ok);
+  });
+  it('AIに頼む文面：どのモードにも、数とテーマと、1行に1つの書き方が入る', () => {
+    for (const mode of ['haiku', 'bouquet', 'bouquetWords'] as const) {
+      const p = aiPrompt(mode, '学校', 10);
+      expect(p).toContain('10個'); expect(p).toContain('テーマ：学校'); expect(p).toContain('1行に1つ');
+    }
+    expect(aiPrompt('haiku', '', 5)).toContain('ちょうど5文字');
+    expect(aiPrompt('bouquetWords', '', 5)).toContain('12文字まで');
   });
 });

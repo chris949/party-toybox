@@ -114,6 +114,7 @@ export type Action =
   | { t: 'go'; round: number; x: number; z: number } // まぎれろ！：かくれる人の行き先
   | { t: 'grab'; round: number }                   // まぎれろ！：ほしを取る
   | { t: 'shoot'; round: number; i: number }       // まぎれろ！：「これが人だ」と撃つ
+  | { t: 'aim'; round: number; x: number; z: number; on: boolean } // まぎれろ！：狙っている場所（on = false で、狙うのをやめた）
   | { t: 'phrase'; round: number; tokens: number[] } // ワードブーケ：並べた文を提出する（0以上 = 手札の番号、負の数 = 助詞）
   | { t: 'redraw'; round: number }                    // ワードブーケ：手札を引き直す
   | { t: 'choose'; round: number; id: string }        // ワードブーケ：親が、いちばん刺さったものを選ぶ

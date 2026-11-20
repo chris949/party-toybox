@@ -6,7 +6,7 @@
 .mstars .on { color: #ffb020; }
 .mstars .small { margin-left: 6px; font-weight: 700; }
 .mgrab { margin-top: 10px; }
-.mshoot { margin-top: 10px; }
+.mhint { margin: 10px 0 0; font-weight: 800; }
 .mpick { margin: 10px 0 0; font-weight: 800; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
 /* 残りの弾（使った分は、うすく） */
 .mammo { display: inline-flex; gap: 4px; }

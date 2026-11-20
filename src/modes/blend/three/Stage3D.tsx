@@ -9,7 +9,7 @@ export default function BlendStage3D({ state, on, onFail }: { state: BlendStageS
   handlers.current = on;
   useEffect(() => {
     // 3D（WebGL）が使えない端末では、その旨を出す
-    try { scene.current = new BlendScene(canvas.current!, { onFloor: (x, z) => handlers.current.onFloor(x, z), onPick: i => handlers.current.onPick(i) }); } catch { onFail(); }
+    try { scene.current = new BlendScene(canvas.current!, { onFloor: (x, z) => handlers.current.onFloor(x, z), onAim: (x, z, on) => handlers.current.onAim(x, z, on), onShoot: i => handlers.current.onShoot(i) }); } catch { onFail(); }
     return () => { scene.current?.dispose(); scene.current = null; };
   }, []);
   useEffect(() => { scene.current?.update(state); });

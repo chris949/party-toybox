@@ -80,6 +80,7 @@ export function parseAction(m: any): Action | null {
     // まぎれろ！：行き先は、ホストのルールが舞台の中に収める。tick はホストのタイマーだけが出すので、参加者からは受け取らない
     case 'go': return Number.isInteger(m.round) && Number.isFinite(m.x) && Number.isFinite(m.z) ? { t: 'go', round: m.round, x: m.x, z: m.z } : null;
     case 'grab': return Number.isInteger(m.round) ? { t: 'grab', round: m.round } : null;
+    case 'aim': return Number.isInteger(m.round) && Number.isFinite(m.x) && Number.isFinite(m.z) ? { t: 'aim', round: m.round, x: m.x, z: m.z, on: m.on !== false } : null;
     case 'shoot': return Number.isInteger(m.round) && Number.isInteger(m.i) ? { t: 'shoot', round: m.round, i: m.i } : null;
     case 'bluffTime': return Number.isInteger(m.sec) ? { t: 'bluffTime', sec: m.sec } : null;
     case 'bet': return Number.isInteger(m.round) && typeof m.go === 'boolean' ? { t: 'bet', round: m.round, go: m.go } : null;
@@ -211,7 +212,7 @@ function normalizeBlend(b: any): BlendView {
     ammo: Math.max(0, int(b.ammo)), ammoMax: Math.max(0, int(b.ammoMax)), loaded: Math.max(0, int(b.loaded)),
     down: Array.isArray(b.down) ? b.down.slice(0, 64).map(int) : [],
     shots: Array.isArray(b.shots) ? b.shots.slice(0, 64).map((x: any) => ({ id: str(x.id), name: str(x.name), i: int(x.i), hit: !!x.hit })) : [],
-    seekers: Array.isArray(b.seekers) ? b.seekers.slice(0, 16).map((x: any) => ({ id: str(x.id), name: str(x.name), ammo: Math.max(0, int(x.ammo)) })) : [],
+    seekers: Array.isArray(b.seekers) ? b.seekers.slice(0, 16).map((x: any) => ({ id: str(x.id), name: str(x.name), ammo: Math.max(0, int(x.ammo)), aim: Array.isArray(x.aim) && x.aim.length === 2 ? [int(x.aim[0]), int(x.aim[1])] as [number, number] : null })) : [],
     end: (['hit', 'stars', 'empty', 'time'] as const).find(e => e === b.end) ?? null,
     gained: b.gained && typeof b.gained === 'object' ? Object.fromEntries(Object.entries(b.gained).map(([k, v]) => [k, int(v)])) : null,
     void: !!b.void,

@@ -31,6 +31,7 @@ export interface BlendState {
   starAt: number;                  // 次のほしが出る時刻
   stars: number;                   // 集めたほしの数
   ammo: Record<string, number>;    // さがす人の、残りの弾
+  aims: Record<string, { x: number; z: number }>; // さがす人が狙っている場所（床の上。全員に見せる）
   down: number[];                  // 撃たれて倒れた番号（人ではなかった1体。もう動かず、撃てない）
   shots: Shot[];                   // 撃った記録（順に）
   end: BlendEnd | null;            // このラウンドの終わり方
@@ -76,6 +77,7 @@ function deal(room: RoomState, g: BlendState, ctx: Ctx) {
   g.star = null;
   g.stars = 0;
   g.ammo = Object.fromEntries(g.ring.filter(id => id !== hider).map(id => [id, room.blendAmmo]));
+  g.aims = {};
   g.down = [];
   g.shots = [];
   g.end = null;
@@ -94,7 +96,7 @@ export function start(room: RoomState, ctx: Ctx): BlendState {
   room.players.forEach(p => { p.score = 0; });
   const g: BlendState = {
     kind: 'blend', phase: 'hide', ring: players.map(p => p.id), names: Object.fromEntries(players.map(p => [p.id, p.name])),
-    round: 0, hiderId: '', auto: false, chara: 0, mobs: [], me: 0, star: null, starAt: 0, stars: 0, ammo: {}, down: [], shots: [], end: null,
+    round: 0, hiderId: '', auto: false, chara: 0, mobs: [], me: 0, star: null, starAt: 0, stars: 0, ammo: {}, aims: {}, down: [], shots: [], end: null,
     startAt: 0, deadline: 0, lastTick: 0, tick: 0, void: false, gained: {},
   };
   deal(room, g, ctx);
@@ -227,11 +229,21 @@ export function reduce(room: RoomState, g: BlendState, a: ActionFrom, ctx: Ctx):
       if (g.phase !== 'hide' || a.round !== g.round || a.from !== g.hiderId || !onStar(g, g.mobs[g.me])) return false;
       grab(room, g, ctx.now);
       return true;
+    case 'aim': {
+      // さがす人が狙っている場所。舞台の少し外まで（ふちのキャラクターも狙えるように）
+      if (g.phase !== 'hide' || a.round !== g.round || a.from === g.hiderId || !isOnline(room, a.from) || !(g.ammo[a.from] > 0)) return false;
+      if (!a.on) { if (!(a.from in g.aims)) return false; delete g.aims[a.from]; return true; }
+      const x = clamp(a.x, BLEND_W / 2 + 1), z = clamp(a.z, BLEND_D / 2 + 1), old = g.aims[a.from];
+      if (old && old.x === x && old.z === z) return false;
+      g.aims[a.from] = { x, z };
+      return true;
+    }
     case 'shoot': {
       // さがす人が撃つ：当たれば、その場で発表へ。外れたら、その1体は倒れる
       if (g.phase !== 'hide' || a.round !== g.round || a.from === g.hiderId || !isOnline(room, a.from) || ctx.now < g.startAt) return false;
       if (!(g.ammo[a.from] > 0) || !Number.isInteger(a.i) || a.i < 0 || a.i >= g.mobs.length || g.down.includes(a.i)) return false;
       g.ammo[a.from]--;
+      if (!(g.ammo[a.from] > 0)) delete g.aims[a.from]; // 弾を使いきったら、レーザーを消す
       const hit = a.i === g.me;
       g.shots.push({ by: a.from, i: a.i, hit });
       if (hit) toFound(room, g, 'hit');
